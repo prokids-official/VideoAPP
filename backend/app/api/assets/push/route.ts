@@ -397,6 +397,7 @@ export async function POST(req: Request): Promise<Response> {
 
   const textItems = resolved.filter((item) => item.type.storage_backend === 'github');
   let commitSha: string | null = null;
+  let commitBlobs: Record<string, string> = {};
 
   if (textItems.length > 0) {
     try {
@@ -409,6 +410,7 @@ export async function POST(req: Request): Promise<Response> {
       });
 
       commitSha = commit.commit_sha;
+      commitBlobs = commit.blobs;
       await logUsage({
         userId: auth.user_id,
         provider: 'github',
@@ -477,7 +479,7 @@ export async function POST(req: Request): Promise<Response> {
     storage_ref: resolvedItem.storage_ref,
     storage_metadata:
       resolvedItem.type.storage_backend === 'github'
-        ? { commit_sha: commitSha }
+        ? { commit_sha: commitSha, blob_sha: commitBlobs[resolvedItem.storage_ref] }
         : r2Metadata.get(resolvedItem.item.local_draft_id) ?? {},
     file_size_bytes: resolvedItem.item.size_bytes,
     mime_type: resolvedItem.item.mime_type,
