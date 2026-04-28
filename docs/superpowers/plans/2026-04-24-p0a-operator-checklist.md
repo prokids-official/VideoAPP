@@ -102,47 +102,48 @@ npx supabase db push  # 把 4 个本地 migration 推到云端
 
 ---
 
-## 3. GitHub（10 分钟）
+## 3. GitHub（5 分钟，不用建 bot 账号）
 
-### 3.1 创建 organization + bot 账号
+我们用 `prokids-official` 这个公司主账号 + 一个**仅锁定到 asset-library 仓库**的 fine-grained PAT 来完成 push。30 人内部工具不需要单独的 bot 账号——一个 PAT、最小权限、commit 作者显示为公司主号即可。
 
-- [ ] 打开 https://github.com/account/organizations/new → 新建 org `fableglitch`，Free plan 即可
-- [ ] **退出当前账号**，用 `fableglitch-bot@beva.com` 注册一个新 GitHub 账号 `fableglitch-bot`
-- [ ] 把 `fableglitch-bot` invite 进 `fableglitch` organization 当 Member
-- [ ] 重新登回你自己的账号
+> 当前架构：
+> - GitHub user `prokids-official` (邮箱 `prokids.digital@gmail.com`)
+> - 该 user 拥有 organization `ProKids-digital`
+> - VideoAPP 源代码：`prokids-official/VideoAPP`（已就绪）
+> - 资产仓库：`ProKids-digital/asset-library`（已建好）
 
-### 3.2 创建私有仓库
+### 3.1 启用 fine-grained PAT 进 organization
 
-- [ ] https://github.com/organizations/fableglitch/repositories/new
-  - Owner：`fableglitch`
-  - Repository name：`asset-library`
-  - Visibility：**Private**
-  - 勾选 **Add a README file** + **Add .gitignore: None**
-  - 不要 LFS
-- [ ] 创建完成，URL 应该是 `https://github.com/fableglitch/asset-library`
+GitHub org 默认禁止个人 PAT 访问，需要在 org 设置里开一下：
 
-### 3.3 给 bot 一个 PAT
+- [ ] 用 `prokids-official` 登录 → https://github.com/organizations/ProKids-digital/settings/personal-access-tokens
+- [ ] 勾选 **Allow access via fine-grained personal access tokens** → Save
+- [ ] （可选）勾 **Require administrator approval**——选了的话每次新 PAT 你要自己 approve；首次可以不勾省事
 
-- [ ] 用 `fableglitch-bot` 账号登录
-- [ ] https://github.com/settings/tokens → **Generate new token (classic)**
-  - Note：`fableglitch-backend-vercel`
-  - Expiration：**No expiration**（公司内部工具，方便起见）
-  - Scopes：勾 **repo**（包含全部 repo 子权限）
-- [ ] 生成后立刻复制 token（`ghp_...`）→ `.env.local` 的 `GITHUB_BOT_TOKEN=`
+### 3.2 生成 PAT（最小权限）
+
+- [ ] 用 `prokids-official` 登录 → https://github.com/settings/tokens?type=beta
+- [ ] **Generate new token**：
+  - Token name: `fableglitch-asset-pusher`
+  - Expiration: **No expiration**（公司内部，省事）
+  - **Resource owner**: 选 **ProKids-digital**（org，不是你的 user！下拉框里要能看到，看不到就回 §3.1 检查）
+  - Repository access: **Only select repositories** → 选 `asset-library`
+  - Permissions → Repository → 只开 **Contents: Read and write**（其他全部 No access）
+- [ ] 生成后立刻复制 token（`github_pat_...`）→ `.env.local` 的 `GITHUB_BOT_TOKEN=`
   - ⚠️ 关掉页面就再也看不到了，必须现在存
 
-### 3.4 验证 bot 有权限写
+### 3.3 验证 PAT 能写
 
 ```bash
 cd D:/tmp  # 任意临时目录
-git clone https://fableglitch-bot:<那个 ghp_ token>@github.com/fableglitch/asset-library.git
+git clone https://prokids-official:<那个 github_pat_>@github.com/ProKids-digital/asset-library.git
 cd asset-library
 echo "smoke" >> README.md
 git add README.md
-git -c user.email=fableglitch-bot@beva.com -c user.name="FableGlitch Bot" commit -m "chore: smoke test from bot"
+git -c user.email=prokids.digital@gmail.com -c user.name="ProKids" commit -m "chore: smoke test from PAT"
 git push
 ```
-- [ ] push 成功 → bot 权限 OK，回 GitHub 网页看到 commit 由 `fableglitch-bot` 创建
+- [ ] push 成功 → 权限 OK，回 GitHub 网页看到 commit 由 `prokids-official` 创建
 - [ ] 删除本地临时 clone：`cd .. && rm -rf asset-library`
 
 ---
