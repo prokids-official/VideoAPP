@@ -1,4 +1,7 @@
 import { useAuth } from './stores/auth-context';
+import { Button } from './components/ui/Button';
+import { Input } from './components/ui/Input';
+import { Card } from './components/ui/Card';
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -14,29 +17,42 @@ export default function App() {
   return (
     <div className="min-h-screen bg-bg text-text font-sans p-6">
       <h1 className="text-4xl font-bold tracking-tight">FableGlitch Studio</h1>
-      <p className="font-mono text-xs text-text-3 mt-2">P0-C Task 5 · AuthContext</p>
+      <p className="font-mono text-xs text-text-3 mt-2">P0-C Task 6 · UI atoms</p>
 
-      <div className="mt-6 bg-surface-2 border border-border rounded-lg p-4 max-w-2xl">
-        <div className="text-sm text-text-2 mb-2">Auth state:</div>
-        {user ? (
-          <div>
-            <div className="text-md mb-1">{user.display_name}</div>
-            <div className="font-mono text-xs text-text-3 mb-3">
-              {user.email} · role={user.role} · team={user.team ?? '(none)'}
-            </div>
-            <button
-              onClick={logout}
-              className="px-3 h-8 text-sm rounded bg-surface-3 border border-border hover:border-border-hi text-text-2 hover:text-text transition cursor-pointer"
-            >
-              退出登录
-            </button>
-          </div>
-        ) : (
-          <div className="font-mono text-xs text-text-3">
-            (no user — LoginRoute will mount here in Task 7)
-          </div>
+      {user && (
+        <Card className="mt-6 p-4 max-w-2xl">
+          <div className="text-md mb-1">{user.display_name}</div>
+          <div className="font-mono text-xs text-text-3">{user.email}</div>
+        </Card>
+      )}
+
+      <Card className="mt-3 p-6 max-w-2xl">
+        <div className="text-base font-medium mb-4">Button variants</div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Button variant="gradient" size="lg">主 CTA · gradient</Button>
+          <Button variant="primary">primary</Button>
+          <Button variant="secondary">secondary</Button>
+          <Button variant="ghost">ghost</Button>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Button variant="primary" size="sm">sm</Button>
+          <Button variant="primary" size="md">md</Button>
+          <Button variant="primary" size="lg">lg</Button>
+          <Button variant="gradient" disabled>disabled</Button>
+        </div>
+        {user && (
+          <Button variant="secondary" size="sm" onClick={logout}>
+            退出登录
+          </Button>
         )}
-      </div>
+      </Card>
+
+      <Card className="mt-3 p-6 max-w-2xl">
+        <div className="text-base font-medium mb-4">Input variants</div>
+        <Input label="邮箱" type="email" mono placeholder="name@beva.com" hint="@beva.com 内部邮箱" />
+        <Input label="密码" type="password" placeholder="••••••••" />
+        <Input label="带错误" placeholder="试一下" error="非法字符" />
+      </Card>
     </div>
   );
 }
