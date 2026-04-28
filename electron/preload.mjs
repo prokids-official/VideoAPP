@@ -1,6 +1,10 @@
-import { contextBridge } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 
-// Placeholder bridge — fleshed out in P0-C Tasks 3 & 4 (db / net / session).
 contextBridge.exposeInMainWorld('fableglitch', {
-  __placeholder: true,
+  db: {
+    sessionGet: (key) => ipcRenderer.invoke('db:session:get', key),
+    sessionSet: (key, value) => ipcRenderer.invoke('db:session:set', key, value),
+    sessionDelete: (key) => ipcRenderer.invoke('db:session:delete', key),
+    sessionClear: () => ipcRenderer.invoke('db:session:clear'),
+  },
 });

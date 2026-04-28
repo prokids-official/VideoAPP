@@ -1,10 +1,14 @@
 /// <reference types="vite/client" />
 
-// Bridge surface — fleshed out across P0-C Tasks 3 & 4 (db / net / session).
-// Right now we only declare a placeholder so existing `window.fableglitch`
-// access type-checks during the foundation tasks.
+interface FableglitchDb {
+  sessionGet: (key: string) => Promise<string | null>;
+  sessionSet: (key: string, value: string) => Promise<void>;
+  sessionDelete: (key: string) => Promise<void>;
+  sessionClear: () => Promise<void>;
+}
+
 interface FableglitchBridge {
-  __placeholder: true;
+  db: FableglitchDb;
 }
 
 declare global {

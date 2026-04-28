@@ -1,8 +1,20 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sessionGet, sessionSet, sessionDelete, sessionClear } from './local-db.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+ipcMain.handle('db:session:get', (_event, key) => sessionGet(key));
+ipcMain.handle('db:session:set', (_event, key, value) => {
+  sessionSet(key, value);
+});
+ipcMain.handle('db:session:delete', (_event, key) => {
+  sessionDelete(key);
+});
+ipcMain.handle('db:session:clear', () => {
+  sessionClear();
+});
 
 async function createMainWindow() {
   const win = new BrowserWindow({
