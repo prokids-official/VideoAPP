@@ -9,7 +9,19 @@
       "WebFetch(domain:github.com)",
       "Bash(npm test *)",
       "Bash(npx tsc *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(awk '{print $5}')",
+      "Bash(tar -xf pkg)",
+      "Bash(rm pkg *)",
+      "Bash(npx electron-rebuild *)",
+      "Bash(timeout 25 npm run dev)",
+      "Bash(timeout 30 npm run dev:renderer)"
     ]
   }
 }
