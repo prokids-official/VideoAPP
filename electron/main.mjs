@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sessionGet, sessionSet, sessionDelete, sessionClear } from './local-db.mjs';
+import { apiRequest, hasSession, dropSession } from './api-client.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,12 @@ ipcMain.handle('db:session:delete', (_event, key) => {
 });
 ipcMain.handle('db:session:clear', () => {
   sessionClear();
+});
+
+ipcMain.handle('net:request', (_event, payload) => apiRequest(payload));
+ipcMain.handle('session:has', () => hasSession());
+ipcMain.handle('session:clear', () => {
+  dropSession();
 });
 
 async function createMainWindow() {

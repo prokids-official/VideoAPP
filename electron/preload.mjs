@@ -7,4 +7,11 @@ contextBridge.exposeInMainWorld('fableglitch', {
     sessionDelete: (key) => ipcRenderer.invoke('db:session:delete', key),
     sessionClear: () => ipcRenderer.invoke('db:session:clear'),
   },
+  net: {
+    request: (payload) => ipcRenderer.invoke('net:request', payload),
+  },
+  session: {
+    has: () => ipcRenderer.invoke('session:has'),
+    clear: () => ipcRenderer.invoke('session:clear'),
+  },
 });

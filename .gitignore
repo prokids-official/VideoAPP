@@ -24,6 +24,11 @@ dist-ssr
 *.sw?
 .superpowers/
 
+# Frontend env (per-machine; .env.example is committed instead)
+.env
+.env.local
+.env.*.local
+
 # Backend workspace
 backend/node_modules
 backend/.next
