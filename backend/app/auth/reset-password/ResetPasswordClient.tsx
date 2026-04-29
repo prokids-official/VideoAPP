@@ -20,6 +20,29 @@ export function ResetPasswordClient({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  async function restoreRecoverySession(): Promise<boolean> {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hash.get('access_token');
+    const refreshToken = hash.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      return !sessionError;
+    }
+
+    const code = new URLSearchParams(window.location.search).get('code');
+
+    if (code) {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      return !exchangeError;
+    }
+
+    return false;
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -35,24 +58,12 @@ export function ResetPasswordClient({
       return;
     }
 
-    const hash = new URLSearchParams(window.location.hash.slice(1));
-    const accessToken = hash.get('access_token');
-    const refreshToken = hash.get('refresh_token');
-
-    if (!accessToken || !refreshToken) {
-      setError('重置链接无效或已过期，请回到桌面 App 重新发送邮件。');
-      return;
-    }
-
     setSubmitting(true);
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
+    const hasSession = await restoreRecoverySession();
 
-    if (sessionError) {
+    if (!hasSession) {
       setSubmitting(false);
-      setError('重置链接无效或已过期，请重新发送邮件。');
+      setError('重置链接无效或已过期，请回到桌面 App 重新发送邮件。');
       return;
     }
 
