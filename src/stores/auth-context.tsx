@@ -8,24 +8,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
-      const has = await window.fableglitch.session.has();
-      if (!has) {
-        setLoading(false);
-        return;
+      try {
+        // Hard 6s timeout so a hanging /auth/me never traps the boot UI in
+        // a perpetual "loading…" state (slow network, Vercel cold start, etc.)
+        const meWithTimeout = async () => {
+          return await Promise.race([
+            api.me(),
+            new Promise<{ ok: false; code: 'TIMEOUT'; message: string; status: 0 }>((resolve) =>
+              setTimeout(() => resolve({ ok: false, code: 'TIMEOUT', message: 'boot timeout', status: 0 }), 6000),
+            ),
+          ]);
+        };
+
+        if (!window.fableglitch?.session) {
+          // preload bridge not initialised — surface as logged-out so the
+          // user at least sees the login page instead of a forever spinner
+          // eslint-disable-next-line no-console
+          console.error('fableglitch preload bridge missing');
+          return;
+        }
+        const has = await window.fableglitch.session.has();
+        if (!has) return;
+
+        const r = await meWithTimeout();
+        if (cancelled) return;
+        if (r.ok) {
+          setUser(r.data.user);
+        } else {
+          await window.fableglitch.session.clear().catch(() => {});
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('auth boot failed:', e);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      // Pessimistic boot: validate the cached token against the server before
-      // showing any signed-in UI. The api client already retries with a fresh
-      // access token via /auth/refresh once on 401, so an expired access token
-      // doesn't bounce the user back to login here.
-      const r = await api.me();
-      if (r.ok) {
-        setUser(r.data.user);
-      } else {
-        await window.fableglitch.session.clear();
-      }
-      setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, []);
 
   async function signup(input: { email: string; password: string; display_name: string }) {

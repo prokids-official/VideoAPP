@@ -23,6 +23,12 @@ ipcMain.handle('session:clear', () => {
   dropSession();
 });
 
+// Resolve icon path; fall back gracefully if file missing (dev convenience)
+function resolveIconPath() {
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.ico');
+  return iconPath;
+}
+
 async function createMainWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -31,6 +37,7 @@ async function createMainWindow() {
     minHeight: 600,
     backgroundColor: '#0a0a0b',
     title: 'FableGlitch Studio',
+    icon: resolveIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -40,7 +47,11 @@ async function createMainWindow() {
 
   if (process.env.VITE_DEV_SERVER_URL) {
     await win.loadURL(process.env.VITE_DEV_SERVER_URL);
-    win.webContents.openDevTools({ mode: 'detach' });
+    // DevTools no longer auto-opens. Use F12 / Ctrl+Shift+I to toggle.
+    // Set FG_OPEN_DEVTOOLS=1 in env to opt back in for a session.
+    if (process.env.FG_OPEN_DEVTOOLS === '1') {
+      win.webContents.openDevTools({ mode: 'detach' });
+    }
   } else {
     await win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
