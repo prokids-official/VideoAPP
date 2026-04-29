@@ -27,21 +27,21 @@ Three processes/layers you need to keep in sync:
    - `repository.mjs` — exports a project snapshot into `<repoPath>/<assetRoot>/<slug>/{script,storyboards,prompts,assets,exports}` with seeded `project.json`, `README.md`, `brief.md`, etc. Does not touch git.
    - `git.mjs` — shells out to the `git` binary via `execFile`. `getGitStatus` runs `status --short --branch`; `publishRepository` does `add .` + `commit -m <msg>` + optional `push`, and tolerates "nothing to commit".
 
-2. **Preload bridge** (`electron/preload.mjs`).
-   Exposes a single `window.videoApp` object via `contextBridge` (context isolation is on, `nodeIntegration` is off). Every renderer call to the main process goes through this bridge.
+2. **Preload bridge** (`electron/preload.cjs`).
+   Exposes a single `window.fableglitch` object via `contextBridge` (context isolation is on, `nodeIntegration` is off). The preload is CommonJS so it runs under Electron's default sandboxed preload environment. Every renderer call to the main process goes through this bridge.
 
 3. **Renderer** (`src/`).
    - `src/App.tsx` — single-component UI. Holds `boot`, `projects`, `projectDraft`, `gitStatus`, and `statusMessage` in local state, calls the bridge, and orchestrates the flow: select/create project → edit draft → `persistDraft` → `exportProjectToRepo` → `getGitStatus` / `publishRepository`.
    - `src/types.ts` — the `ProjectRecord` / `ExportTarget` / `ProviderProfile` / workflow types shared across layers.
-   - `src/vite-env.d.ts` — declares the `window.videoApp` bridge shape.
+   - `src/vite-env.d.ts` — declares the `window.fableglitch` bridge shape.
 
 ### Adding an IPC call
 
 Any new renderer → main call requires changes in **three** files, in lockstep, or the call will fail silently or blow up the type-check:
 
 1. `electron/main.mjs` — `ipcMain.handle('channel:name', ...)`.
-2. `electron/preload.mjs` — add the method to the object passed to `contextBridge.exposeInMainWorld('videoApp', ...)`.
-3. `src/vite-env.d.ts` — add the method signature to `VideoAppBridge`.
+2. `electron/preload.cjs` — add the method to the object passed to `contextBridge.exposeInMainWorld('fableglitch', ...)`.
+3. `src/vite-env.d.ts` — add the method signature to `FableglitchBridge`.
 
 ### Data model notes
 

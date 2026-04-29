@@ -39,7 +39,7 @@ async function createMainWindow() {
     title: 'FableGlitch Studio',
     icon: resolveIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -54,6 +54,14 @@ async function createMainWindow() {
     }
   } else {
     await win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  }
+
+  if (process.env.FG_CHECK_BRIDGE === '1') {
+    const hasBridge = await win.webContents.executeJavaScript('Boolean(window.fableglitch?.net?.request)');
+    console.log(`[fableglitch] preload bridge ${hasBridge ? 'ready' : 'missing'}`);
+    if (process.env.FG_CHECK_BRIDGE_EXIT === '1') {
+      app.quit();
+    }
   }
 }
 
