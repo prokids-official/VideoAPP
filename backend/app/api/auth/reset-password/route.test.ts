@@ -46,12 +46,26 @@ describe('POST /api/auth/reset-password', () => {
   });
 
   it('200 when email is missing to avoid account enumeration', async () => {
-    mocks.resetPasswordForEmail.mockRejectedValueOnce(new Error('User not found'));
+    mocks.resetPasswordForEmail.mockResolvedValueOnce({ data: null, error: { message: 'User not found' } });
 
     const res = await POST(makeReq({ email: 'missing@beva.com' }));
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, data: { sent: true } });
+  });
+
+  it('502 surfaces Supabase email errors so internal users can debug delivery', async () => {
+    mocks.resetPasswordForEmail.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'For security purposes, you can only request this after 60 seconds' },
+    });
+
+    const res = await POST(makeReq({ email: 'smoke@beva.com' }));
+
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.error.code).toBe('SUPABASE_EMAIL_ERROR');
+    expect(body.error.message).toContain('60 seconds');
   });
 
   it('400 on non-beva email', async () => {

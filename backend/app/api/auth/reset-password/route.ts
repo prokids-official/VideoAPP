@@ -33,10 +33,19 @@ export async function POST(req: Request): Promise<Response> {
     return err('INVALID_EMAIL_DOMAIN', parsed.error.issues[0]?.message ?? 'Invalid email', undefined, 400);
   }
 
-  // Always return 200 so the endpoint cannot be used to enumerate accounts.
-  await supabasePublic().auth.resetPasswordForEmail(parsed.data.email, {
+  const { error: resetError } = await supabasePublic().auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: authRedirectUrl(req, '/auth/reset-password'),
-  }).catch(() => {});
+  });
+
+  if (resetError) {
+    const message = resetError.message ?? 'Unable to send password reset email';
+
+    if (/user not found|not.*registered|email.*not.*found/i.test(message)) {
+      return ok({ sent: true });
+    }
+
+    return err('SUPABASE_EMAIL_ERROR', message, undefined, 502);
+  }
 
   return ok({ sent: true });
 }
