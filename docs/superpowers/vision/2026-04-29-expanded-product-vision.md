@@ -56,14 +56,82 @@
 
 ### 1.3 模型与认证（BYOK）
 
-- **默认走公司模型**：`OPENAI_API_KEY` 在 Vercel env，公司付费
-- **用户也能切自己的 key**：UI 上一个"用我自己的 key"toggle，然后填入；存在本地 SQLite，永远不上服务器
-- **登录方式接入**：
-  - Codex OAuth（让 Agent 用用户的 Codex 账号配额）
-  - DeepSeek v4 Pro 直接 API key
-  - Claude / GPT API key
-  - 第三方代理（豆包、智谱）
-- **配置入口**：App 设置页有一个"Provider Profiles"区域（现有 spec 已经有这张表预留 §4.5 之外的扩展位）
+#### 默认提供商（公司付费）—— 双层
+
+| 层级 | 模型 | 用在哪 | 配额 |
+|---|---|---|---|
+| **Pro** | Codex OAuth（基于乐美林的 Codex Pro 账号共享） | 仅剧本生成，每用户 3 次/账户 | 让用户体验 Pro，本质是 demo |
+| **Standard** | **DeepSeek v4 Pro** API key | 所有 Agent 默认（写作/评分/分镜/提示词） | 每用户起始 ¥10 |
+| **Standard 廉价档** | **DeepSeek Flash v4** API key | 同上，按需切（可由 admin 设为某些 skill 默认） | 同 ¥10 池 |
+
+⚠️ "Codex OAuth" 的实际接入方式 P1 实施时需要进一步澄清——OpenAI 没有标准 OAuth 让第三方 App 共享 ChatGPT 账号配额。可行做法：
+- (a) 实际是乐美林的 API key 当公司 default，限速 3 次/用户实现"Pro"配额错觉
+- (b) 接 OpenAI Sign-In（仅做身份验证），背后还是 API key
+- 二者都需要 P1 启动时与乐美林确认
+
+#### BYOK（用户接自己的 key）
+
+- 永远**优先走 BYOK**（如果用户填了），公司 key 作为 fallback
+- UI：每个用户在设置页"Provider Profiles"区域：
+  - [ ] 用我自己的 key（toggle）
+  - 选模型：DeepSeek v4 Pro / DeepSeek Flash v4 / Claude / GPT-4 / 第三方代理
+  - API Key 输入框
+  - **[测试连接] 按钮**——必备，按钮调一次最简单的 chat completion 验证 key 有效
+- 存储：用户的 key 加密后存本地 SQLite（永远不上服务器；服务端永远不见 BYOK key）
+
+#### 用量记录（admin 可见）
+
+- 每次走默认模型的调用都记 `usage_logs`：user_id / provider / model / tokens / cost_usd
+- BYOK 用户的调用**不记** cost_usd（公司没花钱），但仍记 tokens 用于审计
+- 乐美林 admin 身份登录后看到全公司花费报表 + 每人花了多少
+- 个人用户只看自己的花费（已实现：spec §5.5 GET /api/usage/me）
+
+#### 配额 + 申请扩额
+
+- 默认配额（admin 可调）：
+  - 模型调用：每用户 ¥10/月
+  - 生图：每用户 10 张/月
+  - Codex Pro 体验：每用户 3 次/账户（生命周期总额，不重置）
+- 用户超额 → 弹"申请扩额" → 按钮提交 → 写一条 `quota_requests` 表行 → admin 收到通知
+- admin 在管理面板批准/拒绝/部分批准（如批 +¥20）
+- 配额随时可调：admin 可全局调整默认值，或针对单个用户单独调
+
+#### 数据模型增量（P1 实施时）
+
+```sql
+create table provider_profiles (
+  user_id uuid references users(id) on delete cascade,
+  provider text,                 -- 'deepseek-pro' | 'deepseek-flash' | 'codex-oauth' | 'claude' | ...
+  use_byok boolean default false,
+  byok_encrypted text,           -- 用本地 SQLite 不进此表；这里只为非 BYOK 用户的偏好默认
+  primary key (user_id, provider)
+);
+
+create table user_quotas (
+  user_id uuid primary key references users(id) on delete cascade,
+  budget_usd numeric(10,2) default 1.40,    -- ~¥10
+  budget_used_usd numeric(10,4) default 0,
+  image_quota int default 10,
+  image_used int default 0,
+  codex_pro_uses int default 3,
+  codex_pro_used int default 0,
+  updated_at timestamptz default now()
+);
+
+create table quota_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id),
+  request_type text,             -- 'budget' | 'image' | 'codex-pro'
+  current_value numeric,
+  requested_value numeric,
+  reason text,
+  status text default 'pending'
+    check (status in ('pending', 'approved', 'rejected')),
+  reviewed_by uuid references users(id),
+  reviewed_at timestamptz,
+  created_at timestamptz default now()
+);
+```
 
 ### 1.4 Skill / Role 注入
 
@@ -102,6 +170,104 @@ Agent 的 system prompt 不是临时凑的，是**预定义的 skill 库**。乐
 3. **外包友好式（shooting-script）**：编号 1-5 + 场景描述 + △ 动作行 + 角色 + 中英对照台词 + 特殊镜头标注（Whip pan / Squash and Stretch / Snap fingers）
 
 UI 一份剧本资产可在三种 view 间切换显示。
+
+### 1.6 Skill 库的管理权限（Q4 决策方案）
+
+三种实现方式 + 我的推荐：
+
+#### 方案 A：纯 Markdown 文件（git tracked）
+
+文件结构：
+```
+backend/skills/
+├── script-writer/
+│   ├── grim-fairy-3d.md          ← 你的好莱坞级 3D 动画导演 skill
+│   ├── pixar-emotion.md
+│   └── ...
+├── script-scorer/
+│   └── quality-gate.md            ← Q1 答案：你写的评分官提示词
+├── prompt-image/
+│   ├── volumetric-lighting.md
+│   └── ...
+└── prompt-video/
+    └── ...
+```
+
+每个 .md 文件 YAML frontmatter：
+```yaml
+---
+id: grim-fairy-3d
+name_cn: 好莱坞级 3D 动画导演
+category: script-writer
+default_model: deepseek-v4-pro
+enabled: true
+version: 3
+---
+
+# Role: 好莱坞级 3D 动画导演 & 顶级 AI 编剧与视效工程师
+
+1. 核心定位与美学基调...
+（你已经写好的全部内容）
+```
+
+后端启动时把 `backend/skills/**` 全部加载进内存（或定时刷新）。
+
+| 优 | 劣 |
+|---|---|
+| ✅ git 历史天然带版本（每次改都看 commit diff） | ❌ 改 skill 必须懂 git 或开发环境 |
+| ✅ admin 之间用 PR 协作（如果未来不止你一人） | ❌ 修改后需要触发 Vercel redeploy 才生效（约 60 秒） |
+| ✅ markdown 编辑器/IDE 体验最佳，长文本舒服 | ❌ 没法 hot-reload 在跑的 Agent 行为 |
+| ✅ 零额外 UI 开发，直接 P1 起跑 | ❌ 不能给单个用户灰度分发 skill |
+| ✅ 备份 = 仓库备份，不用单独管 | |
+
+#### 方案 B：纯 UI 表单（数据库存）
+
+App 内一个 admin-only 页面，表单：
+- 名称 / 分类 / 默认模型 / enabled toggle
+- 大 textarea 编辑 system prompt
+- Save → 写 `skills` 表
+
+| 优 | 劣 |
+|---|---|
+| ✅ 非技术 admin 也能改 | ❌ 修改无 git 历史（除非自己实现版本表） |
+| ✅ 改完即时生效（下一次调用就用新版） | ❌ 长 prompt 在 textarea 里编辑很难受（无 syntax highlight、无搜索替换） |
+| ✅ 可以做权限分级（A admin 只能改 X 类，B admin 改 Y 类） | ❌ 备份 = 数据库备份，比 git 麻烦 |
+| ✅ 可以做灰度（某 skill 只对一部分用户开放） | ❌ Vercel 之外要建 admin UI、role 检查、CRUD 路由——**~3-4 个 task 的额外开发** |
+
+#### 方案 C：混合（markdown 真理 + UI 仅做激活/测试）
+
+- skill 内容在 markdown（git 真理）
+- App 里一个 admin 页面读取所有 skill，可：
+  - 看清单
+  - 点 enable/disable（写一条 override 进数据库）
+  - 点"测试运行"用样例 input 跑一次看输出
+  - 看本周用了多少次（usage_logs 透视）
+- **不能**在 UI 里改 prompt 内容——改要回 markdown / git
+
+| 优 | 劣 |
+|---|---|
+| ✅ 编辑体验 = 方案 A 最佳 | ❌ 比 A 多一个简单 admin UI 要做 |
+| ✅ 运行时仍可灵活 enable/disable + 测试 | ❌ 比 B 仍需 git 操作改内容 |
+| ✅ git 历史 + 灰度能力都有 | |
+
+#### Claude 推荐：**方案 A**（最简单，目前阶段够用）
+
+理由：
+1. **你是唯一 admin**——没有"非技术同事编 prompt"的需要
+2. **你有 IDE + git workflow**——markdown 是你最擅长的格式（看你写 v2 spec 1100 行就知道）
+3. **prompt 内容很长**（你给的好莱坞 skill 1500+ 字符）——textarea 里编辑等于自虐
+4. **Vercel redeploy 60 秒**对内部工具是可接受的——又不是要秒级 hotfix
+5. **将来真要多 admin / 灰度时再升级到方案 C**——A 升级到 C 简单（只是加个 UI 读 markdown），代价小；B 退回 A 难（数据迁回 git 是麻烦事）
+
+简单说：**别为还没遇到的问题加复杂度**。等真有同事说"我也想加个 skill" 那天，再上方案 C 不迟。
+
+#### P1 实施时的具体动作
+
+- 建 `backend/skills/` 目录
+- 把你给的"好莱坞级 3D 动画导演"作为第一个 skill：`backend/skills/script-writer/grim-fairy-3d.md`
+- 写一个加载器 `backend/lib/skill-loader.ts`：启动时扫目录、解析 YAML frontmatter、按 category 索引到内存 Map
+- API：`GET /api/skills?category=script-writer` 返回当前可用 skill 列表（仅含 id + name_cn + description，不返回完整 prompt）
+- 调用 Agent 时：`POST /api/agents/script-writer/run` 带 `skill_id` 参数，后端组装 `system_prompt = skill.markdown_body + user_inputs`
 
 ### 1.7 数据模型增量（P1 实施时）
 
@@ -177,14 +343,65 @@ UI 上拖拽时间轴可调。
 
 ### 3.2 API 集成
 
-| 服务 | 用途 | 公司 key 还是 BYOK |
-|---|---|---|
-| nanobanana pro | 文生图 / 图生图 / 720° | 公司 key 默认 |
-| gpt-image-2 | 文生图 / 720° | 公司 key 默认 |
-| Runway / Kling | 生视频 | BYOK 优先（费用高） |
+| 服务 | 用途 | 公司 key 还是 BYOK | 默认配额 |
+|---|---|---|---|
+| nanobanana pro | 文生图 / 图生图 / 720° | 公司 key | 10 张/用户/月 |
+| gpt-image-2 | 文生图 / 720° | 公司 key | 同上池子 |
+| Runway / Kling | 生视频 | BYOK 优先（费用高） | 不设默认 |
 
-3.3 跳转兜底
-对每种 API 类型，都放一个**"在 nanobanana 官网打开"** 类的小按钮，把当前提示词 query string 带过去——用户用自己账号生成完，手动下载 → 拖回 App 走"图片导入"路径。这样即使我们 API 集成出 bug、账号冻结，用户也能干活。
+配额逻辑同 §1.3 user_quotas 表的 `image_quota` / `image_used` 字段。超额申请同样走 quota_requests 流程。
+
+### 3.3 跳转兜底
+对每种 API 类型，都放一个**"在 nanobanana 官网打开"** 类的小按钮，把当前提示词 query string 带过去——用户用自己账号生成完，手动下载 → 拖回 App 走"图片导入"路径。这是配额耗尽 / API 故障 / 用户想用更高画质设置时的逃生口。
+
+### 3.4 提示词知识库（NEW）
+
+乐美林手上有大量分镜提示词模板：光影模板 / 运镜提示词模板 / awesome-image2.0 这种 GitHub 库。需要内置成**知识库板块**让用户选用。
+
+#### UI 设计
+- 提示词面板（PROMPT_IMG / PROMPT_VID 板块）右侧加一个"📚 知识库"侧栏
+- 折叠树状分类：
+  - 光影
+    - 顶光（Harsh top-light）
+    - 体积光（Volumetric god-rays）
+    - 底光（Underlighting）
+    - ...
+  - 运镜
+    - 极速推轨（Fast dolly-in）
+    - 子弹时间（Bullet time）
+    - 手持呼吸感（Handheld breath）
+    - ...
+  - 风格参考库（来自 awesome-image2.0）
+    - Pixar Cinematic
+    - Spider-Verse
+    - Studio Ghibli
+    - ...
+- 点条目：
+  - [复制] 把这段贴到当前编辑的提示词
+  - [插入] 在当前光标位置插入
+  - 详情面板预览样图（如有）
+
+#### 数据模型
+
+```sql
+create table prompt_kb_entries (
+  id uuid primary key default gen_random_uuid(),
+  category text,         -- 'lighting' | 'camera' | 'style' | 'character' | 'scene-fx' ...
+  name_cn text,
+  name_en text,
+  prompt_snippet text,   -- 实际复制的英文片段
+  description text,      -- 中文解释
+  preview_image_url text, -- 可选样图（R2）
+  source text,           -- '内部' | 'awesome-image2.0' | ...
+  enabled boolean default true,
+  sort_order int
+);
+```
+
+#### 内容来源
+- 乐美林手写填入大部分（光影 / 运镜模板）
+- 一次性 import 自 awesome-image2.0 / awesome-prompts 等开源库
+- admin 后续可加可改（admin 管理 UI 同 skills，详见 §1.6 Q4）
 
 ---
 
@@ -255,10 +472,14 @@ P2/P3 阶段产出量大时再决策，不阻塞 P0/P1。
 
 1. ~~**评分 ≥80 才放行**——评分模型/提示词由谁产出？同时手动 override 的开关默认开还是关？~~
    ✅ 已回答 (2026-04-29)：评分官是另一个 Agent 角色（同一套 provider/skill 架构）；评分提示词由乐美林手写并存为 `skills` 表中 `category='script-scorer'` 的条目；手动 override 默认开启。详见 §1.5
-2. **公司默认模型预算**——一个用户一天能花公司多少钱（成本上限）？超过限额怎么处理（弹窗提醒 / 自动切 BYOK）？
-3. **Codex OAuth 登录**——这是给用户登录 App 的方式（替代邮箱密码），还是给 Agent 调用 Codex 模型用的 token？语义不同，做法不同
-4. **Skill 库的管理权限**——admin 可加 skill 时，是手写 markdown，还是 UI 表单填？多语言（中英文双版本）？
-5. **生图 API 费用**——nanobanana pro / gpt-image-2 一张图的真实成本预算多少？要不要 quota？
+2. ~~**公司默认模型预算**——一个用户一天能花公司多少钱（成本上限）？超过限额怎么处理~~
+   ✅ 已回答 (2026-04-29)：每用户起始 ¥10 模型预算 + 10 张图配额 + 3 次 Codex Pro 体验；超额可申请，admin 审批；admin 可调；详细数据模型 + UI 见 §1.3
+3. ~~**Codex OAuth 登录**——是给用户登录 App 还是给 Agent 调模型？~~
+   ✅ 已回答 (2026-04-29)：Codex 当 Pro 模型用，仅剧本生成、3 次/账户；其他全用 DeepSeek v4 Pro / Flash v4。详见 §1.3。**实际接入方式（OAuth vs API key 共享）P1 启动时与乐美林二次确认**
+4. **Skill 库的管理权限**——admin 加 skill 时，是手写 markdown，还是 UI 表单填？多语言（中英文双版本）？
+   ⏳ Claude 2026-04-29 给出推荐方案，等乐美林决策。详见 §1.6
+5. ~~**生图 API 费用**——一张图的真实成本预算多少？要不要 quota？~~
+   ✅ 已回答 (2026-04-29)：每用户 10 张/月初始配额，admin 可调，超额可申请。同时引入新概念**提示词知识库**（光影/运镜模板 + awesome-image2.0 类库），详见 §3.2 + §3.4
 6. **3D 编排（P5 选项 C）**——这个想法的优先级在 P5 内部如何排？还是 P5 直接走 LibLib 嵌入？
 
 ---
