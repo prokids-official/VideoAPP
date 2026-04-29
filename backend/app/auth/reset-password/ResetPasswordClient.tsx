@@ -36,7 +36,10 @@ export function ResetPasswordClient({
     const code = new URLSearchParams(window.location.search).get('code');
 
     if (code) {
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code).catch((exchangeError: unknown) => ({
+        data: null,
+        error: exchangeError instanceof Error ? exchangeError : new Error('Unable to exchange recovery code'),
+      }));
       return !exchangeError;
     }
 

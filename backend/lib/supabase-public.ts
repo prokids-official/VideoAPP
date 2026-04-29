@@ -10,7 +10,7 @@ let client: SupabaseClient | null = null;
 export function supabasePublic(): SupabaseClient {
   if (!client) {
     client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      auth: { persistSession: false, autoRefreshToken: false, flowType: 'implicit' },
     });
   }
 
