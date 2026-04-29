@@ -29,6 +29,8 @@ function applyMigrations(handle) {
       language text default 'ZH',
       original_filename text,
       final_filename text not null,
+      storage_backend text not null default 'github',
+      storage_ref text not null default '',
       local_file_path text not null,
       size_bytes integer,
       mime_type text,
@@ -52,6 +54,15 @@ function applyMigrations(handle) {
       value text not null
     );
   `);
+  ensureColumn(handle, 'local_drafts', 'storage_backend', "text not null default 'github'");
+  ensureColumn(handle, 'local_drafts', 'storage_ref', "text not null default ''");
+}
+
+function ensureColumn(handle, table, column, definition) {
+  const columns = handle.prepare(`pragma table_info(${table})`).all();
+  if (!columns.some((row) => row.name === column)) {
+    handle.exec(`alter table ${table} add column ${column} ${definition}`);
+  }
 }
 
 export function sessionGet(key) {
@@ -69,4 +80,31 @@ export function sessionDelete(key) {
 
 export function sessionClear() {
   ensureDb().prepare('delete from session').run();
+}
+
+export function draftCreate(input) {
+  const createdAt = new Date().toISOString();
+  const row = { ...input, created_at: createdAt };
+  ensureDb().prepare(`
+    insert or replace into local_drafts (
+      id, episode_id, type_code, name, variant, number, version, stage, language,
+      original_filename, final_filename, storage_backend, storage_ref, local_file_path,
+      size_bytes, mime_type, source, created_at
+    ) values (
+      @id, @episode_id, @type_code, @name, @variant, @number, @version, @stage, @language,
+      @original_filename, @final_filename, @storage_backend, @storage_ref, @local_file_path,
+      @size_bytes, @mime_type, @source, @created_at
+    )
+  `).run(row);
+  return row;
+}
+
+export function draftsList(episodeId) {
+  return ensureDb()
+    .prepare('select * from local_drafts where episode_id = ? order by created_at desc')
+    .all(episodeId);
+}
+
+export function draftDelete(id) {
+  ensureDb().prepare('delete from local_drafts where id = ?').run(id);
 }

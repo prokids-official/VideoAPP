@@ -122,3 +122,29 @@ export interface UsageMeResponse {
   by_provider: Record<string, { usd: number; bytes: number; count: number }>;
   recent: UsageLogSummary[];
 }
+
+export type AssetStage = 'ROUGH' | 'REVIEW' | 'FINAL';
+export type AssetSource = 'imported' | 'pasted' | 'ai-generated';
+
+export interface LocalDraft {
+  id: string;
+  episode_id: string;
+  type_code: string;
+  name: string;
+  variant: string | null;
+  number: number | null;
+  version: number;
+  stage: AssetStage;
+  language: string;
+  original_filename: string | null;
+  final_filename: string;
+  storage_backend: StorageBackend;
+  storage_ref: string;
+  local_file_path: string;
+  size_bytes: number;
+  mime_type: string;
+  source: AssetSource;
+  created_at: string;
+}
+
+export type CreateLocalDraftInput = Omit<LocalDraft, 'created_at'>;

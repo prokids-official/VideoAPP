@@ -6,6 +6,14 @@ contextBridge.exposeInMainWorld('fableglitch', {
     sessionSet: (key, value) => ipcRenderer.invoke('db:session:set', key, value),
     sessionDelete: (key) => ipcRenderer.invoke('db:session:delete', key),
     sessionClear: () => ipcRenderer.invoke('db:session:clear'),
+    draftCreate: (draft) => ipcRenderer.invoke('db:drafts:create', draft),
+    draftsList: (episodeId) => ipcRenderer.invoke('db:drafts:list', episodeId),
+    draftDelete: (id) => ipcRenderer.invoke('db:drafts:delete', id),
+  },
+  fs: {
+    saveDraftFile: (payload) => ipcRenderer.invoke('fs:draft:save', payload),
+    readDraftFile: (path) => ipcRenderer.invoke('fs:draft:read', path),
+    openFileDialog: (filters) => ipcRenderer.invoke('fs:file:open', filters),
   },
   net: {
     request: (payload) => ipcRenderer.invoke('net:request', payload),

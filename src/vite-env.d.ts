@@ -1,12 +1,35 @@
 /// <reference types="vite/client" />
 
-import type { ApiResponse } from '../shared/types';
+import type { ApiResponse, CreateLocalDraftInput, LocalDraft } from '../shared/types';
+
+interface FileDialogFilter {
+  name: string;
+  extensions: string[];
+}
 
 interface FableglitchDb {
   sessionGet: (key: string) => Promise<string | null>;
   sessionSet: (key: string, value: string) => Promise<void>;
   sessionDelete: (key: string) => Promise<void>;
   sessionClear: () => Promise<void>;
+  draftCreate: (draft: CreateLocalDraftInput) => Promise<LocalDraft>;
+  draftsList: (episodeId: string) => Promise<LocalDraft[]>;
+  draftDelete: (id: string) => Promise<void>;
+}
+
+interface FableglitchFs {
+  saveDraftFile: (payload: {
+    localDraftId: string;
+    extension: string;
+    content: string | ArrayBuffer | Uint8Array | number[];
+  }) => Promise<{ path: string; size_bytes: number }>;
+  readDraftFile: (path: string) => Promise<Uint8Array>;
+  openFileDialog: (filters?: FileDialogFilter[]) => Promise<{
+    path: string;
+    name: string;
+    size_bytes: number;
+    content: Uint8Array;
+  } | null>;
 }
 
 interface FableglitchNet {
@@ -32,6 +55,7 @@ interface FableglitchWindow {
 
 interface FableglitchBridge {
   db: FableglitchDb;
+  fs: FableglitchFs;
   net: FableglitchNet;
   session: FableglitchSession;
   window: FableglitchWindow;

@@ -1,7 +1,16 @@
 import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sessionGet, sessionSet, sessionDelete, sessionClear } from './local-db.mjs';
+import {
+  draftCreate,
+  draftDelete,
+  draftsList,
+  sessionClear,
+  sessionDelete,
+  sessionGet,
+  sessionSet,
+} from './local-db.mjs';
+import { openFileDialog, readDraftFile, saveDraftFile } from './file-system.mjs';
 import { apiRequest, hasSession, dropSession } from './api-client.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,6 +25,15 @@ ipcMain.handle('db:session:delete', (_event, key) => {
 ipcMain.handle('db:session:clear', () => {
   sessionClear();
 });
+ipcMain.handle('db:drafts:create', (_event, draft) => draftCreate(draft));
+ipcMain.handle('db:drafts:list', (_event, episodeId) => draftsList(episodeId));
+ipcMain.handle('db:drafts:delete', (_event, id) => {
+  draftDelete(id);
+});
+
+ipcMain.handle('fs:draft:save', (_event, payload) => saveDraftFile(payload));
+ipcMain.handle('fs:draft:read', (_event, filePath) => readDraftFile(filePath));
+ipcMain.handle('fs:file:open', (_event, filters) => openFileDialog(filters));
 
 ipcMain.handle('net:request', (_event, payload) => apiRequest(payload));
 ipcMain.handle('session:has', () => hasSession());
