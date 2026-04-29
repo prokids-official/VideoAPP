@@ -14,7 +14,7 @@ export async function POST(req: Request): Promise<Response> {
   const rateLimit = await getLimiter('signup-ip').consume(ip);
 
   if (!rateLimit.allowed) {
-    const res = err('RATE_LIMITED', 'Too many resend attempts', undefined, 429);
+    const res = err('RATE_LIMITED', 'Too many password reset attempts', undefined, 429);
     res.headers.set('retry-after', String(rateLimit.retryAfterSec));
     return res;
   }
@@ -34,12 +34,8 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // Always return 200 so the endpoint cannot be used to enumerate accounts.
-  await supabasePublic().auth.resend({
-    type: 'signup',
-    email: parsed.data.email,
-    options: {
-      emailRedirectTo: authRedirectUrl(req, '/auth/confirmed'),
-    },
+  await supabasePublic().auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: authRedirectUrl(req, '/auth/reset-password'),
   }).catch(() => {});
 
   return ok({ sent: true });

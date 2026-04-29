@@ -1,21 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createUser: vi.fn(),
+  signUp: vi.fn(),
   deleteUser: vi.fn(),
   insert: vi.fn(),
+  maybeSingle: vi.fn(),
   consume: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase-public', () => ({
+  supabasePublic: () => ({
+    auth: {
+      signUp: mocks.signUp,
+    },
+  }),
 }));
 
 vi.mock('@/lib/supabase-admin', () => ({
   supabaseAdmin: () => ({
     auth: {
       admin: {
-        createUser: mocks.createUser,
         deleteUser: mocks.deleteUser,
       },
     },
     from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: mocks.maybeSingle,
+        }),
+      }),
       insert: mocks.insert,
     }),
   }),
@@ -29,7 +42,7 @@ vi.mock('@/lib/rate-limit', () => ({
 import { POST } from './route';
 
 function makeReq(body: unknown) {
-  return new Request('http://localhost/api/auth/signup', {
+  return new Request('https://video-app-kappa-murex.vercel.app/api/auth/signup', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -40,6 +53,7 @@ describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.consume.mockResolvedValue({ allowed: true, retryAfterSec: 0, remaining: 9 });
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
     mocks.insert.mockResolvedValue({ error: null });
     mocks.deleteUser.mockResolvedValue({ error: null });
   });
@@ -74,10 +88,20 @@ describe('POST /api/auth/signup', () => {
     expect(res.headers.get('retry-after')).toBe('120');
   });
 
-  it('409 when email already exists', async () => {
-    mocks.createUser.mockResolvedValueOnce({
+  it('409 when public user row already exists', async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: { id: 'uid-existing' }, error: null });
+
+    const res = await POST(makeReq({ email: 'x@beva.com', password: 'abcdefg1', display_name: 'X' }));
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe('EMAIL_ALREADY_EXISTS');
+    expect(mocks.signUp).not.toHaveBeenCalled();
+  });
+
+  it('409 when Supabase Auth reports existing email', async () => {
+    mocks.signUp.mockResolvedValueOnce({
       data: { user: null },
-      error: { message: 'A user with this email address has already been registered' },
+      error: { message: 'User already registered' },
     });
 
     const res = await POST(makeReq({ email: 'x@beva.com', password: 'abcdefg1', display_name: 'X' }));
@@ -86,9 +110,9 @@ describe('POST /api/auth/signup', () => {
     expect((await res.json()).error.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  it('201 on success, returns pending email verification without session', async () => {
-    mocks.createUser.mockResolvedValueOnce({
-      data: { user: { id: 'uid-1', email: 'x@beva.com' } },
+  it('201 on success, sends confirmation email and returns pending verification without session', async () => {
+    mocks.signUp.mockResolvedValueOnce({
+      data: { user: { id: 'uid-1', email: 'x@beva.com' }, session: null },
       error: null,
     });
 
@@ -112,9 +136,12 @@ describe('POST /api/auth/signup', () => {
       },
     });
     expect(body.data.session).toBeUndefined();
-    expect(mocks.createUser).toHaveBeenCalledWith({
+    expect(mocks.signUp).toHaveBeenCalledWith({
       email: 'x@beva.com',
       password: 'abcdefg1',
+      options: {
+        emailRedirectTo: 'https://video-app-kappa-murex.vercel.app/auth/confirmed',
+      },
     });
     expect(mocks.insert).toHaveBeenCalledWith({
       id: 'uid-1',

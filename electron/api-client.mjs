@@ -8,20 +8,31 @@ import {
 
 const env = loadEnv();
 const BASE = env.VITE_API_BASE_URL;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 async function rawRequest(method, pathname, body, accessToken) {
   const headers = {};
   if (accessToken) headers.authorization = `Bearer ${accessToken}`;
   if (body !== undefined && body !== null) headers['content-type'] = 'application/json';
 
-  const init = { method, headers };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const init = { method, headers, signal: controller.signal };
   if (body !== undefined && body !== null) init.body = JSON.stringify(body);
 
   let res;
   try {
     res = await fetch(`${BASE}${pathname}`, init);
   } catch (e) {
+    if (e?.name === 'AbortError') {
+      return {
+        status: 0,
+        body: { ok: false, error: { code: 'TIMEOUT', message: 'Request timed out. Please try again.' } },
+      };
+    }
     return { status: 0, body: { ok: false, error: { code: 'NETWORK', message: e.message ?? 'fetch failed' } } };
+  } finally {
+    clearTimeout(timer);
   }
 
   let json = null;

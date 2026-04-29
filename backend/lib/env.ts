@@ -5,6 +5,7 @@ const schema = z.object({
   SUPABASE_SERVICE_KEY: z.string().min(1),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_JWT_SECRET: z.string().min(1),
+  AUTH_REDIRECT_BASE_URL: z.string().url().optional(),
   UPSTASH_REDIS_URL: z.string().url(),
   UPSTASH_REDIS_TOKEN: z.string().min(1),
   GITHUB_BOT_TOKEN: z.string().optional(),

@@ -2,8 +2,10 @@ export const runtime = 'edge';
 
 import type { ErrorCode, SignupPendingResult } from '@shared/types';
 import { err, ok } from '@/lib/api-response';
+import { authRedirectUrl } from '@/lib/auth-redirect';
 import { extractClientIp, getLimiter } from '@/lib/rate-limit';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { supabasePublic } from '@/lib/supabase-public';
 import { signupSchema } from '@/lib/validators';
 
 function validationErrorCode(path: string): ErrorCode {
@@ -51,25 +53,41 @@ export async function POST(req: Request): Promise<Response> {
   const { email, password, display_name } = parsed.data;
   const admin = supabaseAdmin();
 
-  // Email verification ON: do NOT pass email_confirm:true.
-  // Supabase will create the user in unconfirmed state and send a verification
-  // email containing a link the user must click before they can sign in.
-  const { data: createResult, error: createError } = await admin.auth.admin.createUser({
+  const { data: existingUser, error: existingError } = await admin
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (existingError) {
+    return err('INTERNAL_ERROR', existingError.message, undefined, 500);
+  }
+
+  if (existingUser) {
+    return err('EMAIL_ALREADY_EXISTS', 'Email already registered', undefined, 409);
+  }
+
+  // Use the public Auth signup flow so Supabase sends the confirmation email.
+  // Admin createUser is reserved for admin-managed accounts and does not send it.
+  const { data: signupResult, error: signupError } = await supabasePublic().auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: authRedirectUrl(req, '/auth/confirmed'),
+    },
   });
 
-  if (createError || !createResult.user) {
-    const message = createError?.message ?? 'Unknown signup failure';
+  if (signupError || !signupResult.user) {
+    const message = signupError?.message ?? 'Unknown signup failure';
 
-    if (/already been registered|already exists/i.test(message)) {
+    if (/already.*registered|already.*exists/i.test(message)) {
       return err('EMAIL_ALREADY_EXISTS', 'Email already registered', undefined, 409);
     }
 
     return err('INTERNAL_ERROR', message, undefined, 500);
   }
 
-  const userId = createResult.user.id;
+  const userId = signupResult.user.id;
   const { error: insertError } = await admin.from('users').insert({
     id: userId,
     email,

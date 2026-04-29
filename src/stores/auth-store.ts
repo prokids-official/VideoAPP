@@ -11,6 +11,7 @@ export interface AuthState {
   }>;
   login: (input: { email: string; password: string }) => Promise<{ ok: boolean; code?: string; message?: string }>;
   resendVerification: (input: { email: string }) => Promise<{ ok: boolean; message?: string }>;
+  resetPassword: (input: { email: string }) => Promise<{ ok: boolean; message?: string }>;
   logout: () => Promise<void>;
 }
 

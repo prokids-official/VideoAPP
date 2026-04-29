@@ -25,7 +25,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!window.fableglitch?.session) {
           // preload bridge not initialised — surface as logged-out so the
           // user at least sees the login page instead of a forever spinner
-          // eslint-disable-next-line no-console
           console.error('fableglitch preload bridge missing');
           return;
         }
@@ -40,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await window.fableglitch.session.clear().catch(() => {});
         }
       } catch (e) {
-        // eslint-disable-next-line no-console
         console.error('auth boot failed:', e);
       } finally {
         if (!cancelled) setLoading(false);
@@ -74,13 +72,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, message: r.message };
   }
 
+  async function resetPassword(input: { email: string }) {
+    const r = await api.resetPassword(input);
+    if (r.ok) {
+      return { ok: true };
+    }
+    return { ok: false, message: r.message };
+  }
+
   async function logout() {
     await api.logout();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signup, login, resendVerification, logout }}>
+    <AuthContext.Provider value={{ user, loading, signup, login, resendVerification, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

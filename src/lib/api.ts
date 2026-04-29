@@ -12,7 +12,32 @@ type ApiErr = { ok: false; status: number; code: string; message: string };
 export type ApiCallResult<T> = ApiOk<T> | ApiErr;
 
 async function call<T>(opts: NetRequestPayload): Promise<ApiCallResult<T>> {
-  const { status, body } = await window.fableglitch.net.request(opts);
+  let status: number;
+  let body: ApiResponse<unknown> | null;
+
+  try {
+    const result = await Promise.race([
+      window.fableglitch.net.request(opts),
+      new Promise<{ status: 0; body: ApiResponse<unknown> }>((resolve) =>
+        setTimeout(
+          () => resolve({
+            status: 0,
+            body: { ok: false, error: { code: 'TIMEOUT', message: '请求超时，请稍后再试。' } },
+          }),
+          18_000,
+        ),
+      ),
+    ]);
+    status = result.status;
+    body = result.body;
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      code: 'NETWORK',
+      message: error instanceof Error ? error.message : '网络请求失败',
+    };
+  }
 
   if (status >= 200 && status < 300 && body && body.ok) {
     return { ok: true, data: (body as ApiResponse<T> & { ok: true }).data };
@@ -34,6 +59,9 @@ export const api = {
 
   resendVerification: (input: { email: string }) =>
     call<{ sent: true }>({ method: 'POST', path: '/auth/resend-verification', body: input }),
+
+  resetPassword: (input: { email: string }) =>
+    call<{ sent: true }>({ method: 'POST', path: '/auth/reset-password', body: input }),
 
   me: () =>
     call<{ user: User }>({ method: 'GET', path: '/auth/me', requireAuth: true }),
