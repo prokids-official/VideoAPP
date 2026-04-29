@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import type { ErrorCode, AuthResult } from '@shared/types';
+import type { ErrorCode, SignupPendingResult } from '@shared/types';
 import { err, ok } from '@/lib/api-response';
 import { extractClientIp, getLimiter } from '@/lib/rate-limit';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -50,10 +50,13 @@ export async function POST(req: Request): Promise<Response> {
 
   const { email, password, display_name } = parsed.data;
   const admin = supabaseAdmin();
+
+  // Email verification ON: do NOT pass email_confirm:true.
+  // Supabase will create the user in unconfirmed state and send a verification
+  // email containing a link the user must click before they can sign in.
   const { data: createResult, error: createError } = await admin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
   });
 
   if (createError || !createResult.user) {
@@ -80,16 +83,9 @@ export async function POST(req: Request): Promise<Response> {
     return err('INTERNAL_ERROR', insertError.message, undefined, 500);
   }
 
-  const { data: signInResult, error: signInError } = await admin.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (signInError || !signInResult.session) {
-    return err('INTERNAL_ERROR', signInError?.message ?? 'Session issue failed', undefined, 500);
-  }
-
-  const result: AuthResult = {
+  // No session is issued at signup. The client should display a "check your
+  // inbox" screen; the user must verify the email then sign in via /auth/login.
+  const result: SignupPendingResult = {
     user: {
       id: userId,
       email,
@@ -97,11 +93,7 @@ export async function POST(req: Request): Promise<Response> {
       team: 'FableGlitch',
       role: 'member',
     },
-    session: {
-      access_token: signInResult.session.access_token,
-      refresh_token: signInResult.session.refresh_token,
-      expires_at: signInResult.session.expires_at ?? 0,
-    },
+    email_verification_required: true,
   };
 
   return ok(result, 201);

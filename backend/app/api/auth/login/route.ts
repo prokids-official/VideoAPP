@@ -46,6 +46,18 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   if (signInError || !signIn.session || !signIn.user) {
+    // Supabase returns "Email not confirmed" for unverified accounts.
+    // Surface it as a distinct error code so the client can prompt
+    // "check your email" instead of "wrong password".
+    const msg = signInError?.message ?? '';
+    if (/email not confirmed|email_not_confirmed/i.test(msg)) {
+      return err(
+        'EMAIL_NOT_CONFIRMED',
+        'Please verify your email — check your inbox for the verification link',
+        undefined,
+        401,
+      );
+    }
     return err('INVALID_CREDENTIALS', 'Email or password is wrong', undefined, 401);
   }
 

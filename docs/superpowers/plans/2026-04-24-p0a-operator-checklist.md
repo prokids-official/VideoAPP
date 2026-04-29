@@ -58,11 +58,13 @@
 - [ ] **API → JWT Settings**：
   - 复制 **JWT Secret** → `SUPABASE_JWT_SECRET=`
 
-### 1.3 关闭邮箱确认
+### 1.3 保持邮箱验证开启（默认就是开启）
 
 - [ ] **Authentication → Providers → Email**：
-  - **Confirm email** 关闭（spec §5.1 说明：域名白名单已经是过滤层，不需要再走邮箱链接）
-  - 保存
+  - **Confirm email** 保持**开启**（默认即此值，新版 spec §5.1 已改为开启策略）
+  - 理由：域名白名单仅能挡明显非法邮箱，邮箱验证是第二道关口，确保注册者真持有该邮箱
+- [ ] **Authentication → URL Configuration → Redirect URLs**：
+  - 加上你的 Vercel preview URL（如 `https://video-app-kappa-murex.vercel.app`）作为允许的回跳目标——用户点验证链接后会跳到这里。本地开发时再加一个 `http://localhost:3001`
 
 ### 1.4 推 migrations + seed 到生产数据库
 

@@ -423,12 +423,19 @@ POST /api/auth/signup        [Edge Runtime]
     - display_name 非空，最长 32
   400  域名非法 / 密码弱 / display_name 空
   409  已存在
-  201  { user: {id,email,display_name,team,role}, session: { access_token, refresh_token, expires_at } }
+  201  { user: {id,email,display_name,team,role}, email_verification_required: true }
+       注意：不返回 session。Supabase 同时发送验证邮件；用户需点击邮件链接才能登录
   Rate limit: 每 IP 每小时 10 次（429 响应包含 Retry-After）
+
+POST /api/auth/resend-verification    [Edge Runtime]
+  body: { email }
+  200  { sent: true }    （为防枚举攻击，无论 email 是否存在都返回 sent:true）
+  Rate limit: 同 signup（IP 每小时 10 次）
 
 POST /api/auth/login         [Edge Runtime]
   body: { email, password }
-  401  凭证错误
+  401  凭证错误（INVALID_CREDENTIALS）
+  401  邮箱未验证（EMAIL_NOT_CONFIRMED）—— 客户端应提示"去邮箱点验证链接，或 [重发验证邮件]"
   200  { user, session: { access_token, refresh_token, expires_at } }
   Rate limit: 每 IP 每分钟 10 次 + 每 email 每分钟 5 次；触发则 429
 
@@ -448,7 +455,11 @@ GET  /api/auth/me            [Edge Runtime]
   401  token 无效
 ```
 
-**邮箱确认策略**：关闭。Supabase 项目设置中 `enable_confirmations = false`，或注册时走 `admin.createUser({ email_confirm: true })` 跳过确认流程。理由：域名白名单已经是第一道过滤。
+**邮箱确认策略**：**开启**。Supabase 项目设置中 `enable_confirmations = true`（默认值，无需改）。后端 `signup` 路由不传 `email_confirm: true`，让 Supabase 自动发送包含确认链接的邮件；用户点击链接后状态变为已确认，可以正常登录。
+
+理由（与 v2 spec 设计取舍不同）：域名白名单仅能确保表面合法性，无法阻止他人盲猜或扫描公司邮箱前缀注册——邮箱验证是第二道关口，确保是邮箱真实持有人在操作。
+
+邮件投递：Supabase 免费 tier 自带 SMTP，速率 3 封/小时，对 30 人小团队首次注册够用。如果出现"30 人同一上午一起被邀请、超出限额"场景，运维需配置自定义 SMTP（P0.5）。
 
 ### 5.2 项目树
 

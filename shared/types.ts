@@ -27,6 +27,13 @@ export interface AuthResult {
   session: Session;
 }
 
+// Returned by /api/auth/signup when email confirmation is enabled.
+// Session is null because the user must click the verification link first.
+export interface SignupPendingResult {
+  user: User;
+  email_verification_required: true;
+}
+
 export type StorageBackend = 'github' | 'r2';
 
 export interface AssetType {
@@ -60,6 +67,7 @@ export type ErrorCode =
   | 'WEAK_PASSWORD'
   | 'DISPLAY_NAME_REQUIRED'
   | 'EMAIL_ALREADY_EXISTS'
+  | 'EMAIL_NOT_CONFIRMED'
   | 'INVALID_CREDENTIALS'
   | 'INVALID_REFRESH_TOKEN'
   | 'UNAUTHORIZED'
