@@ -14,4 +14,10 @@ contextBridge.exposeInMainWorld('fableglitch', {
     has: () => ipcRenderer.invoke('session:has'),
     clear: () => ipcRenderer.invoke('session:clear'),
   },
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    maximizeToggle: () => ipcRenderer.invoke('window:maximize-toggle'),
+    close: () => ipcRenderer.invoke('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  },
 });

@@ -14,7 +14,7 @@ export function ShellEmptyRoute({
   const [showFirstRun, setShowFirstRun] = useState(true);
 
   return (
-    <div className="h-screen flex flex-col bg-bg text-text">
+    <div className="h-full flex flex-col bg-bg text-text">
       <TopNav />
       <div className="flex-1 flex overflow-hidden">
         <ProjectTree series={[]} selectedEpisodeId={null} onSelectEpisode={() => {}} />

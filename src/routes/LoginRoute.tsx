@@ -151,7 +151,7 @@ export function LoginRoute() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-5 py-12 bg-bg text-text"
+      className="h-full flex items-center justify-center px-5 py-12 bg-bg text-text"
       style={{
         backgroundImage:
           'radial-gradient(ellipse at 30% 0%, rgba(155,124,255,0.06), transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(232,121,249,0.04), transparent 55%)',

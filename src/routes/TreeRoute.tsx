@@ -107,7 +107,7 @@ export function TreeRoute() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-bg text-text">
+    <div className="h-full flex flex-col bg-bg text-text">
       <TopNav />
       <div className="flex-1 flex overflow-hidden">
         <ProjectTree
@@ -137,7 +137,7 @@ export function TreeRoute() {
 
 function StatusScreen({ label }: { label: string }) {
   return (
-    <div className="h-screen flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
+    <div className="h-full flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
       {label}
     </div>
   );

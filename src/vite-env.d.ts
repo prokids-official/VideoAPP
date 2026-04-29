@@ -23,10 +23,18 @@ interface FableglitchSession {
   clear: () => Promise<void>;
 }
 
+interface FableglitchWindow {
+  minimize: () => Promise<void>;
+  maximizeToggle: () => Promise<boolean>;
+  close: () => Promise<void>;
+  isMaximized: () => Promise<boolean>;
+}
+
 interface FableglitchBridge {
   db: FableglitchDb;
   net: FableglitchNet;
   session: FableglitchSession;
+  window: FableglitchWindow;
 }
 
 declare global {

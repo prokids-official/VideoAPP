@@ -4,6 +4,7 @@ import { LoginRoute } from './routes/LoginRoute';
 import { ShellEmptyRoute } from './routes/ShellEmptyRoute';
 import { TreeRoute } from './routes/TreeRoute';
 import { api } from './lib/api';
+import { TitleBar } from './components/chrome/TitleBar';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -28,28 +29,24 @@ export default function App() {
     };
   }, [user]);
 
+  let content;
+
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
+    content = (
+      <div className="h-full flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
         loading...
       </div>
     );
-  }
-
-  if (!user) {
-    return <LoginRoute />;
-  }
-
-  if (hasProjects === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
+  } else if (!user) {
+    content = <LoginRoute />;
+  } else if (hasProjects === null) {
+    content = (
+      <div className="h-full flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
         fetching tree...
       </div>
     );
-  }
-
-  if (!hasProjects) {
-    return (
+  } else if (!hasProjects) {
+    content = (
       <ShellEmptyRoute
         onCreateEpisode={() => {
           window.alert('新建剧集 wizard - P0-D 实现');
@@ -57,7 +54,14 @@ export default function App() {
         onBrowse={() => setHasProjects(true)}
       />
     );
+  } else {
+    content = <TreeRoute />;
   }
 
-  return <TreeRoute />;
+  return (
+    <div className="h-screen flex flex-col bg-bg text-text overflow-hidden">
+      <TitleBar />
+      <div className="flex-1 min-h-0 overflow-hidden">{content}</div>
+    </div>
+  );
 }

@@ -23,6 +23,31 @@ ipcMain.handle('session:clear', () => {
   dropSession();
 });
 
+function getSenderWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender);
+}
+
+ipcMain.handle('window:minimize', (event) => {
+  getSenderWindow(event)?.minimize();
+});
+
+ipcMain.handle('window:maximize-toggle', (event) => {
+  const win = getSenderWindow(event);
+  if (!win) return false;
+  if (win.isMaximized()) {
+    win.unmaximize();
+    return false;
+  }
+  win.maximize();
+  return true;
+});
+
+ipcMain.handle('window:close', (event) => {
+  getSenderWindow(event)?.close();
+});
+
+ipcMain.handle('window:is-maximized', (event) => Boolean(getSenderWindow(event)?.isMaximized()));
+
 // Resolve icon path; fall back gracefully if file missing (dev convenience)
 function resolveIconPath() {
   const iconPath = path.join(__dirname, '..', 'build', 'icon.ico');
@@ -38,6 +63,8 @@ async function createMainWindow() {
     backgroundColor: '#0a0a0b',
     title: 'FableGlitch Studio',
     icon: resolveIconPath(),
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
