@@ -11,38 +11,53 @@ export function ResetPasswordClient({
   supabaseAnonKey: string;
 }) {
   const supabase = useMemo(
-    () => createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } }),
+    () => createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false, detectSessionInUrl: true, flowType: 'implicit' },
+    }),
     [supabaseAnonKey, supabaseUrl],
   );
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function restoreRecoverySession(): Promise<boolean> {
+    const { data: existingSession } = await supabase.auth.getSession();
+    if (existingSession.session) {
+      setDebug('link=existing-session; error=none');
+      return true;
+    }
+
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const accessToken = hash.get('access_token');
     const refreshToken = hash.get('refresh_token');
+    const hashKeys = Array.from(hash.keys());
+    const query = new URLSearchParams(window.location.search);
+    const queryKeys = Array.from(query.keys());
 
     if (accessToken && refreshToken) {
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
+      setDebug(`link=hash-session; error=${sessionError?.message ?? 'none'}`);
       return !sessionError;
     }
 
-    const code = new URLSearchParams(window.location.search).get('code');
+    const code = query.get('code');
 
     if (code) {
       const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code).catch((exchangeError: unknown) => ({
         data: null,
         error: exchangeError instanceof Error ? exchangeError : new Error('Unable to exchange recovery code'),
       }));
+      setDebug(`link=code; error=${exchangeError?.message ?? 'none'}`);
       return !exchangeError;
     }
 
+    setDebug(`link=missing; query=${queryKeys.join(',') || 'none'}; hash=${hashKeys.join(',') || 'none'}`);
     return false;
   }
 
@@ -103,6 +118,7 @@ export function ResetPasswordClient({
       </label>
       {error && <p style={{ color: '#f87171', margin: 0, fontSize: 13 }}>{error}</p>}
       {message && <p style={{ color: '#4ade80', margin: 0, fontSize: 13 }}>{message}</p>}
+      {debug && <p style={{ color: '#6b6b72', margin: 0, fontSize: 12 }}>诊断：{debug}</p>}
       <button type="submit" disabled={submitting} style={buttonStyle}>
         {submitting ? '更新中...' : '更新密码'}
       </button>
