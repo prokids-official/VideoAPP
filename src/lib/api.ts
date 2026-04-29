@@ -11,7 +11,20 @@ type ApiOk<T> = { ok: true; data: T };
 type ApiErr = { ok: false; status: number; code: string; message: string };
 export type ApiCallResult<T> = ApiOk<T> | ApiErr;
 
+function bridgeMissing<T>(): ApiCallResult<T> {
+  return {
+    ok: false,
+    status: 0,
+    code: 'DESKTOP_BRIDGE_MISSING',
+    message: '桌面桥接未加载。请在 Electron 桌面端登录，不要直接用浏览器打开 127.0.0.1:5173；如果已经在桌面端，请完全退出后重新运行 npm run dev。',
+  };
+}
+
 async function call<T>(opts: NetRequestPayload): Promise<ApiCallResult<T>> {
+  if (!window.fableglitch?.net?.request) {
+    return bridgeMissing<T>();
+  }
+
   let status: number;
   let body: ApiResponse<unknown> | null;
 
@@ -67,6 +80,10 @@ export const api = {
     call<{ user: User }>({ method: 'GET', path: '/auth/me', requireAuth: true }),
 
   logout: async () => {
+    if (!window.fableglitch?.db || !window.fableglitch?.session) {
+      return;
+    }
+
     const rt = await window.fableglitch.db.sessionGet('refresh_token');
     if (rt) {
       await call({ method: 'POST', path: '/auth/logout', body: { refresh_token: rt } });
