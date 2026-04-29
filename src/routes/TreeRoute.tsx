@@ -46,7 +46,7 @@ interface EpisodeDetail {
   counts: { by_type: Record<string, { pushed: number; superseded: number }> };
 }
 
-export function TreeRoute() {
+export function TreeRoute({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [tree, setTree] = useState<TreeResponse | null>(null);
   const [selectedEpId, setSelectedEpId] = useState<string | null>(null);
   const [detail, setDetail] = useState<EpisodeDetail | null>(null);
@@ -108,7 +108,7 @@ export function TreeRoute() {
 
   return (
     <div className="h-full flex flex-col bg-bg text-text">
-      <TopNav />
+      <TopNav onOpenSettings={onOpenSettings} />
       <div className="flex-1 flex overflow-hidden">
         <ProjectTree
           series={tree?.series ?? []}

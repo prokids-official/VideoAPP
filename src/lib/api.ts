@@ -1,4 +1,4 @@
-import type { ApiResponse, AuthResult, SignupPendingResult, TreeResponse, User } from '../../shared/types';
+import type { ApiResponse, AuthResult, SignupPendingResult, TreeResponse, UsageMeResponse, User } from '../../shared/types';
 
 interface NetRequestPayload {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -96,4 +96,7 @@ export const api = {
 
   episodeDetail: (id: string) =>
     call<unknown>({ method: 'GET', path: `/episodes/${id}`, requireAuth: true }),
+
+  usageMe: () =>
+    call<UsageMeResponse>({ method: 'GET', path: '/usage/me', requireAuth: true }),
 };

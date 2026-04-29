@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../stores/use-auth';
 
-export function TopNav() {
+export function TopNav({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -37,6 +37,16 @@ export function TopNav() {
               <div className="text-sm">{user.display_name}</div>
               <div className="font-mono text-xs text-text-3 truncate">{user.email}</div>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenSettings?.();
+              }}
+              className="block w-full text-left px-3 py-2 text-sm text-text-2 hover:bg-surface-3 hover:text-text transition"
+            >
+              设置
+            </button>
             <button
               type="button"
               onClick={() => {

@@ -7,15 +7,17 @@ import { Button } from '../components/ui/Button';
 export function ShellEmptyRoute({
   onCreateEpisode,
   onBrowse,
+  onOpenSettings,
 }: {
   onCreateEpisode: () => void;
   onBrowse: () => void;
+  onOpenSettings: () => void;
 }) {
   const [showFirstRun, setShowFirstRun] = useState(true);
 
   return (
     <div className="h-full flex flex-col bg-bg text-text">
-      <TopNav />
+      <TopNav onOpenSettings={onOpenSettings} />
       <div className="flex-1 flex overflow-hidden">
         <ProjectTree series={[]} selectedEpisodeId={null} onSelectEpisode={() => {}} />
         <main className="flex-1 flex items-center justify-center px-6 relative">

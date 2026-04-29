@@ -106,3 +106,19 @@ export interface TreeSeries {
 export interface TreeResponse {
   series: TreeSeries[];
 }
+
+export interface UsageLogSummary {
+  provider: string;
+  action: string;
+  bytes_transferred?: number | string | null;
+  cost_usd?: number | string | null;
+  model?: string | null;
+  at: string;
+}
+
+export interface UsageMeResponse {
+  total_usd: number;
+  total_bytes: number;
+  by_provider: Record<string, { usd: number; bytes: number; count: number }>;
+  recent: UsageLogSummary[];
+}
