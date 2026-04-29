@@ -1,4 +1,4 @@
-import type { ApiResponse, AuthResult, User } from '../../shared/types';
+import type { ApiResponse, AuthResult, SignupPendingResult, User } from '../../shared/types';
 
 interface NetRequestPayload {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -27,10 +27,13 @@ async function call<T>(opts: NetRequestPayload): Promise<ApiCallResult<T>> {
 
 export const api = {
   signup: (input: { email: string; password: string; display_name: string }) =>
-    call<AuthResult>({ method: 'POST', path: '/auth/signup', body: input }),
+    call<SignupPendingResult>({ method: 'POST', path: '/auth/signup', body: input }),
 
   login: (input: { email: string; password: string }) =>
     call<AuthResult>({ method: 'POST', path: '/auth/login', body: input }),
+
+  resendVerification: (input: { email: string }) =>
+    call<{ sent: true }>({ method: 'POST', path: '/auth/resend-verification', body: input }),
 
   me: () =>
     call<{ user: User }>({ method: 'GET', path: '/auth/me', requireAuth: true }),

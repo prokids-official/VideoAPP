@@ -1,16 +1,7 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import type { User } from '../../shared/types';
-
-interface AuthState {
-  user: User | null;
-  loading: boolean;
-  signup: (input: { email: string; password: string; display_name: string }) => Promise<{ ok: boolean; message?: string }>;
-  login: (input: { email: string; password: string }) => Promise<{ ok: boolean; message?: string }>;
-  logout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthState | null>(null);
+import { AuthContext } from './auth-store';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -40,8 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signup(input: { email: string; password: string; display_name: string }) {
     const r = await api.signup(input);
     if (r.ok) {
-      setUser(r.data.user);
-      return { ok: true };
+      return { ok: true, pendingEmail: r.data.user.email };
     }
     return { ok: false, message: r.message };
   }
@@ -50,6 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const r = await api.login(input);
     if (r.ok) {
       setUser(r.data.user);
+      return { ok: true };
+    }
+    return { ok: false, code: r.code, message: r.message };
+  }
+
+  async function resendVerification(input: { email: string }) {
+    const r = await api.resendVerification(input);
+    if (r.ok) {
       return { ok: true };
     }
     return { ok: false, message: r.message };
@@ -61,16 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signup, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, signup, login, resendVerification, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthState {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used inside <AuthProvider>');
-  }
-  return ctx;
 }
