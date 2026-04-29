@@ -24,7 +24,8 @@
       "Bash(timeout 30 npm run dev:renderer)",
       "Bash(curl.exe -sS -i \"https://video-app-kappa-murex.vercel.app/\")",
       "Bash(curl.exe -sS -i \"https://video-app-kappa-murex.vercel.app/api/auth/me\")",
-      "Bash(curl.exe -sS -X POST \"https://video-app-kappa-murex.vercel.app/api/auth/login\" -H \"content-type: application/json\" -d '{\"email\":\"nope@beva.com\",\"password\":\"wrongpass1\"}')"
+      "Bash(curl.exe -sS -X POST \"https://video-app-kappa-murex.vercel.app/api/auth/login\" -H \"content-type: application/json\" -d '{\"email\":\"nope@beva.com\",\"password\":\"wrongpass1\"}')",
+      "Bash(git commit *)"
     ]
   }
 }
