@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sessionGet, sessionSet, sessionDelete, sessionClear } from './local-db.mjs';
@@ -66,6 +66,9 @@ async function createMainWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Remove the default native menu (File / Edit / View / Window).
+  // Internal tool — users don't need a Chrome-shaped menu bar.
+  Menu.setApplicationMenu(null);
   await createMainWindow();
 
   app.on('activate', async () => {
