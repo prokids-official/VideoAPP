@@ -74,3 +74,34 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
   | 'PAYLOAD_MALFORMED';
+
+export interface TreeEpisode {
+  id: string;
+  name_cn: string;
+  status: 'drafting' | 'review' | 'published' | 'archived';
+  updated_at: string;
+  episode_path: string;
+  asset_count_pushed: number;
+}
+
+export interface TreeContent {
+  id: string;
+  name_cn: string;
+  episodes: TreeEpisode[];
+}
+
+export interface TreeAlbum {
+  id: string;
+  name_cn: string;
+  contents: TreeContent[];
+}
+
+export interface TreeSeries {
+  id: string;
+  name_cn: string;
+  albums: TreeAlbum[];
+}
+
+export interface TreeResponse {
+  series: TreeSeries[];
+}
