@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createUser: vi.fn(),
   deleteUser: vi.fn(),
-  signInWithPassword: vi.fn(),
   insert: vi.fn(),
   consume: vi.fn(),
 }));
@@ -15,7 +14,6 @@ vi.mock('@/lib/supabase-admin', () => ({
         createUser: mocks.createUser,
         deleteUser: mocks.deleteUser,
       },
-      signInWithPassword: mocks.signInWithPassword,
     },
     from: () => ({
       insert: mocks.insert,
@@ -88,28 +86,42 @@ describe('POST /api/auth/signup', () => {
     expect((await res.json()).error.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  it('201 on success, returns user + session', async () => {
+  it('201 on success, returns pending email verification without session', async () => {
     mocks.createUser.mockResolvedValueOnce({
       data: { user: { id: 'uid-1', email: 'x@beva.com' } },
       error: null,
     });
-    mocks.signInWithPassword.mockResolvedValueOnce({
-      data: {
-        session: { access_token: 'at', refresh_token: 'rt', expires_at: 1_700_000_000 },
-      },
-      error: null,
-    });
 
     const res = await POST(
-      makeReq({ email: 'x@beva.com', password: 'abcdefg1', display_name: '乐美林' }),
+      makeReq({ email: 'x@beva.com', password: 'abcdefg1', display_name: 'Le Meilin' }),
     );
 
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.ok).toBe(true);
-    expect(body.data.user.email).toBe('x@beva.com');
-    expect(body.data.user.display_name).toBe('乐美林');
-    expect(body.data.session.access_token).toBe('at');
-    expect(mocks.insert).toHaveBeenCalled();
+    expect(body).toEqual({
+      ok: true,
+      data: {
+        user: {
+          id: 'uid-1',
+          email: 'x@beva.com',
+          display_name: 'Le Meilin',
+          team: 'FableGlitch',
+          role: 'member',
+        },
+        email_verification_required: true,
+      },
+    });
+    expect(body.data.session).toBeUndefined();
+    expect(mocks.createUser).toHaveBeenCalledWith({
+      email: 'x@beva.com',
+      password: 'abcdefg1',
+    });
+    expect(mocks.insert).toHaveBeenCalledWith({
+      id: 'uid-1',
+      email: 'x@beva.com',
+      display_name: 'Le Meilin',
+      team: 'FableGlitch',
+      role: 'member',
+    });
   });
 });

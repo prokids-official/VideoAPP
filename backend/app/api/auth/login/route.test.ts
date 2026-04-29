@@ -55,6 +55,20 @@ describe('POST /api/auth/login', () => {
     expect((await res.json()).error.code).toBe('INVALID_CREDENTIALS');
   });
 
+  it('401 EMAIL_NOT_CONFIRMED when Supabase reports unverified email', async () => {
+    mocks.signIn.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: { message: 'Email not confirmed' },
+    });
+
+    const res = await POST(makeReq({ email: 'a@beva.com', password: 'abcdefg1' }));
+
+    expect(res.status).toBe(401);
+    expect((await res.json()).error.code).toBe('EMAIL_NOT_CONFIRMED');
+    expect(mocks.getUserRow).not.toHaveBeenCalled();
+    expect(mocks.updateLastLogin).not.toHaveBeenCalled();
+  });
+
   it('429 when IP limit hits', async () => {
     mocks.consumeIp.mockResolvedValueOnce({ allowed: false, retryAfterSec: 30, remaining: 0 });
 
@@ -83,7 +97,7 @@ describe('POST /api/auth/login', () => {
       data: {
         id: 'uid-1',
         email: 'a@beva.com',
-        display_name: '乐美林',
+        display_name: 'Le Meilin',
         team: 'FableGlitch',
         role: 'member',
       },
@@ -94,7 +108,7 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data.user.display_name).toBe('乐美林');
+    expect(body.data.user.display_name).toBe('Le Meilin');
     expect(body.data.session.access_token).toBe('at');
     expect(mocks.updateLastLogin).toHaveBeenCalled();
   });
