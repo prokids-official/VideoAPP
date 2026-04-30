@@ -143,7 +143,7 @@ Electron 窗口应该打开，看到登录页。
 
 ---
 
-## G. 当前进度速览（截至 commit `bd0785f`）
+## G. 当前进度速览（截至 commit `c20da17`）
 
 ```
 P0-A 后端 auth + schema  ✅ 部署 Vercel
@@ -158,8 +158,8 @@ P0-D Task 6 粘贴流       ✅
 P0-D Task 7 资产预览组件 ✅
 P0-D Task 8 入库评审页   ✅
 P0-D Task 9 push 调用    ✅ 闭环跑通！
-P0-D Task 10 dashboard FAB ⏳ 下一个（小，UI 强化）
-P0-D Task 11 远程闭环冒烟 ⏳
+P0-D Task 10 dashboard FAB ✅
+P0-D Task 11 远程闭环冒烟 ⏳ 下一个（真机端到端 + 打 tag）
 P0-D Task 12 Electron 普通权限启动 bug ⏳ 收尾
 ```
 
@@ -169,24 +169,49 @@ P0-D Task 12 Electron 普通权限启动 bug ⏳ 收尾
 
 ## H. 你下一句话告诉 Codex
 
+Task 11 是**乐美林手动+Codex 配合**的真机端到端冒烟，不是纯代码 task。Codex 主要做"列出步骤 + 跑能自动跑的"，关键操作步骤需要乐美林在 App 里真点。
+
 ```
-继续 P0-D Task 10：剧集 dashboard 浮动 FAB（强化入库评审入口）
+继续 P0-D Task 11：真机端到端闭环冒烟 + 打 tag p0d-complete
 
-参考 docs/design/mockups/tree.html 右下角的"⚡ 一键入库 (3)"FAB 设计：
-- TreeRoute 剧集 dashboard 右下角加一个 sticky FAB
-- 显示当前剧集的本地草稿数（来源：fableglitch.db.draftsList(episodeId).length）
-- 草稿数为 0 时 FAB 隐藏
-- 草稿数 ≥ 1 时显示，紫色 gradient 圆按钮 + emoji ⚡ + "(N)" 草稿数 mono 字体
-- Framer Motion 微动效：mount 时 spring 弹入，hover 时 scale 1.05
-- 点击 → 跳转 /episode/:id/push-review（同 Task 8 已有按钮）
-- 移除 Task 8 临时放在 dashboard 顶部的"入库评审 (N 草稿)"按钮（FAB 接管这个角色）
+测试目标（按这个顺序，每步乐美林确认通过才下一步）：
+1. cd D:/VideoAPP && npm run dev 启动 Electron
+2. 用 meilinle@beva.com / Admin1234 登录 → 看到 ShellEmptyRoute 欢迎屏（如有项目则 TreeRoute）
+3. 点 [+ 新建剧集] → 4 步 wizard
+   - Step 1 系列：童话剧
+   - Step 2 专辑：格林童话
+   - Step 3 内容：侏儒怪
+   - Step 4 剧集：侏儒怪 第一集
+   - 点 [创建骨架] → 应跳到剧集 dashboard
+   - 验证：去 GitHub https://github.com/ProKids-digital/asset-library 应看到一个 init skeleton commit
+4. 在 dashboard 点 SCRIPT 板块 → 进 AssetPanel
+   - 点 [📋 粘贴文本] → 粘一段 markdown → 保存为草稿
+   - 点 [📁 导入] 选一个 .docx → 保存为草稿
+5. 点其他板块比如 CHAR → 导入一张 .png 角色图保存为草稿
+6. 回 dashboard → 应该看到右下角 ⚡ FAB 显示 (3)
+7. 点 FAB → 进入库评审页 → 看到 3 项按板块分组
+8. 全选 → 编辑 commit message → 点 ⚡ 推送
+9. 应看到上传遮罩 + 进度 → 成功 → 跳回 dashboard + 顶部紫色 toast"✓ 3 项资产已入库"
+10. 验证后端：
+    - GitHub asset-library 应有新 commit + 1 个 .md 文件（剧本）
+    - Cloudflare R2 控制台应有 1 个 PNG 对象
+    - Supabase Studio assets 表应有 3 行（status='pushed'）
+    - usage_logs 应有 ~5 条新记录（github commit + r2 upload + supabase）
+11. dashboard 卡片网格应显示新数字（SCRIPT: 1 已入库 / CHAR: 1 已入库 等）
+12. 点已入库的剧本 → AssetPreviewModal 应渲染 markdown
+13. 点已入库的角色图 → ImagePreview 应正确显示（presigned URL fetch）
+14. 退出登录 → 关闭 App → 重开 → 应自动登录回到 TreeRoute（refresh token 流程）
 
-测试：
-- 草稿数 0 时 FAB 不渲染
-- 草稿数 ≥ 1 时 FAB 渲染 + 显示数字
-- 点击触发跳转
+Codex 你需要做：
+- 写一份 D:/VideoAPP/docs/superpowers/plans/2026-04-30-p0d-smoke-checklist.md，
+  包含上面 14 步 + 每步预期 + 失败时的排查指引
+- 跑能自动跑的部分（npm test 全套 + npm run build + lint）确认绿
+- 然后停下，让乐美林手动走 14 步
+- 乐美林反馈结果后，如果全过 → 你打 tag p0d-complete 并 push
 
-commit message: feat(p0d-10): floating push FAB on episode dashboard
+commit message（Codex 自动跑的那部分）：docs(p0d-11): smoke checklist + verify build green
+
+如果发现 bug → 不修，记录到 checklist 文件 + 报告 → 等乐美林决定修 vs 跳过。
 
 完成停下报告。
 ```
