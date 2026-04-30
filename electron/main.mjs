@@ -20,8 +20,10 @@ import {
   saveViewCacheFile,
 } from './file-system.mjs';
 import { apiRequest, assetContentRequest, assetPushRequest, hasSession, dropSession } from './api-client.mjs';
+import { configureWritableAppPaths } from './startup-paths.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const appPaths = configureWritableAppPaths(app);
 
 ipcMain.handle('db:session:get', (_event, key) => sessionGet(key));
 ipcMain.handle('db:session:set', (_event, key, value) => {
@@ -146,6 +148,7 @@ app.whenReady().then(async () => {
   // Remove the default native menu (File / Edit / View / Window).
   // Internal tool — users don't need a Chrome-shaped menu bar.
   Menu.setApplicationMenu(null);
+  console.log('[fableglitch] writable app paths', appPaths);
   await createMainWindow();
 
   app.on('activate', async () => {

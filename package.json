@@ -27,6 +27,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "!electron/*.test.*",
       "package.json"
     ],
     "win": {

@@ -143,7 +143,7 @@ Electron 窗口应该打开，看到登录页。
 
 ---
 
-## G. 当前进度速览（截至 commit `c20da17`）
+## G. 当前进度速览（截至 commit `2e1c83e`）
 
 ```
 P0-A 后端 auth + schema  ✅ 部署 Vercel
@@ -159,8 +159,9 @@ P0-D Task 7 资产预览组件 ✅
 P0-D Task 8 入库评审页   ✅
 P0-D Task 9 push 调用    ✅ 闭环跑通！
 P0-D Task 10 dashboard FAB ✅
-P0-D Task 11 远程闭环冒烟 ⏳ 下一个（真机端到端 + 打 tag）
-P0-D Task 12 Electron 普通权限启动 bug ⏳ 收尾
+P0-D Task 11 真机闭环冒烟  ✅ tag p0d-complete 已打
+P0-D 后续 polish          ✅ 返回按钮 + markdown 排版美化（commit 2e1c83e）
+P0-D Task 12 Electron 普通权限启动 bug ✅ 普通用户可写路径已修
 ```
 
 **P0-D 关键里程碑达成**：commit `bd0785f` 起，整套"导入文件 → 一键推送 → 后端 GitHub/R2/Supabase 三阶段入库"流程已 wire-up + 测试通过。Tasks 10-12 都是小幅打磨。
@@ -169,51 +170,12 @@ P0-D Task 12 Electron 普通权限启动 bug ⏳ 收尾
 
 ## H. 你下一句话告诉 Codex
 
-Task 11 是**乐美林手动+Codex 配合**的真机端到端冒烟，不是纯代码 task。Codex 主要做"列出步骤 + 跑能自动跑的"，关键操作步骤需要乐美林在 App 里真点。
+Task 11 已完成（p0d-complete tag 推送）。Task 12 也已完成：Electron 会在启动前把 userData/cache/logs 指到 `%APPDATA%\FableGlitch Studio\...`，普通权限启动冒烟已通过。
 
 ```
-继续 P0-D Task 11：真机端到端闭环冒烟 + 打 tag p0d-complete
-
-测试目标（按这个顺序，每步乐美林确认通过才下一步）：
-1. cd D:/VideoAPP && npm run dev 启动 Electron
-2. 用 meilinle@beva.com / Admin1234 登录 → 看到 ShellEmptyRoute 欢迎屏（如有项目则 TreeRoute）
-3. 点 [+ 新建剧集] → 4 步 wizard
-   - Step 1 系列：童话剧
-   - Step 2 专辑：格林童话
-   - Step 3 内容：侏儒怪
-   - Step 4 剧集：侏儒怪 第一集
-   - 点 [创建骨架] → 应跳到剧集 dashboard
-   - 验证：去 GitHub https://github.com/ProKids-digital/asset-library 应看到一个 init skeleton commit
-4. 在 dashboard 点 SCRIPT 板块 → 进 AssetPanel
-   - 点 [📋 粘贴文本] → 粘一段 markdown → 保存为草稿
-   - 点 [📁 导入] 选一个 .docx → 保存为草稿
-5. 点其他板块比如 CHAR → 导入一张 .png 角色图保存为草稿
-6. 回 dashboard → 应该看到右下角 ⚡ FAB 显示 (3)
-7. 点 FAB → 进入库评审页 → 看到 3 项按板块分组
-8. 全选 → 编辑 commit message → 点 ⚡ 推送
-9. 应看到上传遮罩 + 进度 → 成功 → 跳回 dashboard + 顶部紫色 toast"✓ 3 项资产已入库"
-10. 验证后端：
-    - GitHub asset-library 应有新 commit + 1 个 .md 文件（剧本）
-    - Cloudflare R2 控制台应有 1 个 PNG 对象
-    - Supabase Studio assets 表应有 3 行（status='pushed'）
-    - usage_logs 应有 ~5 条新记录（github commit + r2 upload + supabase）
-11. dashboard 卡片网格应显示新数字（SCRIPT: 1 已入库 / CHAR: 1 已入库 等）
-12. 点已入库的剧本 → AssetPreviewModal 应渲染 markdown
-13. 点已入库的角色图 → ImagePreview 应正确显示（presigned URL fetch）
-14. 退出登录 → 关闭 App → 重开 → 应自动登录回到 TreeRoute（refresh token 流程）
-
-Codex 你需要做：
-- 写一份 D:/VideoAPP/docs/superpowers/plans/2026-04-30-p0d-smoke-checklist.md，
-  包含上面 14 步 + 每步预期 + 失败时的排查指引
-- 跑能自动跑的部分（npm test 全套 + npm run build + lint）确认绿
-- 然后停下，让乐美林手动走 14 步
-- 乐美林反馈结果后，如果全过 → 你打 tag p0d-complete 并 push
-
-commit message（Codex 自动跑的那部分）：docs(p0d-11): smoke checklist + verify build green
-
-如果发现 bug → 不修，记录到 checklist 文件 + 报告 → 等乐美林决定修 vs 跳过。
-
-完成停下报告。
+P0-D 已完成并打 tag。下一步可以进入 P0.5/P1 规划：
+- 先做一次产品验收/bug bash 清单
+- 或开始 P1：AI 剧本生成、评分员、prompt 库、用量配额等功能规划
 ```
 
 ---
