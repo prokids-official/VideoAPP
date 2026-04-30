@@ -143,7 +143,7 @@ Electron 窗口应该打开，看到登录页。
 
 ---
 
-## G. 当前进度速览（截至 commit `0bee16c`）
+## G. 当前进度速览（截至 commit `bd0785f`）
 
 ```
 P0-A 后端 auth + schema  ✅ 部署 Vercel
@@ -157,18 +157,38 @@ P0-D Task 5 导入预览     ✅
 P0-D Task 6 粘贴流       ✅
 P0-D Task 7 资产预览组件 ✅
 P0-D Task 8 入库评审页   ✅
-P0-D Task 9 push 调用    ⏳ 下一个
-P0-D Task 10-12          ⏳ 收尾
+P0-D Task 9 push 调用    ✅ 闭环跑通！
+P0-D Task 10 dashboard FAB ⏳ 下一个（小，UI 强化）
+P0-D Task 11 远程闭环冒烟 ⏳
+P0-D Task 12 Electron 普通权限启动 bug ⏳ 收尾
 ```
+
+**P0-D 关键里程碑达成**：commit `bd0785f` 起，整套"导入文件 → 一键推送 → 后端 GitHub/R2/Supabase 三阶段入库"流程已 wire-up + 测试通过。Tasks 10-12 都是小幅打磨。
 
 ---
 
 ## H. 你下一句话告诉 Codex
 
 ```
-继续 P0-D Task 9：实际 push 调用 + 幂等（multipart + idempotency_key + 错误码处理）。
-具体要求看 plan 文件里 Task 9 那节，以及上一次会话 Claude 给你的详细简报。
-完成 commit + push 停下报告。
+继续 P0-D Task 10：剧集 dashboard 浮动 FAB（强化入库评审入口）
+
+参考 docs/design/mockups/tree.html 右下角的"⚡ 一键入库 (3)"FAB 设计：
+- TreeRoute 剧集 dashboard 右下角加一个 sticky FAB
+- 显示当前剧集的本地草稿数（来源：fableglitch.db.draftsList(episodeId).length）
+- 草稿数为 0 时 FAB 隐藏
+- 草稿数 ≥ 1 时显示，紫色 gradient 圆按钮 + emoji ⚡ + "(N)" 草稿数 mono 字体
+- Framer Motion 微动效：mount 时 spring 弹入，hover 时 scale 1.05
+- 点击 → 跳转 /episode/:id/push-review（同 Task 8 已有按钮）
+- 移除 Task 8 临时放在 dashboard 顶部的"入库评审 (N 草稿)"按钮（FAB 接管这个角色）
+
+测试：
+- 草稿数 0 时 FAB 不渲染
+- 草稿数 ≥ 1 时 FAB 渲染 + 显示数字
+- 点击触发跳转
+
+commit message: feat(p0d-10): floating push FAB on episode dashboard
+
+完成停下报告。
 ```
 
 ---
