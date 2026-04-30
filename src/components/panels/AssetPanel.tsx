@@ -50,7 +50,7 @@ export function AssetPanel({
           </Button>
           {assetType.supports_paste && (
             <Button variant="gradient" onClick={() => onPaste(assetType)}>
-              粘贴文本
+              📋 粘贴文本
             </Button>
           )}
         </div>

@@ -4,6 +4,7 @@ import { ProjectTree } from '../components/chrome/ProjectTree';
 import { Button } from '../components/ui/Button';
 import { AssetPanel } from '../components/panels/AssetPanel';
 import { ImportPreviewDialog, type PendingImportFile } from '../components/panels/ImportPreviewDialog';
+import { PasteTextDialog } from '../components/panels/PasteTextDialog';
 import { api } from '../lib/api';
 import { ASSET_TYPES, getAssetType } from '../lib/asset-types';
 import { fileDialogFiltersFor } from '../lib/file-meta';
@@ -60,7 +61,9 @@ export function TreeRoute({
     assetType: AssetType;
     file: PendingImportFile;
     preview: PreviewFilenameResult;
+    mode: 'import' | 'paste';
   } | null>(null);
+  const [pasteAssetType, setPasteAssetType] = useState<AssetType | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,10 +201,49 @@ export function TreeRoute({
         return;
       }
 
-      setPendingImport({ assetType, file, preview: previewResult.data });
+      setPendingImport({ assetType, file, preview: previewResult.data, mode: 'import' });
     } catch (cause) {
       setPanelError(cause instanceof Error ? cause.message : '导入失败');
     }
+  }
+
+  async function handlePasteContinue(input: { name: string; markdown: string }) {
+    if (!selectedEpisodeId || !pasteAssetType) {
+      return;
+    }
+
+    const originalFilename = `${input.name}.md`;
+    const content = new TextEncoder().encode(input.markdown).buffer;
+    const previewResult = await api.previewFilename({
+      episode_id: selectedEpisodeId,
+      type_code: pasteAssetType.code,
+      name: input.name,
+      number: pasteAssetType.filename_tpl.includes('{number') ? 1 : undefined,
+      version: 1,
+      stage: 'ROUGH',
+      language: 'ZH',
+      original_filename: originalFilename,
+    });
+
+    if (!previewResult.ok) {
+      throw new Error(previewResult.message);
+    }
+
+    setPasteAssetType(null);
+    setPendingImport({
+      assetType: pasteAssetType,
+      preview: previewResult.data,
+      mode: 'paste',
+      file: {
+        name: originalFilename,
+        size: encodedSize(input.markdown),
+        mime_type: 'text/markdown',
+        content,
+        preview_kind: 'markdown',
+        preview_text: input.markdown,
+        save_content: input.markdown,
+      },
+    });
   }
 
   async function handleSaveImportDraft(
@@ -253,6 +295,7 @@ export function TreeRoute({
               loading={panelLoading}
               error={panelError}
               onImport={handleImport}
+              onPaste={setPasteAssetType}
               onBack={() => setSelectedPanelCode(null)}
             />
           ) : error ? (
@@ -273,8 +316,17 @@ export function TreeRoute({
           episodeId={selectedEpisodeId ?? ''}
           file={pendingImport.file}
           preview={pendingImport.preview}
+          mode={pendingImport.mode}
           onClose={() => setPendingImport(null)}
           onSaveDraft={handleSaveImportDraft}
+        />
+      )}
+      {pasteAssetType && (
+        <PasteTextDialog
+          open
+          assetType={pasteAssetType}
+          onClose={() => setPasteAssetType(null)}
+          onContinue={handlePasteContinue}
         />
       )}
     </div>
@@ -318,6 +370,7 @@ function PanelView({
   loading,
   error,
   onImport,
+  onPaste,
   onBack,
 }: {
   panelCode: string;
@@ -327,6 +380,7 @@ function PanelView({
   loading: boolean;
   error: string | null;
   onImport: (assetType: AssetType) => void;
+  onPaste: (assetType: AssetType) => void;
   onBack: () => void;
 }) {
   const assetType = getAssetType(panelCode);
@@ -350,7 +404,7 @@ function PanelView({
       drafts={drafts}
       pushedAssets={pushedAssets}
       onImport={onImport}
-      onPaste={() => {}}
+      onPaste={onPaste}
       onPreviewAsset={() => {}}
       onBack={onBack}
     />

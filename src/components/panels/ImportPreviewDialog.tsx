@@ -26,6 +26,7 @@ export function ImportPreviewDialog({
   preview,
   onClose,
   onSaveDraft,
+  mode = 'import',
 }: {
   open: boolean;
   assetType: AssetType;
@@ -34,6 +35,7 @@ export function ImportPreviewDialog({
   preview: PreviewFilenameResult;
   onClose: () => void;
   onSaveDraft: (draft: Omit<CreateLocalDraftInput, 'id' | 'local_file_path'>, content: string | ArrayBuffer) => Promise<void>;
+  mode?: 'import' | 'paste';
 }) {
   const [name, setName] = useState(file.name.replace(/\.[^.]+$/, ''));
   const [saving, setSaving] = useState(false);
@@ -60,7 +62,7 @@ export function ImportPreviewDialog({
           storage_ref: preview.storage_ref,
           size_bytes: file.size,
           mime_type: file.mime_type,
-          source: 'imported',
+          source: mode === 'paste' ? 'pasted' : 'imported',
         },
         file.save_content,
       );
@@ -90,8 +92,12 @@ export function ImportPreviewDialog({
           >
             <div className="mb-6 flex items-start justify-between gap-6">
               <div>
-                <div className="font-mono text-xs text-text-3 mb-2">IMPORT PREVIEW · {assetType.code}</div>
-                <h2 className="text-xl font-bold tracking-tight">导入预览 · {assetType.name_cn}</h2>
+                <div className="font-mono text-xs text-text-3 mb-2">
+                  {mode === 'paste' ? 'PASTE PREVIEW' : 'IMPORT PREVIEW'} · {assetType.code}
+                </div>
+                <h2 className="text-xl font-bold tracking-tight">
+                  {mode === 'paste' ? '粘贴预览' : '导入预览'} · {assetType.name_cn}
+                </h2>
               </div>
               <button
                 type="button"

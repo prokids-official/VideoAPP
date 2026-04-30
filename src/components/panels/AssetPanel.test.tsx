@@ -21,7 +21,7 @@ describe('AssetPanel', () => {
 
     expect(screen.getByText('剧本')).toBeTruthy();
     expect(screen.getByText('导入文件')).toBeTruthy();
-    expect(screen.getByText('粘贴文本')).toBeTruthy();
+    expect(screen.getByText(/粘贴文本/)).toBeTruthy();
     expect(screen.getByText('剧本草稿')).toBeTruthy();
     expect(screen.getByText('剧本入库')).toBeTruthy();
 
