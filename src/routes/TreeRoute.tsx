@@ -46,12 +46,14 @@ export function TreeRoute({
   onSelectEpisode,
   onCreateEpisode,
   onOpenSettings,
+  onOpenPushReview,
 }: {
   selectedEpisodeId: string | null;
   reloadKey: number;
   onSelectEpisode: (id: string) => void;
   onCreateEpisode: () => void;
   onOpenSettings: () => void;
+  onOpenPushReview: (episode: { id: string; name: string }) => void;
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null);
   const [detail, setDetail] = useState<EpisodeDetail | null>(null);
@@ -73,6 +75,7 @@ export function TreeRoute({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [reviewDraftCount, setReviewDraftCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,15 +108,20 @@ export function TreeRoute({
     let cancelled = false;
 
     void (async () => {
-      const result = await api.episodeDetail(selectedEpisodeId);
+      const [result, draftRows] = await Promise.all([
+        api.episodeDetail(selectedEpisodeId),
+        listDrafts(selectedEpisodeId).catch(() => []),
+      ]);
       if (cancelled) {
         return;
       }
 
       if (result.ok) {
         setDetail(result.data as EpisodeDetail);
+        setReviewDraftCount(draftRows.length);
       } else {
         setError(result.message);
+        setReviewDraftCount(0);
       }
       setDetailLoading(false);
     })();
@@ -313,6 +321,7 @@ export function TreeRoute({
             onSelectEpisode(id);
             setDetail(null);
             setSelectedPanelCode(null);
+            setReviewDraftCount(0);
             setDetailLoading(true);
           }}
         />
@@ -340,7 +349,12 @@ export function TreeRoute({
           ) : detailLoading ? (
             <StatusPanel title="读取剧集" text="fetching episode..." />
           ) : detail ? (
-            <Dashboard detail={detail} onOpenPanel={openPanel} />
+            <Dashboard
+              detail={detail}
+              draftCount={reviewDraftCount}
+              onOpenPanel={openPanel}
+              onOpenPushReview={() => onOpenPushReview({ id: detail.episode.id, name: detail.episode.name_cn })}
+            />
           ) : (
             <EmptyHint onCreateEpisode={onCreateEpisode} />
           )}
@@ -610,7 +624,17 @@ function mimeTypeForExtension(ext: string): string {
   return map[ext] ?? 'application/octet-stream';
 }
 
-function Dashboard({ detail, onOpenPanel }: { detail: EpisodeDetail; onOpenPanel: (typeCode: string) => void }) {
+function Dashboard({
+  detail,
+  draftCount,
+  onOpenPanel,
+  onOpenPushReview,
+}: {
+  detail: EpisodeDetail;
+  draftCount: number;
+  onOpenPanel: (typeCode: string) => void;
+  onOpenPushReview: () => void;
+}) {
   const ep = detail.episode;
   const counts = detail.counts.by_type;
 
@@ -633,6 +657,12 @@ function Dashboard({ detail, onOpenPanel }: { detail: EpisodeDetail; onOpenPanel
           <span className="inline-block w-2 h-2 rounded-full bg-warn mr-1.5 align-[1px]" />
           {ep.status}
         </span>
+      </div>
+
+      <div className="mb-10 flex justify-end">
+        <Button variant="gradient" onClick={onOpenPushReview}>
+          入库评审 ({draftCount} 草稿)
+        </Button>
       </div>
 
       <div className="text-xs font-semibold text-text-2 uppercase tracking-widest mb-4">P0 资产面板</div>

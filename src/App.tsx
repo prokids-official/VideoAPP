@@ -4,14 +4,18 @@ import { LoginRoute } from './routes/LoginRoute';
 import { ShellEmptyRoute } from './routes/ShellEmptyRoute';
 import { TreeRoute } from './routes/TreeRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
+import { PushReviewRoute } from './routes/PushReviewRoute';
 import { api } from './lib/api';
 import { TitleBar } from './components/chrome/TitleBar';
 import { EpisodeWizard } from './components/wizards/EpisodeWizard';
 
+type AppRoute = 'studio' | 'settings' | 'push-review';
+
 export default function App() {
   const { user, loading } = useAuth();
   const [projectState, setProjectState] = useState<{ userId: string; hasProjects: boolean } | null>(null);
-  const [route, setRoute] = useState<'studio' | 'settings'>('studio');
+  const [route, setRoute] = useState<AppRoute>('studio');
+  const [pushReviewEpisode, setPushReviewEpisode] = useState<{ id: string; name: string } | null>(null);
   const [episodeWizardOpen, setEpisodeWizardOpen] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [treeReloadKey, setTreeReloadKey] = useState(0);
@@ -63,6 +67,17 @@ export default function App() {
     setTreeReloadKey((value) => value + 1);
   }
 
+  function openPushReview(episode: { id: string; name: string }) {
+    setPushReviewEpisode(episode);
+    setRoute('push-review');
+    window.history.pushState({}, '', `/episode/${episode.id}/push-review`);
+  }
+
+  function closePushReview() {
+    setRoute('studio');
+    window.history.pushState({}, '', '/');
+  }
+
   let content;
 
   if (loading) {
@@ -75,6 +90,15 @@ export default function App() {
     content = <LoginRoute />;
   } else if (activeRoute === 'settings') {
     content = <SettingsRoute onBack={() => setRoute('studio')} />;
+  } else if (activeRoute === 'push-review' && pushReviewEpisode) {
+    content = (
+      <PushReviewRoute
+        episodeId={pushReviewEpisode.id}
+        episodeName={pushReviewEpisode.name}
+        onBack={closePushReview}
+        onOpenSettings={() => setRoute('settings')}
+      />
+    );
   } else if (hasProjects === null) {
     content = (
       <div className="h-full flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
@@ -97,6 +121,7 @@ export default function App() {
         onSelectEpisode={setSelectedEpisodeId}
         onCreateEpisode={() => setEpisodeWizardOpen(true)}
         onOpenSettings={() => setRoute('settings')}
+        onOpenPushReview={openPushReview}
       />
     );
   }
