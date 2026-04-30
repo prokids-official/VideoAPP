@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TopNav } from '../components/chrome/TopNav';
 import { ProjectTree } from '../components/chrome/ProjectTree';
+import { Button } from '../components/ui/Button';
 import { api } from '../lib/api';
 import type { TreeResponse } from '../../shared/types';
 
@@ -46,9 +47,20 @@ interface EpisodeDetail {
   counts: { by_type: Record<string, { pushed: number; superseded: number }> };
 }
 
-export function TreeRoute({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function TreeRoute({
+  selectedEpisodeId,
+  reloadKey,
+  onSelectEpisode,
+  onCreateEpisode,
+  onOpenSettings,
+}: {
+  selectedEpisodeId: string | null;
+  reloadKey: number;
+  onSelectEpisode: (id: string) => void;
+  onCreateEpisode: () => void;
+  onOpenSettings: () => void;
+}) {
   const [tree, setTree] = useState<TreeResponse | null>(null);
-  const [selectedEpId, setSelectedEpId] = useState<string | null>(null);
   const [detail, setDetail] = useState<EpisodeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -74,17 +86,17 @@ export function TreeRoute({ onOpenSettings }: { onOpenSettings: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
-    if (!selectedEpId) {
+    if (!selectedEpisodeId) {
       return;
     }
 
     let cancelled = false;
 
     void (async () => {
-      const result = await api.episodeDetail(selectedEpId);
+      const result = await api.episodeDetail(selectedEpisodeId);
       if (cancelled) {
         return;
       }
@@ -100,7 +112,7 @@ export function TreeRoute({ onOpenSettings }: { onOpenSettings: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedEpId]);
+  }, [selectedEpisodeId]);
 
   if (loading) {
     return <StatusScreen label="loading..." />;
@@ -112,14 +124,19 @@ export function TreeRoute({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="flex-1 flex overflow-hidden">
         <ProjectTree
           series={tree?.series ?? []}
-          selectedEpisodeId={selectedEpId}
+          selectedEpisodeId={selectedEpisodeId}
           onSelectEpisode={(id) => {
-            setSelectedEpId(id);
+            onSelectEpisode(id);
             setDetail(null);
             setDetailLoading(true);
           }}
         />
         <main className="flex-1 overflow-y-auto px-10 py-12">
+          <div className="mb-8 flex justify-end">
+            <Button variant="secondary" onClick={onCreateEpisode}>
+              + 新建剧集
+            </Button>
+          </div>
           {error ? (
             <StatusPanel title="加载失败" text={error} />
           ) : detailLoading ? (
@@ -127,7 +144,7 @@ export function TreeRoute({ onOpenSettings }: { onOpenSettings: () => void }) {
           ) : detail ? (
             <Dashboard detail={detail} />
           ) : (
-            <EmptyHint />
+            <EmptyHint onCreateEpisode={onCreateEpisode} />
           )}
         </main>
       </div>
@@ -152,11 +169,14 @@ function StatusPanel({ title, text }: { title: string; text: string }) {
   );
 }
 
-function EmptyHint() {
+function EmptyHint({ onCreateEpisode }: { onCreateEpisode: () => void }) {
   return (
     <div className="max-w-[880px] mx-auto text-center pt-24">
       <div className="text-xl text-text-2 mb-2">从左侧选一个剧集</div>
-      <p className="font-mono text-sm text-text-3">点击项目树里的任意剧集查看详情</p>
+      <p className="font-mono text-sm text-text-3 mb-8">点击项目树里的任意剧集查看详情</p>
+      <Button variant="gradient" onClick={onCreateEpisode}>
+        + 新建剧集
+      </Button>
     </div>
   );
 }

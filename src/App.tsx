@@ -6,11 +6,15 @@ import { TreeRoute } from './routes/TreeRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
 import { api } from './lib/api';
 import { TitleBar } from './components/chrome/TitleBar';
+import { EpisodeWizard } from './components/wizards/EpisodeWizard';
 
 export default function App() {
   const { user, loading } = useAuth();
   const [projectState, setProjectState] = useState<{ userId: string; hasProjects: boolean } | null>(null);
   const [route, setRoute] = useState<'studio' | 'settings'>('studio');
+  const [episodeWizardOpen, setEpisodeWizardOpen] = useState(false);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const [treeReloadKey, setTreeReloadKey] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -34,6 +38,31 @@ export default function App() {
 
   const hasProjects = user && projectState?.userId === user.id ? projectState.hasProjects : null;
   const activeRoute = user ? route : 'studio';
+
+  async function createEpisode(input: {
+    series_name_cn: string;
+    album_name_cn: string;
+    content_name_cn: string;
+    episode_name_cn: string;
+  }) {
+    const result = await api.createEpisode(input);
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+    return { id: result.data.episode.id };
+  }
+
+  function handleEpisodeCreated(episodeId: string) {
+    if (!user) {
+      return;
+    }
+    setEpisodeWizardOpen(false);
+    setRoute('studio');
+    setSelectedEpisodeId(episodeId);
+    setProjectState({ userId: user.id, hasProjects: true });
+    setTreeReloadKey((value) => value + 1);
+  }
+
   let content;
 
   if (loading) {
@@ -55,21 +84,35 @@ export default function App() {
   } else if (!hasProjects) {
     content = (
       <ShellEmptyRoute
-        onCreateEpisode={() => {
-          window.alert('新建剧集 wizard - P0-D 实现');
-        }}
+        onCreateEpisode={() => setEpisodeWizardOpen(true)}
         onBrowse={() => setProjectState({ userId: user.id, hasProjects: true })}
         onOpenSettings={() => setRoute('settings')}
       />
     );
   } else {
-    content = <TreeRoute onOpenSettings={() => setRoute('settings')} />;
+    content = (
+      <TreeRoute
+        selectedEpisodeId={selectedEpisodeId}
+        reloadKey={treeReloadKey}
+        onSelectEpisode={setSelectedEpisodeId}
+        onCreateEpisode={() => setEpisodeWizardOpen(true)}
+        onOpenSettings={() => setRoute('settings')}
+      />
+    );
   }
 
   return (
     <div className="h-screen flex flex-col bg-bg text-text overflow-hidden">
       <TitleBar />
       <div className="flex-1 min-h-0 overflow-hidden">{content}</div>
+      {user && (
+        <EpisodeWizard
+          open={episodeWizardOpen}
+          onClose={() => setEpisodeWizardOpen(false)}
+          onCreate={createEpisode}
+          onCreated={handleEpisodeCreated}
+        />
+      )}
     </div>
   );
 }

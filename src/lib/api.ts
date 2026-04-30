@@ -94,6 +94,19 @@ export const api = {
   tree: () =>
     call<TreeResponse>({ method: 'GET', path: '/tree', requireAuth: true }),
 
+  createEpisode: (input: {
+    series_name_cn: string;
+    album_name_cn: string;
+    content_name_cn: string;
+    episode_name_cn: string;
+  }) =>
+    call<{ episode: { id: string; name_cn: string; episode_path: string } }>({
+      method: 'POST',
+      path: '/episodes',
+      body: input,
+      requireAuth: true,
+    }),
+
   episodeDetail: (id: string) =>
     call<unknown>({ method: 'GET', path: `/episodes/${id}`, requireAuth: true }),
 
