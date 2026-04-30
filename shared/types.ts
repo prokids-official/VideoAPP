@@ -148,3 +148,24 @@ export interface LocalDraft {
 }
 
 export type CreateLocalDraftInput = Omit<LocalDraft, 'created_at'>;
+
+export interface AssetRow {
+  id: string;
+  type_code: string;
+  name: string;
+  variant: string | null;
+  version: number;
+  stage: AssetStage;
+  language: string;
+  final_filename: string;
+  storage_backend: StorageBackend;
+  storage_ref: string;
+  file_size_bytes: number | null;
+  pushed_at: string;
+  status: 'draft' | 'pushed' | 'superseded';
+}
+
+export interface AssetsListResult {
+  assets: AssetRow[];
+  total: number;
+}

@@ -1,4 +1,12 @@
-import type { ApiResponse, AuthResult, SignupPendingResult, TreeResponse, UsageMeResponse, User } from '../../shared/types';
+import type {
+  ApiResponse,
+  AssetsListResult,
+  AuthResult,
+  SignupPendingResult,
+  TreeResponse,
+  UsageMeResponse,
+  User,
+} from '../../shared/types';
 
 interface NetRequestPayload {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -109,6 +117,14 @@ export const api = {
 
   episodeDetail: (id: string) =>
     call<unknown>({ method: 'GET', path: `/episodes/${id}`, requireAuth: true }),
+
+  assets: (input: { episode_id: string; type_code?: string }) => {
+    const qs = new URLSearchParams({ episode_id: input.episode_id });
+    if (input.type_code) {
+      qs.set('type_code', input.type_code);
+    }
+    return call<AssetsListResult>({ method: 'GET', path: `/assets?${qs.toString()}`, requireAuth: true });
+  },
 
   usageMe: () =>
     call<UsageMeResponse>({ method: 'GET', path: '/usage/me', requireAuth: true }),

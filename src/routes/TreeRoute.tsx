@@ -2,34 +2,14 @@ import { useEffect, useState } from 'react';
 import { TopNav } from '../components/chrome/TopNav';
 import { ProjectTree } from '../components/chrome/ProjectTree';
 import { Button } from '../components/ui/Button';
+import { AssetPanel } from '../components/panels/AssetPanel';
 import { api } from '../lib/api';
-import type { TreeResponse } from '../../shared/types';
+import { ASSET_TYPES, getAssetType } from '../lib/asset-types';
+import { listDrafts } from '../lib/drafts';
+import type { AssetRow, AssetType, LocalDraft, TreeResponse } from '../../shared/types';
 
-interface AssetType {
-  code: string;
-  name_cn: string;
-  icon: string;
-  sort_order: number;
-  enabled: boolean;
-}
-
-const PANELS_P0: AssetType[] = [
-  { code: 'SCRIPT', name_cn: '剧本', icon: '📝', sort_order: 10, enabled: true },
-  { code: 'PROMPT_IMG', name_cn: '分镜图提示词', icon: '🖼️', sort_order: 20, enabled: true },
-  { code: 'PROMPT_VID', name_cn: '分镜视频提示词', icon: '🎞️', sort_order: 21, enabled: true },
-  { code: 'SHOT_IMG', name_cn: '分镜图', icon: '🖼️', sort_order: 22, enabled: true },
-  { code: 'SHOT_VID', name_cn: '分镜视频', icon: '🎬', sort_order: 23, enabled: true },
-  { code: 'CHAR', name_cn: '角色', icon: '👤', sort_order: 30, enabled: true },
-  { code: 'PROP', name_cn: '道具', icon: '🎒', sort_order: 31, enabled: true },
-  { code: 'SCENE', name_cn: '场景', icon: '🏞️', sort_order: 32, enabled: true },
-];
-
-const PANELS_P4: AssetType[] = [
-  { code: 'DIALOG', name_cn: '对白', icon: '💬', sort_order: 40, enabled: false },
-  { code: 'BGM', name_cn: '配乐', icon: '🎵', sort_order: 41, enabled: false },
-  { code: 'SONG', name_cn: '歌曲', icon: '🎤', sort_order: 42, enabled: false },
-  { code: 'SFX', name_cn: '音效', icon: '🔊', sort_order: 43, enabled: false },
-];
+const PANELS_P0 = ASSET_TYPES.filter((type) => type.enabled).sort((a, b) => a.sort_order - b.sort_order);
+const PANELS_P4 = ASSET_TYPES.filter((type) => !type.enabled).sort((a, b) => a.sort_order - b.sort_order);
 
 interface EpisodeDetail {
   episode: {
@@ -62,6 +42,11 @@ export function TreeRoute({
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null);
   const [detail, setDetail] = useState<EpisodeDetail | null>(null);
+  const [selectedPanelCode, setSelectedPanelCode] = useState<string | null>(null);
+  const [panelDrafts, setPanelDrafts] = useState<LocalDraft[]>([]);
+  const [panelAssets, setPanelAssets] = useState<AssetRow[]>([]);
+  const [panelLoading, setPanelLoading] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +99,60 @@ export function TreeRoute({
     };
   }, [selectedEpisodeId]);
 
+  useEffect(() => {
+    if (!selectedEpisodeId || !selectedPanelCode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      setPanelLoading(true);
+      setPanelError(null);
+
+      try {
+        const [draftRows, assetResult] = await Promise.all([
+          listDrafts(selectedEpisodeId),
+          api.assets({ episode_id: selectedEpisodeId, type_code: selectedPanelCode }),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setPanelDrafts(draftRows.filter((draft) => draft.type_code === selectedPanelCode));
+        if (assetResult.ok) {
+          setPanelAssets(assetResult.data.assets);
+        } else {
+          setPanelAssets([]);
+          setPanelError(assetResult.message);
+        }
+      } catch (cause) {
+        if (cancelled) {
+          return;
+        }
+        setPanelDrafts([]);
+        setPanelAssets([]);
+        setPanelError(cause instanceof Error ? cause.message : '资产加载失败');
+      }
+      setPanelLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEpisodeId, selectedPanelCode]);
+
   if (loading) {
     return <StatusScreen label="loading..." />;
+  }
+
+  function openPanel(typeCode: string) {
+    setPanelDrafts([]);
+    setPanelAssets([]);
+    setPanelError(null);
+    setPanelLoading(true);
+    setSelectedPanelCode(typeCode);
   }
 
   return (
@@ -128,6 +165,7 @@ export function TreeRoute({
           onSelectEpisode={(id) => {
             onSelectEpisode(id);
             setDetail(null);
+            setSelectedPanelCode(null);
             setDetailLoading(true);
           }}
         />
@@ -137,12 +175,22 @@ export function TreeRoute({
               + 新建剧集
             </Button>
           </div>
-          {error ? (
+          {selectedPanelCode && selectedEpisodeId ? (
+            <PanelView
+              panelCode={selectedPanelCode}
+              episodeId={selectedEpisodeId}
+              drafts={panelDrafts}
+              pushedAssets={panelAssets}
+              loading={panelLoading}
+              error={panelError}
+              onBack={() => setSelectedPanelCode(null)}
+            />
+          ) : error ? (
             <StatusPanel title="加载失败" text={error} />
           ) : detailLoading ? (
             <StatusPanel title="读取剧集" text="fetching episode..." />
           ) : detail ? (
-            <Dashboard detail={detail} />
+            <Dashboard detail={detail} onOpenPanel={openPanel} />
           ) : (
             <EmptyHint onCreateEpisode={onCreateEpisode} />
           )}
@@ -181,7 +229,52 @@ function EmptyHint({ onCreateEpisode }: { onCreateEpisode: () => void }) {
   );
 }
 
-function Dashboard({ detail }: { detail: EpisodeDetail }) {
+function PanelView({
+  panelCode,
+  episodeId,
+  drafts,
+  pushedAssets,
+  loading,
+  error,
+  onBack,
+}: {
+  panelCode: string;
+  episodeId: string;
+  drafts: LocalDraft[];
+  pushedAssets: AssetRow[];
+  loading: boolean;
+  error: string | null;
+  onBack: () => void;
+}) {
+  const assetType = getAssetType(panelCode);
+
+  if (!assetType) {
+    return <StatusPanel title="未知资产类型" text={panelCode} />;
+  }
+
+  if (loading) {
+    return <StatusPanel title="读取资产" text="fetching assets..." />;
+  }
+
+  if (error) {
+    return <StatusPanel title="资产加载失败" text={error} />;
+  }
+
+  return (
+    <AssetPanel
+      assetType={assetType}
+      episodeId={episodeId}
+      drafts={drafts}
+      pushedAssets={pushedAssets}
+      onImport={() => {}}
+      onPaste={() => {}}
+      onPreviewAsset={() => {}}
+      onBack={onBack}
+    />
+  );
+}
+
+function Dashboard({ detail, onOpenPanel }: { detail: EpisodeDetail; onOpenPanel: (typeCode: string) => void }) {
   const ep = detail.episode;
   const counts = detail.counts.by_type;
 
@@ -209,25 +302,44 @@ function Dashboard({ detail }: { detail: EpisodeDetail }) {
       <div className="text-xs font-semibold text-text-2 uppercase tracking-widest mb-4">P0 资产面板</div>
       <div className="grid grid-cols-4 gap-3 mb-10">
         {PANELS_P0.map((panel) => (
-          <PanelCard key={panel.code} panel={panel} count={counts[panel.code]?.pushed ?? 0} disabled={false} />
+          <PanelCard
+            key={panel.code}
+            panel={panel}
+            count={counts[panel.code]?.pushed ?? 0}
+            disabled={false}
+            onClick={() => onOpenPanel(panel.code)}
+          />
         ))}
       </div>
 
       <div className="text-xs font-semibold text-text-3 uppercase tracking-widest mb-4">P4 音频扩展</div>
       <div className="grid grid-cols-4 gap-3">
         {PANELS_P4.map((panel) => (
-          <PanelCard key={panel.code} panel={panel} count={0} disabled />
+          <PanelCard key={panel.code} panel={panel} count={0} disabled onClick={() => {}} />
         ))}
       </div>
     </div>
   );
 }
 
-function PanelCard({ panel, count, disabled }: { panel: AssetType; count: number; disabled: boolean }) {
+function PanelCard({
+  panel,
+  count,
+  disabled,
+  onClick,
+}: {
+  panel: AssetType;
+  count: number;
+  disabled: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div
-      className={`relative bg-surface border border-border rounded-lg p-5 min-h-[124px] transition ${
-        disabled ? 'opacity-50' : 'hover:border-border-hi hover:bg-surface-2'
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`relative bg-surface border border-border rounded-lg p-5 min-h-[124px] transition text-left ${
+        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-border-hi hover:bg-surface-2'
       }`}
     >
       {disabled && (
@@ -235,7 +347,7 @@ function PanelCard({ panel, count, disabled }: { panel: AssetType; count: number
           P4
         </div>
       )}
-      <div className="text-3xl mb-3 leading-none">{panel.icon}</div>
+      <div className="text-3xl mb-3 leading-none">{panel.icon ?? '□'}</div>
       <div className="text-base font-medium mb-2">{panel.name_cn}</div>
       <div className="font-mono text-xs text-text-3 flex items-center gap-1.5">
         {disabled ? (
@@ -252,6 +364,6 @@ function PanelCard({ panel, count, disabled }: { panel: AssetType; count: number
           </>
         )}
       </div>
-    </div>
+    </button>
   );
 }
