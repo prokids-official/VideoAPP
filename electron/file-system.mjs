@@ -6,6 +6,10 @@ function draftsRoot() {
   return path.join(app.getPath('userData'), 'FableGlitch', 'drafts');
 }
 
+function viewCacheRoot() {
+  return path.join(app.getPath('userData'), 'FableGlitch', 'view-cache');
+}
+
 export async function saveDraftFile({ localDraftId, extension, content }) {
   const safeExt = extension.startsWith('.') ? extension : `.${extension}`;
   const dir = draftsRoot();
@@ -38,4 +42,14 @@ export async function openFileDialog(filters) {
     size_bytes: stat.size,
     content: data,
   };
+}
+
+export async function saveViewCacheFile({ assetId, extension, content }) {
+  const safeExt = extension.startsWith('.') ? extension : `.${extension}`;
+  const dir = viewCacheRoot();
+  await fs.mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, `${assetId}${safeExt}`);
+  const data = typeof content === 'string' ? Buffer.from(content, 'utf8') : Buffer.from(content);
+  await fs.writeFile(filePath, data);
+  return { path: filePath, size_bytes: data.byteLength };
 }

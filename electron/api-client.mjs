@@ -44,6 +44,73 @@ async function rawRequest(method, pathname, body, accessToken) {
   return { status: res.status, body: json };
 }
 
+async function rawContentRequest(pathname, accessToken, storageBackend) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res;
+  try {
+    res = await fetch(`${BASE}${pathname}`, {
+      method: 'GET',
+      headers: accessToken ? { authorization: `Bearer ${accessToken}` } : {},
+      redirect: storageBackend === 'r2' ? 'manual' : 'follow',
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      return {
+        status: 0,
+        body: { ok: false, error: { code: 'TIMEOUT', message: 'Request timed out. Please try again.' } },
+      };
+    }
+    return { status: 0, body: { ok: false, error: { code: 'NETWORK', message: e.message ?? 'fetch failed' } } };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get('location');
+    if (location) {
+      return {
+        status: res.status,
+        body: {
+          ok: true,
+          data: {
+            kind: 'url',
+            url: location,
+            expires_at: new Date(Date.now() + 14 * 60_000).toISOString(),
+          },
+        },
+      };
+    }
+  }
+
+  if (!res.ok) {
+    let json = null;
+    try {
+      json = await res.json();
+    } catch {
+      /* ignore */
+    }
+    return {
+      status: res.status,
+      body: json ?? { ok: false, error: { code: 'NETWORK', message: `HTTP ${res.status}` } },
+    };
+  }
+
+  return {
+    status: res.status,
+    body: {
+      ok: true,
+      data: {
+        kind: 'markdown',
+        content: await res.text(),
+        content_type: res.headers.get('content-type'),
+      },
+    },
+  };
+}
+
 async function refreshAccess() {
   const rt = getRefreshToken();
   if (!rt) return null;
@@ -87,6 +154,24 @@ export async function apiRequest(payload) {
       refresh_token: attempt.body.data.session.refresh_token,
       expires_at: attempt.body.data.session.expires_at,
     });
+  }
+
+  return attempt;
+}
+
+export async function assetContentRequest(payload) {
+  const { assetId, storageBackend } = payload ?? {};
+  if (!assetId || !storageBackend) {
+    return { status: 0, body: { ok: false, error: { code: 'CLIENT_ERROR', message: 'assetId and storageBackend required' } } };
+  }
+
+  let access = getAccessToken();
+  let attempt = await rawContentRequest(`/assets/${assetId}/content`, access, storageBackend);
+
+  if (attempt.status === 401) {
+    access = await refreshAccess();
+    if (!access) return attempt;
+    attempt = await rawContentRequest(`/assets/${assetId}/content`, access, storageBackend);
   }
 
   return attempt;

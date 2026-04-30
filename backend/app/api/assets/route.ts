@@ -23,7 +23,7 @@ export async function GET(req: Request): Promise<Response> {
   let query = supabaseAdmin()
     .from('assets')
     .select(
-      'id,type_code,name,variant,version,stage,language,final_filename,storage_backend,storage_ref,file_size_bytes,author:author_id(display_name),pushed_at,status',
+      'id,type_code,name,variant,version,stage,language,final_filename,storage_backend,storage_ref,file_size_bytes,mime_type,author:author_id(display_name),pushed_at,status',
       { count: 'exact' },
     )
     .eq('episode_id', episodeId)

@@ -3,7 +3,9 @@ import type {
   AssetsListResult,
   AuthResult,
   AssetStage,
+  AssetContentResult,
   PreviewFilenameResult,
+  StorageBackend,
   SignupPendingResult,
   TreeResponse,
   UsageMeResponse,
@@ -71,6 +73,30 @@ async function call<T>(opts: NetRequestPayload): Promise<ApiCallResult<T>> {
   }
 
   return { ok: false, status, code: 'NETWORK', message: `HTTP ${status}` };
+}
+
+async function assetContent(assetId: string, storageBackend: StorageBackend): Promise<ApiCallResult<AssetContentResult>> {
+  if (!window.fableglitch?.net?.assetContent) {
+    return bridgeMissing<AssetContentResult>();
+  }
+
+  try {
+    const result = await window.fableglitch.net.assetContent({ assetId, storageBackend });
+    if (result.status >= 200 && result.status < 400 && result.body?.ok) {
+      return { ok: true, data: result.body.data };
+    }
+    if (result.body && !result.body.ok) {
+      return { ok: false, status: result.status, code: result.body.error.code, message: result.body.error.message };
+    }
+    return { ok: false, status: result.status, code: 'NETWORK', message: `HTTP ${result.status}` };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      code: 'NETWORK',
+      message: error instanceof Error ? error.message : '网络请求失败',
+    };
+  }
 }
 
 export const api = {
@@ -148,4 +174,6 @@ export const api = {
 
   usageMe: () =>
     call<UsageMeResponse>({ method: 'GET', path: '/usage/me', requireAuth: true }),
+
+  assetContent,
 };

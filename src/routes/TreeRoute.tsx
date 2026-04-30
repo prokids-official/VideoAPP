@@ -5,17 +5,20 @@ import { Button } from '../components/ui/Button';
 import { AssetPanel } from '../components/panels/AssetPanel';
 import { ImportPreviewDialog, type PendingImportFile } from '../components/panels/ImportPreviewDialog';
 import { PasteTextDialog } from '../components/panels/PasteTextDialog';
+import { AssetPreviewModal } from '../components/panels/preview/AssetPreviewModal';
 import { api } from '../lib/api';
 import { ASSET_TYPES, getAssetType } from '../lib/asset-types';
 import { fileDialogFiltersFor } from '../lib/file-meta';
 import { createDraft, listDrafts, saveDraftFile } from '../lib/drafts';
 import type {
   AssetRow,
+  AssetContentResult,
   AssetType,
   CreateLocalDraftInput,
   LocalDraft,
   PreviewFilenameResult,
   TreeResponse,
+  ViewCacheEntry,
 } from '../../shared/types';
 
 const PANELS_P0 = ASSET_TYPES.filter((type) => type.enabled).sort((a, b) => a.sort_order - b.sort_order);
@@ -64,6 +67,10 @@ export function TreeRoute({
     mode: 'import' | 'paste';
   } | null>(null);
   const [pasteAssetType, setPasteAssetType] = useState<AssetType | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<AssetRow | null>(null);
+  const [previewContent, setPreviewContent] = useState<AssetContentResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +273,35 @@ export function TreeRoute({
     setPendingImport(null);
   }
 
+  async function handlePreviewAsset(asset: AssetRow) {
+    setPreviewAsset(asset);
+    setPreviewContent(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+
+    try {
+      const cached = await window.fableglitch.db.viewCacheGet(asset.id);
+      const cachedContent = await contentFromCache(asset, cached);
+      if (cachedContent) {
+        setPreviewContent(cachedContent);
+        return;
+      }
+
+      const result = await api.assetContent(asset.id, asset.storage_backend);
+      if (!result.ok) {
+        setPreviewError(result.message);
+        return;
+      }
+
+      await writeContentCache(asset, result.data);
+      setPreviewContent(result.data);
+    } catch (cause) {
+      setPreviewError(cause instanceof Error ? cause.message : '预览加载失败');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   return (
     <div className="h-full flex flex-col bg-bg text-text">
       <TopNav onOpenSettings={onOpenSettings} />
@@ -296,6 +332,7 @@ export function TreeRoute({
               error={panelError}
               onImport={handleImport}
               onPaste={setPasteAssetType}
+              onPreviewAsset={handlePreviewAsset}
               onBack={() => setSelectedPanelCode(null)}
             />
           ) : error ? (
@@ -329,6 +366,18 @@ export function TreeRoute({
           onContinue={handlePasteContinue}
         />
       )}
+      <AssetPreviewModal
+        open={Boolean(previewAsset)}
+        asset={previewAsset}
+        content={previewContent}
+        loading={previewLoading}
+        error={previewError}
+        onClose={() => {
+          setPreviewAsset(null);
+          setPreviewContent(null);
+          setPreviewError(null);
+        }}
+      />
     </div>
   );
 }
@@ -371,6 +420,7 @@ function PanelView({
   error,
   onImport,
   onPaste,
+  onPreviewAsset,
   onBack,
 }: {
   panelCode: string;
@@ -381,6 +431,7 @@ function PanelView({
   error: string | null;
   onImport: (assetType: AssetType) => void;
   onPaste: (assetType: AssetType) => void;
+  onPreviewAsset: (asset: AssetRow) => void;
   onBack: () => void;
 }) {
   const assetType = getAssetType(panelCode);
@@ -405,10 +456,66 @@ function PanelView({
       pushedAssets={pushedAssets}
       onImport={onImport}
       onPaste={onPaste}
-      onPreviewAsset={() => {}}
+      onPreviewAsset={onPreviewAsset}
       onBack={onBack}
     />
   );
+}
+
+async function contentFromCache(asset: AssetRow, cached: ViewCacheEntry | null): Promise<AssetContentResult | null> {
+  if (!cached) {
+    return null;
+  }
+
+  if (asset.storage_backend === 'r2' && cached.presigned_url && cached.presigned_expires_at) {
+    if (new Date(cached.presigned_expires_at).getTime() > Date.now()) {
+      return { kind: 'url', url: cached.presigned_url, expires_at: cached.presigned_expires_at };
+    }
+    return null;
+  }
+
+  if (asset.storage_backend === 'github' && cached.local_cache_path) {
+    const data = await window.fableglitch.fs.readDraftFile(cached.local_cache_path);
+    return {
+      kind: 'markdown',
+      content: new TextDecoder().decode(data),
+      content_type: asset.mime_type,
+    };
+  }
+
+  return null;
+}
+
+async function writeContentCache(asset: AssetRow, content: AssetContentResult) {
+  if (content.kind === 'url') {
+    await window.fableglitch.db.viewCacheSet({
+      asset_id: asset.id,
+      storage_backend: asset.storage_backend,
+      storage_ref: asset.storage_ref,
+      local_cache_path: null,
+      last_fetched_at: new Date().toISOString(),
+      size_bytes: asset.file_size_bytes,
+      presigned_url: content.url,
+      presigned_expires_at: content.expires_at,
+    });
+    return;
+  }
+
+  const saved = await window.fableglitch.fs.saveViewCacheFile({
+    assetId: asset.id,
+    extension: extensionFromFilename(asset.final_filename) || '.md',
+    content: content.content,
+  });
+  await window.fableglitch.db.viewCacheSet({
+    asset_id: asset.id,
+    storage_backend: asset.storage_backend,
+    storage_ref: asset.storage_ref,
+    local_cache_path: saved.path,
+    last_fetched_at: new Date().toISOString(),
+    size_bytes: saved.size_bytes,
+    presigned_url: null,
+    presigned_expires_at: null,
+  });
 }
 
 async function prepareImportFile(file: {

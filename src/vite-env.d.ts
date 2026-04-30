@@ -1,6 +1,13 @@
 /// <reference types="vite/client" />
 
-import type { ApiResponse, CreateLocalDraftInput, LocalDraft } from '../shared/types';
+import type {
+  ApiResponse,
+  AssetContentResult,
+  CreateLocalDraftInput,
+  LocalDraft,
+  StorageBackend,
+  ViewCacheEntry,
+} from '../shared/types';
 
 interface FileDialogFilter {
   name: string;
@@ -15,6 +22,8 @@ interface FableglitchDb {
   draftCreate: (draft: CreateLocalDraftInput) => Promise<LocalDraft>;
   draftsList: (episodeId: string) => Promise<LocalDraft[]>;
   draftDelete: (id: string) => Promise<void>;
+  viewCacheGet: (assetId: string) => Promise<ViewCacheEntry | null>;
+  viewCacheSet: (entry: ViewCacheEntry) => Promise<void>;
 }
 
 interface FableglitchFs {
@@ -30,6 +39,11 @@ interface FableglitchFs {
     size_bytes: number;
     content: Uint8Array;
   } | null>;
+  saveViewCacheFile: (payload: {
+    assetId: string;
+    extension: string;
+    content: string | ArrayBuffer | Uint8Array | number[];
+  }) => Promise<{ path: string; size_bytes: number }>;
 }
 
 interface FableglitchNet {
@@ -39,6 +53,10 @@ interface FableglitchNet {
     body?: unknown;
     requireAuth?: boolean;
   }) => Promise<{ status: number; body: ApiResponse<unknown> | null }>;
+  assetContent: (payload: {
+    assetId: string;
+    storageBackend: StorageBackend;
+  }) => Promise<{ status: number; body: ApiResponse<AssetContentResult> | null }>;
 }
 
 interface FableglitchSession {

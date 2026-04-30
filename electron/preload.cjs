@@ -9,14 +9,18 @@ contextBridge.exposeInMainWorld('fableglitch', {
     draftCreate: (draft) => ipcRenderer.invoke('db:drafts:create', draft),
     draftsList: (episodeId) => ipcRenderer.invoke('db:drafts:list', episodeId),
     draftDelete: (id) => ipcRenderer.invoke('db:drafts:delete', id),
+    viewCacheGet: (assetId) => ipcRenderer.invoke('db:view-cache:get', assetId),
+    viewCacheSet: (entry) => ipcRenderer.invoke('db:view-cache:set', entry),
   },
   fs: {
     saveDraftFile: (payload) => ipcRenderer.invoke('fs:draft:save', payload),
     readDraftFile: (path) => ipcRenderer.invoke('fs:draft:read', path),
     openFileDialog: (filters) => ipcRenderer.invoke('fs:file:open', filters),
+    saveViewCacheFile: (payload) => ipcRenderer.invoke('fs:view-cache:save', payload),
   },
   net: {
     request: (payload) => ipcRenderer.invoke('net:request', payload),
+    assetContent: (payload) => ipcRenderer.invoke('net:asset-content', payload),
   },
   session: {
     has: () => ipcRenderer.invoke('session:has'),

@@ -7,15 +7,52 @@ import type { AssetRow, LocalDraft } from '../../../shared/types';
 describe('AssetPanel', () => {
   it('renders import, paste, drafts, and pushed lists from data', () => {
     const onImport = vi.fn();
+    const onPreviewAsset = vi.fn();
+    const draft: LocalDraft = {
+      id: 'd1',
+      episode_id: 'ep-1',
+      type_code: 'SCRIPT',
+      name: '剧本草稿',
+      variant: null,
+      number: null,
+      version: 1,
+      stage: 'ROUGH',
+      language: 'ZH',
+      original_filename: 'a.md',
+      final_filename: 'a.md',
+      storage_backend: 'github',
+      storage_ref: 'x/a.md',
+      local_file_path: 'D:/drafts/a.md',
+      size_bytes: 1,
+      mime_type: 'text/markdown',
+      source: 'pasted',
+      created_at: '2026-04-30T00:00:00Z',
+    };
+    const pushed: AssetRow = {
+      id: 'a1',
+      type_code: 'SCRIPT',
+      name: '剧本入库',
+      variant: null,
+      version: 1,
+      stage: 'FINAL',
+      language: 'ZH',
+      final_filename: 'b.md',
+      storage_backend: 'github',
+      storage_ref: 'x/b.md',
+      file_size_bytes: 2,
+      mime_type: 'text/markdown',
+      pushed_at: '2026-04-30T00:00:00Z',
+      status: 'pushed',
+    };
     render(
       <AssetPanel
         assetType={ASSET_TYPES[0]}
         episodeId="ep-1"
-        drafts={[{ id: 'd1', name: '剧本草稿', final_filename: 'a.md' } as LocalDraft]}
-        pushedAssets={[{ id: 'a1', name: '剧本入库', final_filename: 'b.md' } as AssetRow]}
+        drafts={[draft]}
+        pushedAssets={[pushed]}
         onImport={onImport}
         onPaste={vi.fn()}
-        onPreviewAsset={vi.fn()}
+        onPreviewAsset={onPreviewAsset}
       />,
     );
 
@@ -27,6 +64,8 @@ describe('AssetPanel', () => {
 
     fireEvent.click(screen.getByText('导入文件'));
     expect(onImport).toHaveBeenCalledWith(ASSET_TYPES[0]);
+    fireEvent.click(screen.getByText('剧本入库'));
+    expect(onPreviewAsset).toHaveBeenCalledWith(pushed);
   });
 
   it('hides paste action when asset type does not support paste', () => {

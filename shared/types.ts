@@ -161,6 +161,7 @@ export interface AssetRow {
   storage_backend: StorageBackend;
   storage_ref: string;
   file_size_bytes: number | null;
+  mime_type: string | null;
   pushed_at: string;
   status: 'draft' | 'pushed' | 'superseded';
 }
@@ -176,3 +177,18 @@ export interface PreviewFilenameResult {
   storage_ref: string;
   collision?: unknown;
 }
+
+export interface ViewCacheEntry {
+  asset_id: string;
+  storage_backend: StorageBackend;
+  storage_ref: string;
+  local_cache_path: string | null;
+  last_fetched_at: string | null;
+  size_bytes: number | null;
+  presigned_url: string | null;
+  presigned_expires_at: string | null;
+}
+
+export type AssetContentResult =
+  | { kind: 'markdown'; content: string; content_type: string | null }
+  | { kind: 'url'; url: string; expires_at: string };

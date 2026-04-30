@@ -108,3 +108,29 @@ export function draftsList(episodeId) {
 export function draftDelete(id) {
   ensureDb().prepare('delete from local_drafts where id = ?').run(id);
 }
+
+export function viewCacheGet(assetId) {
+  const row = ensureDb().prepare('select * from view_cache where asset_id = ?').get(assetId);
+  return row ?? null;
+}
+
+export function viewCacheSet(input) {
+  ensureDb().prepare(`
+    insert or replace into view_cache (
+      asset_id, storage_backend, storage_ref, local_cache_path, last_fetched_at,
+      size_bytes, presigned_url, presigned_expires_at
+    ) values (
+      @asset_id, @storage_backend, @storage_ref, @local_cache_path, @last_fetched_at,
+      @size_bytes, @presigned_url, @presigned_expires_at
+    )
+  `).run({
+    asset_id: input.asset_id,
+    storage_backend: input.storage_backend,
+    storage_ref: input.storage_ref,
+    local_cache_path: input.local_cache_path ?? null,
+    last_fetched_at: input.last_fetched_at ?? new Date().toISOString(),
+    size_bytes: input.size_bytes ?? null,
+    presigned_url: input.presigned_url ?? null,
+    presigned_expires_at: input.presigned_expires_at ?? null,
+  });
+}
