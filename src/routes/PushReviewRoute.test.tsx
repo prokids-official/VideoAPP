@@ -111,7 +111,8 @@ describe('PushReviewRoute', () => {
 
     renderRoute();
 
-    expect(await screen.findByRole('button', { name: 'Back to episode dashboard' })).toBeTruthy();
+    const backButton = await screen.findByRole('button', { name: 'Back to episode dashboard' });
+    expect(backButton.textContent).toBe('返回剧集 Dashboard');
   });
 
   it('groups local drafts by asset panel', async () => {

@@ -35,9 +35,7 @@ export function AssetPanel({
               aria-label="Back to episode dashboard"
               onClick={onBack}
             >
-              <span className="mr-2 font-mono text-sm">←</span>
               <span className="text-sm">返回剧集 Dashboard</span>
-              返回
             </Button>
           )}
           <div className="text-4xl mb-3 leading-none">{assetType.icon}</div>

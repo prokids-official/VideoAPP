@@ -81,9 +81,7 @@ export function SettingsRoute({ onBack }: { onBack: () => void }) {
               aria-label="Back to workspace"
               onClick={onBack}
             >
-              <span className="mr-2 font-mono text-sm">←</span>
               <span className="text-sm">返回工作台</span>
-              返回
             </Button>
             <div>
               <h1 className="text-4xl font-bold tracking-tight">设置</h1>

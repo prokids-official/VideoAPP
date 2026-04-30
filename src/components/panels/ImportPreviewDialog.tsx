@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
 import type { AssetType, CreateLocalDraftInput, PreviewFilenameResult } from '../../../shared/types';
 import { formatBytes } from '../../lib/file-meta';
+import { MdPreview } from './preview/MdPreview';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 
@@ -164,11 +164,7 @@ function PreviewBody({ file }: { file: PendingImportFile }) {
   }, [url]);
 
   if (file.preview_kind === 'markdown') {
-    return (
-      <div className="max-h-[260px] overflow-auto rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm leading-6 text-text-2">
-        <ReactMarkdown>{file.preview_text ?? ''}</ReactMarkdown>
-      </div>
-    );
+    return <MdPreview markdown={file.preview_text ?? ''} compact />;
   }
 
   if (file.preview_kind === 'image' && url) {

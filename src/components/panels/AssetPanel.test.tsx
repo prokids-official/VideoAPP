@@ -21,7 +21,10 @@ describe('AssetPanel', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to episode dashboard' }));
+    const backButton = screen.getByRole('button', { name: 'Back to episode dashboard' });
+    expect(backButton.textContent).toBe('返回剧集 Dashboard');
+
+    fireEvent.click(backButton);
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 

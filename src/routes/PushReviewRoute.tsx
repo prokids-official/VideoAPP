@@ -197,9 +197,7 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
           onClick={onBack}
           className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-text-2 text-[0] transition hover:border-border-hi hover:text-text"
         >
-          <span className="font-mono text-base leading-none">←</span>
           <span className="text-sm">返回剧集 Dashboard</span>
-          ← 返回剧集
         </button>
       </div>
 
