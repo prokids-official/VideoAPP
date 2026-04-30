@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import type { ErrorCode, SignupPendingResult } from '@shared/types';
+import type { AuthResult, ErrorCode, SignupPendingResult } from '@shared/types';
 import { err, ok } from '@/lib/api-response';
 import { authRedirectUrl } from '@/lib/auth-redirect';
 import { extractClientIp, getLimiter } from '@/lib/rate-limit';
@@ -67,8 +67,9 @@ export async function POST(req: Request): Promise<Response> {
     return err('EMAIL_ALREADY_EXISTS', 'Email already registered', undefined, 409);
   }
 
-  // Use the public Auth signup flow so Supabase sends the confirmation email.
-  // Admin createUser is reserved for admin-managed accounts and does not send it.
+  // Use the public Auth signup flow. When Supabase "Confirm email" is OFF,
+  // signUp returns a session immediately; when it is ON, session remains null
+  // and the client should show the verification-pending screen.
   const { data: signupResult, error: signupError } = await supabasePublic().auth.signUp({
     email,
     password,
@@ -101,8 +102,26 @@ export async function POST(req: Request): Promise<Response> {
     return err('INTERNAL_ERROR', insertError.message, undefined, 500);
   }
 
-  // No session is issued at signup. The client should display a "check your
-  // inbox" screen; the user must verify the email then sign in via /auth/login.
+  if (signupResult.session) {
+    const result: AuthResult = {
+      user: {
+        id: userId,
+        email,
+        display_name,
+        team: 'FableGlitch',
+        role: 'member',
+      },
+      session: {
+        access_token: signupResult.session.access_token,
+        refresh_token: signupResult.session.refresh_token,
+        expires_at: signupResult.session.expires_at ?? 0,
+      },
+    };
+
+    return ok(result, 201);
+  }
+
+  // Fallback for projects where email confirmation is enabled.
   const result: SignupPendingResult = {
     user: {
       id: userId,

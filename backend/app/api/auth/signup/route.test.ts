@@ -110,7 +110,7 @@ describe('POST /api/auth/signup', () => {
     expect((await res.json()).error.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  it('201 on success, sends confirmation email and returns pending verification without session', async () => {
+  it('201 on success returns pending verification when confirmations are enabled', async () => {
     mocks.signUp.mockResolvedValueOnce({
       data: { user: { id: 'uid-1', email: 'x@beva.com' }, session: null },
       error: null,
@@ -150,5 +150,44 @@ describe('POST /api/auth/signup', () => {
       team: 'FableGlitch',
       role: 'member',
     });
+  });
+
+  it('201 on success returns session when confirmations are disabled', async () => {
+    mocks.signUp.mockResolvedValueOnce({
+      data: {
+        user: { id: 'uid-2', email: 'y@beva.com' },
+        session: {
+          access_token: 'access-2',
+          refresh_token: 'refresh-2',
+          expires_at: 1_777_777_777,
+        },
+      },
+      error: null,
+    });
+
+    const res = await POST(
+      makeReq({ email: 'y@beva.com', password: 'abcdefg1', display_name: 'Felix' }),
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body).toEqual({
+      ok: true,
+      data: {
+        user: {
+          id: 'uid-2',
+          email: 'y@beva.com',
+          display_name: 'Felix',
+          team: 'FableGlitch',
+          role: 'member',
+        },
+        session: {
+          access_token: 'access-2',
+          refresh_token: 'refresh-2',
+          expires_at: 1_777_777_777,
+        },
+      },
+    });
+    expect(body.data.email_verification_required).toBeUndefined();
   });
 });

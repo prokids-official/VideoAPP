@@ -58,13 +58,15 @@
 - [ ] **API → JWT Settings**：
   - 复制 **JWT Secret** → `SUPABASE_JWT_SECRET=`
 
-### 1.3 保持邮箱验证开启（默认就是开启）
+### 1.3 开发期关闭注册邮箱验证
 
 - [ ] **Authentication → Providers → Email**：
-  - **Confirm email** 保持**开启**（默认即此值，新版 spec §5.1 已改为开启策略）
-  - 理由：域名白名单仅能挡明显非法邮箱，邮箱验证是第二道关口，确保注册者真持有该邮箱
+  - **Confirm email** 保持**关闭**（当前开发配置；见 spec §5.1）
+  - 理由：公司 SMTP / 域名 DNS 尚未接入，注册确认邮件会被投递和速率限制阻塞；开发期先靠 `@beva.com` 白名单限制
+  - 未来公司 SMTP 配好后，再恢复 **Confirm email = ON**
 - [ ] **Authentication → URL Configuration → Redirect URLs**：
-  - 加上你的 Vercel preview URL（如 `https://video-app-kappa-murex.vercel.app`）作为允许的回跳目标——用户点验证链接后会跳到这里。本地开发时再加一个 `http://localhost:3001`
+  - 加上你的 Vercel preview URL（如 `https://video-app-kappa-murex.vercel.app`）作为允许的回跳目标
+  - 保留 `https://video-app-kappa-murex.vercel.app/auth/reset-password` 给找回密码邮件使用；未来开启邮箱验证时再使用 `/auth/confirmed`
 
 ### 1.4 推 migrations + seed 到生产数据库
 

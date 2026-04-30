@@ -73,7 +73,7 @@ async function call<T>(opts: NetRequestPayload): Promise<ApiCallResult<T>> {
 
 export const api = {
   signup: (input: { email: string; password: string; display_name: string }) =>
-    call<SignupPendingResult>({ method: 'POST', path: '/auth/signup', body: input }),
+    call<AuthResult | SignupPendingResult>({ method: 'POST', path: '/auth/signup', body: input }),
 
   login: (input: { email: string; password: string }) =>
     call<AuthResult>({ method: 'POST', path: '/auth/login', body: input }),

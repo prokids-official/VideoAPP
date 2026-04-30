@@ -8,6 +8,7 @@ export interface AuthState {
     ok: boolean;
     message?: string;
     pendingEmail?: string;
+    signedIn?: boolean;
   }>;
   login: (input: { email: string; password: string }) => Promise<{ ok: boolean; code?: string; message?: string }>;
   resendVerification: (input: { email: string }) => Promise<{ ok: boolean; message?: string }>;

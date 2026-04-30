@@ -66,8 +66,10 @@ export function LoginRoute() {
           display_name: displayName.trim(),
         });
 
-        if (result.ok && result.pendingEmail) {
-          setPendingEmail(result.pendingEmail);
+        if (result.ok) {
+          if (result.pendingEmail) {
+            setPendingEmail(result.pendingEmail);
+          }
           setPassword('');
           setConfirmPassword('');
           return;

@@ -50,6 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signup(input: { email: string; password: string; display_name: string }) {
     const r = await api.signup(input);
     if (r.ok) {
+      if ('session' in r.data) {
+        setUser(r.data.user);
+        return { ok: true, signedIn: true };
+      }
       return { ok: true, pendingEmail: r.data.user.email };
     }
     return { ok: false, message: r.message };
