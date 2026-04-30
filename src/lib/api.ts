@@ -2,6 +2,8 @@ import type {
   ApiResponse,
   AssetsListResult,
   AuthResult,
+  AssetStage,
+  PreviewFilenameResult,
   SignupPendingResult,
   TreeResponse,
   UsageMeResponse,
@@ -125,6 +127,24 @@ export const api = {
     }
     return call<AssetsListResult>({ method: 'GET', path: `/assets?${qs.toString()}`, requireAuth: true });
   },
+
+  previewFilename: (input: {
+    episode_id: string;
+    type_code: string;
+    name?: string;
+    variant?: string;
+    number?: number;
+    version?: number;
+    stage?: AssetStage;
+    language?: string;
+    original_filename?: string;
+  }) =>
+    call<PreviewFilenameResult>({
+      method: 'POST',
+      path: '/assets/preview-filename',
+      body: input,
+      requireAuth: true,
+    }),
 
   usageMe: () =>
     call<UsageMeResponse>({ method: 'GET', path: '/usage/me', requireAuth: true }),

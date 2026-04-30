@@ -3,10 +3,19 @@ import { TopNav } from '../components/chrome/TopNav';
 import { ProjectTree } from '../components/chrome/ProjectTree';
 import { Button } from '../components/ui/Button';
 import { AssetPanel } from '../components/panels/AssetPanel';
+import { ImportPreviewDialog, type PendingImportFile } from '../components/panels/ImportPreviewDialog';
 import { api } from '../lib/api';
 import { ASSET_TYPES, getAssetType } from '../lib/asset-types';
-import { listDrafts } from '../lib/drafts';
-import type { AssetRow, AssetType, LocalDraft, TreeResponse } from '../../shared/types';
+import { fileDialogFiltersFor } from '../lib/file-meta';
+import { createDraft, listDrafts, saveDraftFile } from '../lib/drafts';
+import type {
+  AssetRow,
+  AssetType,
+  CreateLocalDraftInput,
+  LocalDraft,
+  PreviewFilenameResult,
+  TreeResponse,
+} from '../../shared/types';
 
 const PANELS_P0 = ASSET_TYPES.filter((type) => type.enabled).sort((a, b) => a.sort_order - b.sort_order);
 const PANELS_P4 = ASSET_TYPES.filter((type) => !type.enabled).sort((a, b) => a.sort_order - b.sort_order);
@@ -47,6 +56,11 @@ export function TreeRoute({
   const [panelAssets, setPanelAssets] = useState<AssetRow[]>([]);
   const [panelLoading, setPanelLoading] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<{
+    assetType: AssetType;
+    file: PendingImportFile;
+    preview: PreviewFilenameResult;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +169,61 @@ export function TreeRoute({
     setSelectedPanelCode(typeCode);
   }
 
+  async function handleImport(assetType: AssetType) {
+    if (!selectedEpisodeId) {
+      return;
+    }
+
+    try {
+      const selected = await window.fableglitch.fs.openFileDialog(fileDialogFiltersFor(assetType));
+      if (!selected) {
+        return;
+      }
+
+      const file = await prepareImportFile(selected);
+      const baseName = basenameWithoutExtension(selected.name);
+      const previewResult = await api.previewFilename({
+        episode_id: selectedEpisodeId,
+        type_code: assetType.code,
+        name: baseName,
+        number: assetType.filename_tpl.includes('{number') ? 1 : undefined,
+        version: 1,
+        stage: 'ROUGH',
+        language: 'ZH',
+        original_filename: selected.name,
+      });
+
+      if (!previewResult.ok) {
+        setPanelError(previewResult.message);
+        return;
+      }
+
+      setPendingImport({ assetType, file, preview: previewResult.data });
+    } catch (cause) {
+      setPanelError(cause instanceof Error ? cause.message : '导入失败');
+    }
+  }
+
+  async function handleSaveImportDraft(
+    draft: Omit<CreateLocalDraftInput, 'id' | 'local_file_path'>,
+    content: string | ArrayBuffer,
+  ) {
+    const id = crypto.randomUUID();
+    const saved = await saveDraftFile({
+      localDraftId: id,
+      extension: extensionFromFilename(draft.final_filename),
+      content,
+    });
+    const created = await createDraft({
+      ...draft,
+      id,
+      local_file_path: saved.path,
+      size_bytes: saved.size_bytes,
+    });
+    setPanelDrafts((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+    setPendingImport(null);
+  }
+
   return (
     <div className="h-full flex flex-col bg-bg text-text">
       <TopNav onOpenSettings={onOpenSettings} />
@@ -183,6 +252,7 @@ export function TreeRoute({
               pushedAssets={panelAssets}
               loading={panelLoading}
               error={panelError}
+              onImport={handleImport}
               onBack={() => setSelectedPanelCode(null)}
             />
           ) : error ? (
@@ -196,6 +266,17 @@ export function TreeRoute({
           )}
         </main>
       </div>
+      {pendingImport && (
+        <ImportPreviewDialog
+          open
+          assetType={pendingImport.assetType}
+          episodeId={selectedEpisodeId ?? ''}
+          file={pendingImport.file}
+          preview={pendingImport.preview}
+          onClose={() => setPendingImport(null)}
+          onSaveDraft={handleSaveImportDraft}
+        />
+      )}
     </div>
   );
 }
@@ -236,6 +317,7 @@ function PanelView({
   pushedAssets,
   loading,
   error,
+  onImport,
   onBack,
 }: {
   panelCode: string;
@@ -244,6 +326,7 @@ function PanelView({
   pushedAssets: AssetRow[];
   loading: boolean;
   error: string | null;
+  onImport: (assetType: AssetType) => void;
   onBack: () => void;
 }) {
   const assetType = getAssetType(panelCode);
@@ -266,12 +349,104 @@ function PanelView({
       episodeId={episodeId}
       drafts={drafts}
       pushedAssets={pushedAssets}
-      onImport={() => {}}
+      onImport={onImport}
       onPaste={() => {}}
       onPreviewAsset={() => {}}
       onBack={onBack}
     />
   );
+}
+
+async function prepareImportFile(file: {
+  name: string;
+  size_bytes: number;
+  content: Uint8Array;
+}): Promise<PendingImportFile> {
+  const ext = extensionFromFilename(file.name).toLowerCase();
+  const content = toArrayBuffer(file.content);
+
+  if (ext === '.docx') {
+    const { docxToMarkdown } = await import('../lib/docx');
+    const markdown = await docxToMarkdown(content);
+    return {
+      name: file.name,
+      size: encodedSize(markdown),
+      mime_type: 'text/markdown',
+      content,
+      preview_kind: 'markdown',
+      preview_text: markdown,
+      save_content: markdown,
+    };
+  }
+
+  if (ext === '.xlsx') {
+    const { xlsxToMarkdown } = await import('../lib/xlsx');
+    const markdown = await xlsxToMarkdown(content);
+    return {
+      name: file.name,
+      size: encodedSize(markdown),
+      mime_type: 'text/markdown',
+      content,
+      preview_kind: 'markdown',
+      preview_text: markdown,
+      save_content: markdown,
+    };
+  }
+
+  if (ext === '.md' || ext === '.txt') {
+    const text = new TextDecoder().decode(content);
+    return {
+      name: file.name,
+      size: file.size_bytes,
+      mime_type: ext === '.md' ? 'text/markdown' : 'text/plain',
+      content,
+      preview_kind: 'markdown',
+      preview_text: text,
+      save_content: text,
+    };
+  }
+
+  const mimeType = mimeTypeForExtension(ext);
+  return {
+    name: file.name,
+    size: file.size_bytes,
+    mime_type: mimeType,
+    content,
+    preview_kind: mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'binary',
+    save_content: content,
+  };
+}
+
+function toArrayBuffer(value: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(value.byteLength);
+  copy.set(value);
+  return copy.buffer;
+}
+
+function basenameWithoutExtension(filename: string): string {
+  return filename.replace(/\.[^.]+$/, '');
+}
+
+function extensionFromFilename(filename: string): string {
+  const match = /\.[^.]+$/.exec(filename);
+  return match ? match[0] : '.bin';
+}
+
+function encodedSize(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function mimeTypeForExtension(ext: string): string {
+  const map: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.mp4': 'video/mp4',
+    '.mov': 'video/quicktime',
+    '.webm': 'video/webm',
+  };
+  return map[ext] ?? 'application/octet-stream';
 }
 
 function Dashboard({ detail, onOpenPanel }: { detail: EpisodeDetail; onOpenPanel: (typeCode: string) => void }) {

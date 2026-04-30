@@ -169,3 +169,10 @@ export interface AssetsListResult {
   assets: AssetRow[];
   total: number;
 }
+
+export interface PreviewFilenameResult {
+  final_filename: string;
+  storage_backend: StorageBackend;
+  storage_ref: string;
+  collision?: unknown;
+}
