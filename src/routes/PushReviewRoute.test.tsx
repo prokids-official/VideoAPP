@@ -106,6 +106,14 @@ afterEach(() => {
 });
 
 describe('PushReviewRoute', () => {
+  it('renders a clear back-to-dashboard control', async () => {
+    draftsList.mockResolvedValue([]);
+
+    renderRoute();
+
+    expect(await screen.findByRole('button', { name: 'Back to episode dashboard' })).toBeTruthy();
+  });
+
   it('groups local drafts by asset panel', async () => {
     draftsList.mockResolvedValue([
       draft({ id: 'd1', type_code: 'SCRIPT', final_filename: 'script.md' }),

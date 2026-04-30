@@ -5,6 +5,26 @@ import { ASSET_TYPES } from '../../lib/asset-types';
 import type { AssetRow, LocalDraft } from '../../../shared/types';
 
 describe('AssetPanel', () => {
+  it('renders a clear back control when provided', () => {
+    const onBack = vi.fn();
+
+    render(
+      <AssetPanel
+        assetType={ASSET_TYPES[0]}
+        episodeId="ep-1"
+        drafts={[]}
+        pushedAssets={[]}
+        onImport={vi.fn()}
+        onPaste={vi.fn()}
+        onPreviewAsset={vi.fn()}
+        onBack={onBack}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to episode dashboard' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
   it('renders import, paste, drafts, and pushed lists from data', () => {
     const onImport = vi.fn();
     const onPreviewAsset = vi.fn();

@@ -88,6 +88,21 @@ function resolveIconPath() {
   return iconPath;
 }
 
+function registerWindowDiagnostics(win) {
+  win.on('unresponsive', () => {
+    console.warn(`[fableglitch] renderer unresponsive at ${new Date().toISOString()}`);
+  });
+  win.on('responsive', () => {
+    console.warn(`[fableglitch] renderer responsive again at ${new Date().toISOString()}`);
+  });
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[fableglitch] renderer process gone', details);
+  });
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[fableglitch] renderer failed load', { errorCode, errorDescription, validatedURL });
+  });
+}
+
 async function createMainWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -105,6 +120,7 @@ async function createMainWindow() {
       nodeIntegration: false,
     },
   });
+  registerWindowDiagnostics(win);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     await win.loadURL(process.env.VITE_DEV_SERVER_URL);

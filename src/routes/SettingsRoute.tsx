@@ -74,7 +74,15 @@ export function SettingsRoute({ onBack }: { onBack: () => void }) {
       <main className="flex-1 overflow-y-auto px-10 py-10">
         <div className="max-w-[980px] mx-auto">
           <div className="flex items-center gap-4 mb-10">
-            <Button variant="ghost" size="sm" onClick={onBack}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="text-[0]"
+              aria-label="Back to workspace"
+              onClick={onBack}
+            >
+              <span className="mr-2 font-mono text-sm">←</span>
+              <span className="text-sm">返回工作台</span>
               返回
             </Button>
             <div>

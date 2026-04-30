@@ -190,12 +190,15 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
     <div className="h-full flex flex-col bg-bg text-text">
       <TopNav onOpenSettings={onOpenSettings} />
       {toast && <Toast tone={toast.tone} message={toast.message} />}
-      <div className="border-b border-border bg-surface px-8 py-2.5">
+      <div className="border-b border-border bg-surface px-8 py-3">
         <button
           type="button"
+          aria-label="Back to episode dashboard"
           onClick={onBack}
-          className="font-mono text-xs text-text-3 transition hover:text-text"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-text-2 text-[0] transition hover:border-border-hi hover:text-text"
         >
+          <span className="font-mono text-base leading-none">←</span>
+          <span className="text-sm">返回剧集 Dashboard</span>
           ← 返回剧集
         </button>
       </div>

@@ -28,7 +28,15 @@ export function AssetPanel({
       <div className="mb-8 flex items-start justify-between gap-6">
         <div>
           {onBack && (
-            <Button variant="ghost" size="sm" className="mb-5" onClick={onBack}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mb-5 text-[0]"
+              aria-label="Back to episode dashboard"
+              onClick={onBack}
+            >
+              <span className="mr-2 font-mono text-sm">←</span>
+              <span className="text-sm">返回剧集 Dashboard</span>
               返回
             </Button>
           )}
