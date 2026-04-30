@@ -12,8 +12,14 @@ import {
   viewCacheGet,
   viewCacheSet,
 } from './local-db.mjs';
-import { openFileDialog, readDraftFile, saveDraftFile, saveViewCacheFile } from './file-system.mjs';
-import { apiRequest, assetContentRequest, hasSession, dropSession } from './api-client.mjs';
+import {
+  deleteDraftFile,
+  openFileDialog,
+  readDraftFile,
+  saveDraftFile,
+  saveViewCacheFile,
+} from './file-system.mjs';
+import { apiRequest, assetContentRequest, assetPushRequest, hasSession, dropSession } from './api-client.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,11 +45,13 @@ ipcMain.handle('db:view-cache:set', (_event, entry) => {
 
 ipcMain.handle('fs:draft:save', (_event, payload) => saveDraftFile(payload));
 ipcMain.handle('fs:draft:read', (_event, filePath) => readDraftFile(filePath));
+ipcMain.handle('fs:draft:delete', (_event, localDraftId) => deleteDraftFile(localDraftId));
 ipcMain.handle('fs:file:open', (_event, filters) => openFileDialog(filters));
 ipcMain.handle('fs:view-cache:save', (_event, payload) => saveViewCacheFile(payload));
 
 ipcMain.handle('net:request', (_event, payload) => apiRequest(payload));
 ipcMain.handle('net:asset-content', (_event, payload) => assetContentRequest(payload));
+ipcMain.handle('net:asset-push', (_event, payload) => assetPushRequest(payload));
 ipcMain.handle('session:has', () => hasSession());
 ipcMain.handle('session:clear', () => {
   dropSession();

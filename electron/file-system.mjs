@@ -24,6 +24,29 @@ export async function readDraftFile(filePath) {
   return fs.readFile(filePath);
 }
 
+export async function deleteDraftFile(localDraftId) {
+  const dir = draftsRoot();
+  let names;
+  try {
+    names = await fs.readdir(dir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  await Promise.all(
+    names
+      .filter((name) => name === localDraftId || name.startsWith(`${localDraftId}.`))
+      .map((name) => fs.unlink(path.join(dir, name)).catch((error) => {
+        if (error?.code !== 'ENOENT') {
+          throw error;
+        }
+      })),
+  );
+}
+
 export async function openFileDialog(filters) {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],

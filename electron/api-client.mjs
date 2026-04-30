@@ -111,6 +111,58 @@ async function rawContentRequest(pathname, accessToken, storageBackend) {
   };
 }
 
+async function rawMultipartRequest(pathname, payload, accessToken) {
+  const headers = {};
+  if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+
+  const formData = new FormData();
+  formData.append('payload', JSON.stringify(payload.payload));
+
+  for (const item of payload.items ?? []) {
+    const body = payload.files?.[item.local_draft_id];
+    if (!body) continue;
+    formData.append(
+      `file__${item.local_draft_id}`,
+      new Blob([body], { type: item.mime_type || 'application/octet-stream' }),
+      item.original_filename || `${item.local_draft_id}.bin`,
+    );
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res;
+  try {
+    res = await fetch(`${BASE}${pathname}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      return {
+        status: 0,
+        body: { ok: false, error: { code: 'TIMEOUT', message: 'Request timed out. Please try again.' } },
+      };
+    }
+    return { status: 0, body: { ok: false, error: { code: 'NETWORK', message: e.message ?? 'fetch failed' } } };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    /* non-json response */
+  }
+
+  const retryAfterRaw = res.headers.get('retry-after');
+  const retryAfter = retryAfterRaw ? Number.parseInt(retryAfterRaw, 10) : null;
+  return { status: res.status, body: json, retryAfter: Number.isFinite(retryAfter) ? retryAfter : null };
+}
+
 async function refreshAccess() {
   const rt = getRefreshToken();
   if (!rt) return null;
@@ -172,6 +224,23 @@ export async function assetContentRequest(payload) {
     access = await refreshAccess();
     if (!access) return attempt;
     attempt = await rawContentRequest(`/assets/${assetId}/content`, access, storageBackend);
+  }
+
+  return attempt;
+}
+
+export async function assetPushRequest(payload) {
+  if (!payload?.payload?.idempotency_key || !Array.isArray(payload.items)) {
+    return { status: 0, body: { ok: false, error: { code: 'CLIENT_ERROR', message: 'push payload required' } } };
+  }
+
+  let access = getAccessToken();
+  let attempt = await rawMultipartRequest('/assets/push', payload, access);
+
+  if (attempt.status === 401) {
+    access = await refreshAccess();
+    if (!access) return attempt;
+    attempt = await rawMultipartRequest('/assets/push', payload, access);
   }
 
   return attempt;

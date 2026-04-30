@@ -4,13 +4,22 @@ import { TopNav } from '../components/chrome/TopNav';
 import { ASSET_TYPES, getAssetType } from '../lib/asset-types';
 import { listDrafts } from '../lib/drafts';
 import { useAuth } from '../stores/use-auth';
-import type { AssetSource, AssetType, LocalDraft } from '../../shared/types';
+import type {
+  ApiResponse,
+  AssetPushItem,
+  AssetPushPayload,
+  AssetPushResult,
+  AssetSource,
+  AssetType,
+  LocalDraft,
+} from '../../shared/types';
 
 interface Props {
   episodeId: string;
   episodeName: string;
   onBack: () => void;
   onOpenSettings: () => void;
+  onPushed: (count: number) => void;
 }
 
 interface DraftGroup {
@@ -30,12 +39,20 @@ const SOURCE_LABELS: Record<AssetSource, string> = {
   'ai-generated': 'ai-generated',
 };
 
-export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings }: Props) {
+interface ToastState {
+  tone: 'error' | 'info';
+  message: string;
+}
+
+export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings, onPushed }: Props) {
   const { user } = useAuth();
   const [drafts, setDrafts] = useState<LocalDraft[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [commitMessage, setCommitMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pushing, setPushing] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [conflictKey, setConflictKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -124,19 +141,55 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
     });
   }
 
-  function handlePush() {
-    const payload = {
-      episode_id: episodeId,
-      draft_ids: selectedDrafts.map((draft) => draft.id),
+  async function runPush(idempotencyKey: string) {
+    if (selectedDrafts.length === 0 || pushing) {
+      return;
+    }
+
+    setPushing(true);
+    setToast(null);
+    setConflictKey(null);
+
+    const draftSnapshot = selectedDrafts;
+    const items = draftSnapshot.map(toPushItem);
+    const payload: AssetPushPayload = {
+      idempotency_key: idempotencyKey,
       commit_message: commitMessage,
+      items,
     };
-    console.log('[fableglitch] Task 9 push payload', payload);
-    window.alert('Task 9 will wire this up');
+
+    try {
+      const files = await readDraftFiles(draftSnapshot);
+      const result = await window.fableglitch.net.assetPush({ payload, items, files });
+      const body = result.body;
+
+      if (result.status >= 200 && result.status < 300 && body?.ok) {
+        await cleanupLocalDrafts(body.data, draftSnapshot);
+        onPushed(draftSnapshot.length);
+        return;
+      }
+
+      const failure = parseFailure(result.status, body, result.retryAfter);
+      if (failure.code === 'GITHUB_CONFLICT') {
+        setConflictKey(idempotencyKey);
+        return;
+      }
+      setToast({ tone: 'error', message: failure.message });
+    } catch {
+      setToast({ tone: 'error', message: '网络异常' });
+    } finally {
+      setPushing(false);
+    }
+  }
+
+  function handlePush() {
+    void runPush(crypto.randomUUID());
   }
 
   return (
     <div className="h-full flex flex-col bg-bg text-text">
       <TopNav onOpenSettings={onOpenSettings} />
+      {toast && <Toast tone={toast.tone} message={toast.message} />}
       <div className="border-b border-border bg-surface px-8 py-2.5">
         <button
           type="button"
@@ -202,7 +255,7 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
           </div>
           <motion.button
             type="button"
-            disabled={selectedDrafts.length === 0}
+            disabled={selectedDrafts.length === 0 || pushing}
             onClick={handlePush}
             animate={
               selectedDrafts.length > 0
@@ -212,10 +265,24 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
             transition={{ duration: 2.4, repeat: selectedDrafts.length > 0 ? Infinity : 0, ease: 'easeInOut' }}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-full border-0 bg-gradient-brand px-7 text-base font-semibold tracking-tight text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            ⚡ 推送
+            {pushing ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                推送中...
+              </>
+            ) : (
+              '⚡ 推送'
+            )}
           </motion.button>
         </div>
       </div>
+      {pushing && <PushOverlay />}
+      {conflictKey && (
+        <ConflictDialog
+          onRetry={() => void runPush(conflictKey)}
+          onLater={onBack}
+        />
+      )}
     </div>
   );
 }
@@ -290,6 +357,155 @@ function StatusPanel({ title, text }: { title: string; text: string }) {
       <p className="font-mono text-sm text-text-3">{text}</p>
     </div>
   );
+}
+
+function Toast({ tone, message }: ToastState) {
+  return (
+    <div
+      role="status"
+      className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 rounded-full border px-4 py-2 font-mono text-xs shadow-lg ${
+        tone === 'error'
+          ? 'border-red/30 bg-red/10 text-red'
+          : 'border-accent/30 bg-accent/10 text-accent-hi'
+      }`}
+    >
+      {message}
+    </div>
+  );
+}
+
+function PushOverlay() {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg/55 backdrop-blur-sm">
+      <div className="w-80 rounded-xl border border-border bg-surface p-5 shadow-lg">
+        <div className="mb-4 text-center text-sm font-medium text-text-2">正在入库资产</div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+          <motion.div
+            className="h-full w-1/2 rounded-full bg-gradient-brand"
+            animate={{ x: ['-100%', '220%'] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConflictDialog({ onRetry, onLater }: { onRetry: () => void; onLater: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 backdrop-blur-sm">
+      <div role="dialog" className="w-[420px] rounded-xl border border-border bg-surface p-6 shadow-xl">
+        <div className="mb-2 text-lg font-semibold">同事刚推过新内容，重试？</div>
+        <p className="mb-6 text-sm leading-relaxed text-text-3">
+          GitHub main 分支刚刚被更新。可以用同一个幂等 key 重试，避免重复入库。
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onLater}
+            className="h-9 rounded border border-border bg-surface-2 px-4 text-sm text-text-2 transition hover:text-text"
+          >
+            稍后
+          </button>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="h-9 rounded bg-gradient-brand px-4 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function toPushItem(draft: LocalDraft): AssetPushItem {
+  return {
+    local_draft_id: draft.id,
+    episode_id: draft.episode_id,
+    type_code: draft.type_code,
+    name: draft.name,
+    variant: draft.variant ?? undefined,
+    number: draft.number ?? undefined,
+    version: draft.version,
+    stage: draft.stage,
+    language: draft.language,
+    source: draft.source,
+    original_filename: draft.original_filename ?? undefined,
+    mime_type: draft.mime_type,
+    size_bytes: draft.size_bytes,
+  };
+}
+
+async function readDraftFiles(drafts: LocalDraft[]): Promise<Record<string, ArrayBuffer>> {
+  const entries = await Promise.all(
+    drafts.map(async (draft) => {
+      const data = await window.fableglitch.fs.readDraftFile(draft.local_file_path);
+      return [draft.id, toArrayBuffer(data)] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+async function cleanupLocalDrafts(result: AssetPushResult, selectedDrafts: LocalDraft[]) {
+  const pushedIds = new Set(result.assets.map((asset) => asset.local_draft_id));
+  const ids = pushedIds.size > 0 ? pushedIds : new Set(selectedDrafts.map((draft) => draft.id));
+
+  await Promise.all(
+    selectedDrafts
+      .filter((draft) => ids.has(draft.id))
+      .map(async (draft) => {
+        await window.fableglitch.db.draftDelete(draft.id);
+        await window.fableglitch.fs.deleteDraftFile(draft.id);
+      }),
+  );
+}
+
+function parseFailure(
+  status: number,
+  body: ApiResponse<AssetPushResult> | null,
+  retryAfter?: number | null,
+): { code: string; message: string } {
+  if (!body || body.ok) {
+    return { code: 'NETWORK', message: `HTTP ${status}` };
+  }
+
+  const detailCode = detailString(body.error.details, 'code');
+  const code = detailCode ?? body.error.code;
+  if (code === 'GITHUB_CONFLICT') {
+    return { code, message: body.error.message };
+  }
+  if (code === 'BACKEND_UNAVAILABLE' || status === 502) {
+    return { code, message: '后端临时不可用，请稍后重试' };
+  }
+  if (code === 'RATE_LIMITED' || status === 429) {
+    const seconds = retryAfter ?? detailNumber(body.error.details, 'retry_after') ?? detailNumber(body.error.details, 'retry_after_seconds');
+    return { code, message: seconds ? `请求太频繁，请 ${seconds}s 后重试` : '请求太频繁，请稍后重试' };
+  }
+  return { code, message: body.error.message };
+}
+
+function detailString(details: unknown, key: string): string | null {
+  if (typeof details === 'object' && details !== null && key in details) {
+    const value = (details as Record<string, unknown>)[key];
+    return typeof value === 'string' ? value : null;
+  }
+  return null;
+}
+
+function detailNumber(details: unknown, key: string): number | null {
+  if (typeof details === 'object' && details !== null && key in details) {
+    const value = (details as Record<string, unknown>)[key];
+    return typeof value === 'number' ? value : null;
+  }
+  return null;
+}
+
+function toArrayBuffer(value: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(value.byteLength);
+  copy.set(value);
+  return copy.buffer;
 }
 
 function sumBytes(drafts: LocalDraft[]): number {

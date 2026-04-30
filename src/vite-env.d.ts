@@ -3,6 +3,9 @@
 import type {
   ApiResponse,
   AssetContentResult,
+  AssetPushItem,
+  AssetPushPayload,
+  AssetPushResult,
   CreateLocalDraftInput,
   LocalDraft,
   StorageBackend,
@@ -33,6 +36,7 @@ interface FableglitchFs {
     content: string | ArrayBuffer | Uint8Array | number[];
   }) => Promise<{ path: string; size_bytes: number }>;
   readDraftFile: (path: string) => Promise<Uint8Array>;
+  deleteDraftFile: (localDraftId: string) => Promise<void>;
   openFileDialog: (filters?: FileDialogFilter[]) => Promise<{
     path: string;
     name: string;
@@ -57,6 +61,11 @@ interface FableglitchNet {
     assetId: string;
     storageBackend: StorageBackend;
   }) => Promise<{ status: number; body: ApiResponse<AssetContentResult> | null }>;
+  assetPush: (payload: {
+    payload: AssetPushPayload;
+    items: AssetPushItem[];
+    files: Record<string, ArrayBuffer>;
+  }) => Promise<{ status: number; body: ApiResponse<AssetPushResult> | null; retryAfter?: number | null }>;
 }
 
 interface FableglitchSession {

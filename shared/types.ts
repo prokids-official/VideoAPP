@@ -192,3 +192,37 @@ export interface ViewCacheEntry {
 export type AssetContentResult =
   | { kind: 'markdown'; content: string; content_type: string | null }
   | { kind: 'url'; url: string; expires_at: string };
+
+export interface AssetPushItem {
+  local_draft_id: string;
+  episode_id: string;
+  type_code: string;
+  name?: string;
+  variant?: string;
+  number?: number;
+  version: number;
+  stage: AssetStage;
+  language: string;
+  source: AssetSource;
+  original_filename?: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
+export interface AssetPushPayload {
+  idempotency_key: string;
+  commit_message: string;
+  items: AssetPushItem[];
+}
+
+export interface AssetPushResult {
+  commit_sha?: string;
+  assets: Array<{
+    local_draft_id: string;
+    id?: string;
+    storage_backend?: StorageBackend;
+    storage_ref?: string;
+    final_filename?: string;
+    status: 'pushed';
+  }>;
+}

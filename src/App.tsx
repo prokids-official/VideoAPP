@@ -16,6 +16,7 @@ export default function App() {
   const [projectState, setProjectState] = useState<{ userId: string; hasProjects: boolean } | null>(null);
   const [route, setRoute] = useState<AppRoute>('studio');
   const [pushReviewEpisode, setPushReviewEpisode] = useState<{ id: string; name: string } | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
   const [episodeWizardOpen, setEpisodeWizardOpen] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [treeReloadKey, setTreeReloadKey] = useState(0);
@@ -78,6 +79,14 @@ export default function App() {
     window.history.pushState({}, '', '/');
   }
 
+  function handleAssetsPushed(count: number) {
+    setRoute('studio');
+    setSuccessToast(`✓ ${count} 项资产已入库`);
+    setTreeReloadKey((value) => value + 1);
+    window.history.pushState({}, '', '/');
+    window.setTimeout(() => setSuccessToast(null), 3_000);
+  }
+
   let content;
 
   if (loading) {
@@ -97,6 +106,7 @@ export default function App() {
         episodeName={pushReviewEpisode.name}
         onBack={closePushReview}
         onOpenSettings={() => setRoute('settings')}
+        onPushed={handleAssetsPushed}
       />
     );
   } else if (hasProjects === null) {
@@ -130,6 +140,14 @@ export default function App() {
     <div className="h-screen flex flex-col bg-bg text-text overflow-hidden">
       <TitleBar />
       <div className="flex-1 min-h-0 overflow-hidden">{content}</div>
+      {successToast && (
+        <div
+          role="status"
+          className="fixed left-1/2 top-12 z-50 -translate-x-1/2 rounded-full bg-gradient-brand px-4 py-2 font-mono text-xs font-semibold text-white shadow-glow"
+        >
+          {successToast}
+        </div>
+      )}
       {user && (
         <EpisodeWizard
           open={episodeWizardOpen}

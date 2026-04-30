@@ -15,12 +15,14 @@ contextBridge.exposeInMainWorld('fableglitch', {
   fs: {
     saveDraftFile: (payload) => ipcRenderer.invoke('fs:draft:save', payload),
     readDraftFile: (path) => ipcRenderer.invoke('fs:draft:read', path),
+    deleteDraftFile: (localDraftId) => ipcRenderer.invoke('fs:draft:delete', localDraftId),
     openFileDialog: (filters) => ipcRenderer.invoke('fs:file:open', filters),
     saveViewCacheFile: (payload) => ipcRenderer.invoke('fs:view-cache:save', payload),
   },
   net: {
     request: (payload) => ipcRenderer.invoke('net:request', payload),
     assetContent: (payload) => ipcRenderer.invoke('net:asset-content', payload),
+    assetPush: (payload) => ipcRenderer.invoke('net:asset-push', payload),
   },
   session: {
     has: () => ipcRenderer.invoke('session:has'),
