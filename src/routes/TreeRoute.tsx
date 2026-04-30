@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { TopNav } from '../components/chrome/TopNav';
 import { ProjectTree } from '../components/chrome/ProjectTree';
 import { Button } from '../components/ui/Button';
@@ -659,12 +660,6 @@ function Dashboard({
         </span>
       </div>
 
-      <div className="mb-10 flex justify-end">
-        <Button variant="gradient" onClick={onOpenPushReview}>
-          入库评审 ({draftCount} 草稿)
-        </Button>
-      </div>
-
       <div className="text-xs font-semibold text-text-2 uppercase tracking-widest mb-4">P0 资产面板</div>
       <div className="grid grid-cols-4 gap-3 mb-10">
         {PANELS_P0.map((panel) => (
@@ -684,6 +679,23 @@ function Dashboard({
           <PanelCard key={panel.code} panel={panel} count={0} disabled onClick={() => {}} />
         ))}
       </div>
+      {draftCount > 0 && (
+        <motion.button
+          type="button"
+          data-testid="push-review-fab"
+          aria-label={`一键入库 ${draftCount} 项草稿`}
+          initial={{ opacity: 0, scale: 0.86, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+          onClick={onOpenPushReview}
+          className="fixed right-10 bottom-10 z-30 h-[52px] rounded-full bg-gradient-brand px-5 text-white shadow-glow inline-flex items-center gap-2.5 font-semibold tracking-tight hover:brightness-110"
+        >
+          <span aria-hidden="true">⚡</span>
+          <span>一键入库</span>
+          <span className="rounded-full bg-white/20 px-2 py-0.5 font-mono text-xs">({draftCount})</span>
+        </motion.button>
+      )}
     </div>
   );
 }
