@@ -143,7 +143,7 @@ Electron 窗口应该打开，看到登录页。
 
 ---
 
-## G. 当前进度速览（截至 commit `2e1c83e`）
+## G. 当前进度速览（截至 commit `6bb9433`）
 
 ```
 P0-A 后端 auth + schema  ✅ 部署 Vercel
