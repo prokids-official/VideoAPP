@@ -13,10 +13,6 @@ const postSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 
-function whitelistError(code: string, message: string, status: number): Response {
-  return NextResponse.json({ ok: false, error: { code, message } }, { status });
-}
-
 interface InsertedWhitelistRow {
   id: string;
   domain: string;
@@ -118,7 +114,7 @@ export async function POST(req: Request): Promise<Response> {
 
   if (error) {
     if (error.code === '23505') {
-      return whitelistError('DOMAIN_ALREADY_WHITELISTED', 'Domain already whitelisted', 409);
+      return err('DOMAIN_ALREADY_WHITELISTED', 'Domain already whitelisted', undefined, 409);
     }
 
     return err('INTERNAL_ERROR', error.message, undefined, 500);

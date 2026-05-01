@@ -64,6 +64,7 @@ export interface EpisodeSummary {
 
 export type ErrorCode =
   | 'INVALID_EMAIL_DOMAIN'
+  | 'EMAIL_DOMAIN_NOT_ALLOWED'
   | 'WEAK_PASSWORD'
   | 'DISPLAY_NAME_REQUIRED'
   | 'EMAIL_ALREADY_EXISTS'
@@ -74,7 +75,9 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'SUPABASE_EMAIL_ERROR'
   | 'INTERNAL_ERROR'
-  | 'PAYLOAD_MALFORMED';
+  | 'PAYLOAD_MALFORMED'
+  | 'DOMAIN_ALREADY_WHITELISTED'
+  | 'ALREADY_REVOKED';
 
 export interface TreeEpisode {
   id: string;

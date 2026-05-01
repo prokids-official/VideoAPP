@@ -1,7 +1,6 @@
 export const runtime = 'edge';
 
 import type { AuthResult, ErrorCode, SignupPendingResult } from '@shared/types';
-import { NextResponse } from 'next/server';
 import { err, ok } from '@/lib/api-response';
 import { authRedirectUrl } from '@/lib/auth-redirect';
 import { extractClientIp, getLimiter } from '@/lib/rate-limit';
@@ -26,16 +25,7 @@ function validationErrorCode(path: string): ErrorCode {
 }
 
 function emailDomainNotAllowed(): Response {
-  return NextResponse.json(
-    {
-      ok: false,
-      error: {
-        code: 'EMAIL_DOMAIN_NOT_ALLOWED',
-        message: '该邮箱域名暂未开通注册，请联系管理员',
-      },
-    },
-    { status: 400 },
-  );
+  return err('EMAIL_DOMAIN_NOT_ALLOWED', '该邮箱域名暂未开通注册，请联系管理员', undefined, 400);
 }
 
 function domainFromEmail(email: string): string {

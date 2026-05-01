@@ -1,6 +1,5 @@
 export const runtime = 'edge';
 
-import { NextResponse } from 'next/server';
 import { err, ok } from '@/lib/api-response';
 import { requireAdmin } from '@/lib/auth-guard';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -24,10 +23,6 @@ function displayName(user: RelatedUser | undefined): string | null {
   }
 
   return user?.display_name ?? null;
-}
-
-function whitelistError(code: string, message: string, status: number): Response {
-  return NextResponse.json({ ok: false, error: { code, message } }, { status });
 }
 
 export async function DELETE(
@@ -79,5 +74,5 @@ export async function DELETE(
     return err('PAYLOAD_MALFORMED', 'whitelist entry not found', undefined, 404);
   }
 
-  return whitelistError('ALREADY_REVOKED', 'Whitelist entry already revoked', 410);
+  return err('ALREADY_REVOKED', 'Whitelist entry already revoked', undefined, 410);
 }
