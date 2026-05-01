@@ -22,7 +22,65 @@ interface InsertedWhitelistRow {
   domain: string;
   reason: string | null;
   added_at: string;
-  added_by_user?: { display_name: string | null } | null;
+  added_by_user?: RelatedUser;
+}
+
+interface WhitelistListRow extends InsertedWhitelistRow {
+  revoked_at: string | null;
+  revoked_by_user?: RelatedUser;
+}
+
+type RelatedUser = { display_name: string | null } | Array<{ display_name: string | null }> | null;
+
+function displayName(user: RelatedUser | undefined): string | null {
+  if (Array.isArray(user)) {
+    return user[0]?.display_name ?? null;
+  }
+
+  return user?.display_name ?? null;
+}
+
+function mapEntry(row: WhitelistListRow) {
+  return {
+    id: row.id,
+    domain: row.domain,
+    reason: row.reason,
+    added_by_name: displayName(row.added_by_user),
+    added_at: row.added_at,
+    revoked_by_name: displayName(row.revoked_by_user),
+    revoked_at: row.revoked_at,
+  };
+}
+
+export async function GET(req: Request): Promise<Response> {
+  const auth = await requireAdmin(req);
+
+  if (auth instanceof Response) {
+    return auth;
+  }
+
+  const includeRevoked = new URL(req.url).searchParams.get('include_revoked') === 'true';
+  const admin = supabaseAdmin();
+  let query = admin
+    .from('email_whitelist')
+    .select(
+      'id,domain,reason,added_at,revoked_at,added_by_user:users!email_whitelist_added_by_fkey(display_name),revoked_by_user:users!email_whitelist_revoked_by_fkey(display_name)',
+    );
+
+  if (!includeRevoked) {
+    query = query.is('revoked_at', null);
+  }
+
+  const { data, error } = await query
+    .order('revoked_at', { ascending: true, nullsFirst: true })
+    .order('added_at', { ascending: false });
+
+  if (error) {
+    return err('INTERNAL_ERROR', error.message, undefined, 500);
+  }
+
+  const entries = ((data ?? []) as unknown as WhitelistListRow[]).map(mapEntry);
+  return ok({ entries, total: entries.length });
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -69,12 +127,12 @@ export async function POST(req: Request): Promise<Response> {
   return ok(
     {
       entry: {
-        id: data.id,
-        domain: data.domain,
-        reason: data.reason,
-        added_by_name: data.added_by_user?.display_name ?? null,
-        added_at: data.added_at,
-      },
+          id: data.id,
+          domain: data.domain,
+          reason: data.reason,
+          added_by_name: displayName(data.added_by_user),
+          added_at: data.added_at,
+        },
     },
     201,
   );
