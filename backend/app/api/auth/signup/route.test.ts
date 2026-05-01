@@ -4,7 +4,8 @@ const mocks = vi.hoisted(() => ({
   signUp: vi.fn(),
   deleteUser: vi.fn(),
   insert: vi.fn(),
-  maybeSingle: vi.fn(),
+  existingUserMaybeSingle: vi.fn(),
+  whitelistMaybeSingle: vi.fn(),
   consume: vi.fn(),
 }));
 
@@ -23,14 +24,28 @@ vi.mock('@/lib/supabase-admin', () => ({
         deleteUser: mocks.deleteUser,
       },
     },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: mocks.maybeSingle,
+    from: (table: string) => {
+      if (table === 'email_whitelist') {
+        return {
+          select: () => ({
+            eq: () => ({
+              is: () => ({
+                maybeSingle: mocks.whitelistMaybeSingle,
+              }),
+            }),
+          }),
+        };
+      }
+
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: mocks.existingUserMaybeSingle,
+          }),
         }),
-      }),
-      insert: mocks.insert,
-    }),
+        insert: mocks.insert,
+      };
+    },
   }),
 }));
 
@@ -53,16 +68,58 @@ describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.consume.mockResolvedValue({ allowed: true, retryAfterSec: 0, remaining: 9 });
-    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.existingUserMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.whitelistMaybeSingle.mockResolvedValue({ data: null, error: null });
     mocks.insert.mockResolvedValue({ error: null });
     mocks.deleteUser.mockResolvedValue({ error: null });
   });
 
-  it('400 on non-beva email', async () => {
+  it('400 on non-whitelisted email domain', async () => {
     const res = await POST(makeReq({ email: 'x@gmail.com', password: 'abcdefg1', display_name: 'X' }));
 
     expect(res.status).toBe(400);
-    expect((await res.json()).error.code).toBe('INVALID_EMAIL_DOMAIN');
+    const body = await res.json();
+    expect(body.error.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
+    expect(body.error.message).toBe('该邮箱域名暂未开通注册，请联系管理员');
+    expect(mocks.signUp).not.toHaveBeenCalled();
+  });
+
+  it('201 on whitelisted external email domain', async () => {
+    mocks.whitelistMaybeSingle.mockResolvedValueOnce({
+      data: { id: 'whitelist-1' },
+      error: null,
+    });
+    mocks.signUp.mockResolvedValueOnce({
+      data: {
+        user: { id: 'uid-vendor', email: 'x@vendor.com' },
+        session: {
+          access_token: 'access-vendor',
+          refresh_token: 'refresh-vendor',
+          expires_at: 1_777_777_777,
+        },
+      },
+      error: null,
+    });
+
+    const res = await POST(makeReq({ email: 'x@vendor.com', password: 'abcdefg1', display_name: 'Vendor' }));
+
+    expect(res.status).toBe(201);
+    expect(mocks.signUp).toHaveBeenCalledWith({
+      email: 'x@vendor.com',
+      password: 'abcdefg1',
+      options: {
+        emailRedirectTo: 'https://video-app-kappa-murex.vercel.app/auth/confirmed',
+      },
+    });
+  });
+
+  it('400 on revoked external email domain', async () => {
+    mocks.whitelistMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const res = await POST(makeReq({ email: 'x@revoked.com', password: 'abcdefg1', display_name: 'X' }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');
   });
 
   it('400 on weak password', async () => {
@@ -89,7 +146,7 @@ describe('POST /api/auth/signup', () => {
   });
 
   it('409 when public user row already exists', async () => {
-    mocks.maybeSingle.mockResolvedValueOnce({ data: { id: 'uid-existing' }, error: null });
+    mocks.existingUserMaybeSingle.mockResolvedValueOnce({ data: { id: 'uid-existing' }, error: null });
 
     const res = await POST(makeReq({ email: 'x@beva.com', password: 'abcdefg1', display_name: 'X' }));
 

@@ -6,9 +6,9 @@ describe('emailSchema', () => {
     expect(emailSchema.safeParse('alice@beva.com').success).toBe(true);
   });
 
-  it('rejects non-beva domains', () => {
-    expect(emailSchema.safeParse('alice@gmail.com').success).toBe(false);
-    expect(emailSchema.safeParse('alice@beva.co').success).toBe(false);
+  it('accepts syntactically valid non-beva addresses for whitelist checks', () => {
+    expect(emailSchema.safeParse('alice@vendor.com').success).toBe(true);
+    expect(emailSchema.safeParse('alice@beva.co').success).toBe(true);
   });
 
   it('rejects malformed emails', () => {

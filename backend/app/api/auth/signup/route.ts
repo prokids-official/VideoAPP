@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import type { AuthResult, ErrorCode, SignupPendingResult } from '@shared/types';
+import { NextResponse } from 'next/server';
 import { err, ok } from '@/lib/api-response';
 import { authRedirectUrl } from '@/lib/auth-redirect';
 import { extractClientIp, getLimiter } from '@/lib/rate-limit';
@@ -22,6 +23,23 @@ function validationErrorCode(path: string): ErrorCode {
   }
 
   return 'PAYLOAD_MALFORMED';
+}
+
+function emailDomainNotAllowed(): Response {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: {
+        code: 'EMAIL_DOMAIN_NOT_ALLOWED',
+        message: '该邮箱域名暂未开通注册，请联系管理员',
+      },
+    },
+    { status: 400 },
+  );
+}
+
+function domainFromEmail(email: string): string {
+  return email.split('@')[1] ?? '';
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -52,6 +70,24 @@ export async function POST(req: Request): Promise<Response> {
 
   const { email, password, display_name } = parsed.data;
   const admin = supabaseAdmin();
+  const domain = domainFromEmail(email);
+
+  if (domain !== 'beva.com') {
+    const { data: whitelistedDomain, error: whitelistError } = await admin
+      .from('email_whitelist')
+      .select('id')
+      .eq('domain', domain)
+      .is('revoked_at', null)
+      .maybeSingle();
+
+    if (whitelistError) {
+      return err('INTERNAL_ERROR', whitelistError.message, undefined, 500);
+    }
+
+    if (!whitelistedDomain) {
+      return emailDomainNotAllowed();
+    }
+  }
 
   const { data: existingUser, error: existingError } = await admin
     .from('users')

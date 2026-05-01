@@ -4,7 +4,7 @@ export const emailSchema = z
   .string()
   .trim()
   .transform((value) => value.toLowerCase())
-  .pipe(z.string().email().regex(/@beva\.com$/, 'Must be a @beva.com email'));
+  .pipe(z.string().email());
 
 export const passwordSchema = z
   .string()
