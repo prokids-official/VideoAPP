@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   recordIdemDead: vi.fn(async () => {}),
   selectAssetType: vi.fn(),
   selectEpisode: vi.fn(),
+  insertPush: vi.fn(),
   insertAssets: vi.fn(),
   updateEpisode: vi.fn(async () => ({ error: null })),
   createCommit: vi.fn(),
@@ -36,6 +37,16 @@ vi.mock('@/lib/supabase-admin', () => ({
 
       if (table === 'assets') {
         return { insert: (rows: unknown[]) => ({ select: async () => mocks.insertAssets(rows) }) };
+      }
+
+      if (table === 'pushes') {
+        return {
+          insert: (row: unknown) => ({
+            select: () => ({
+              single: async () => mocks.insertPush(row),
+            }),
+          }),
+        };
       }
 
       return {};
@@ -163,6 +174,10 @@ describe('POST /api/assets/push', () => {
     });
     mocks.createCommit.mockResolvedValue({ commit_sha: 'commit-1', blobs: { p: 'blob-1' } });
     mocks.putR2.mockResolvedValue({ etag: 'etag-1' });
+    mocks.insertPush.mockResolvedValue({
+      data: { id: 'push-1' },
+      error: null,
+    });
     mocks.insertAssets.mockResolvedValue({
       data: [{ id: 'asset-script' }, { id: 'asset-char' }],
       error: null,
@@ -254,6 +269,7 @@ describe('POST /api/assets/push', () => {
     expect((await res.json()).data).toEqual(cached);
     expect(mocks.createCommit).not.toHaveBeenCalled();
     expect(mocks.putR2).not.toHaveBeenCalled();
+    expect(mocks.insertPush).not.toHaveBeenCalled();
   });
 
   it('201 happy path: 1 SCRIPT text + 1 CHAR image succeeds and returns mixed assets', async () => {
@@ -309,9 +325,18 @@ describe('POST /api/assets/push', () => {
     });
     expect(mocks.recordIdemSuccess).toHaveBeenCalledWith('k-happy', 'u-1', body.data);
     expect(mocks.updateEpisode).toHaveBeenCalled();
+    expect(mocks.insertPush).toHaveBeenCalledWith({
+      episode_id: EPISODE_ID,
+      idempotency_key: 'k-happy',
+      commit_message: 'push assets',
+      github_commit_sha: 'commit-1',
+      pushed_by: 'u-1',
+      asset_count: 2,
+      total_bytes: 16,
+    });
     expect(mocks.insertAssets).toHaveBeenCalledWith([
-      expect.objectContaining({ idempotency_key: 'k-happy' }),
-      expect.objectContaining({ idempotency_key: 'k-happy' }),
+      expect.objectContaining({ idempotency_key: 'k-happy', push_id: 'push-1' }),
+      expect.objectContaining({ idempotency_key: 'k-happy', push_id: 'push-1' }),
     ]);
   });
 

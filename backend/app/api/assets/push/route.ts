@@ -319,6 +319,15 @@ async function insertAssetsWithRetry(
   return { data: null, error: lastError };
 }
 
+async function insertPush(row: Record<string, unknown>): Promise<{ data: { id: string } | null; error: { message?: string } | null }> {
+  const { data, error } = await supabaseAdmin().from('pushes').insert(row).select('id').single<{ id: string }>();
+  return { data, error };
+}
+
+async function rollbackPush(pushId: string): Promise<void> {
+  await supabaseAdmin().from('pushes').delete().eq('id', pushId);
+}
+
 export async function POST(req: Request): Promise<Response> {
   const auth = await requireUser(req);
 
@@ -464,9 +473,26 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  const pushInsert = await insertPush({
+    episode_id: episodeId,
+    idempotency_key: payload.idempotency_key,
+    commit_message: payload.commit_message,
+    github_commit_sha: commitSha,
+    pushed_by: auth.user_id,
+    asset_count: resolved.length,
+    total_bytes: resolved.reduce((sum, resolvedItem) => sum + resolvedItem.item.size_bytes, 0),
+  });
+
+  if (pushInsert.error || !pushInsert.data) {
+    await recordIdempotencyDeadLetter(payload.idempotency_key, auth.user_id, pushInsert.error);
+    return err('INTERNAL_ERROR', 'push metadata persistence failed', { code: 'BACKEND_UNAVAILABLE' }, 502);
+  }
+
+  const pushId = pushInsert.data.id;
   const rows = resolved.map((resolvedItem) => ({
     episode_id: episodeId,
     idempotency_key: payload.idempotency_key,
+    push_id: pushId,
     type_code: resolvedItem.item.type_code,
     name: resolvedItem.item.name ?? '',
     variant: resolvedItem.item.variant ?? null,
@@ -491,6 +517,7 @@ export async function POST(req: Request): Promise<Response> {
   const inserted = await insertAssetsWithRetry(rows);
 
   if (inserted.error || !inserted.data) {
+    await rollbackPush(pushId).catch(() => undefined);
     await recordIdempotencyDeadLetter(payload.idempotency_key, auth.user_id, inserted.error);
     return err('INTERNAL_ERROR', 'metadata persistence failed', { code: 'BACKEND_UNAVAILABLE' }, 502);
   }
