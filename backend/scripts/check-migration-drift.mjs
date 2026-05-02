@@ -35,6 +35,10 @@ async function migrationListOutput() {
     ? ['migration', 'list', '--linked']
     : ['supabase', 'migration', 'list', '--linked'];
 
+  if (process.env.SUPABASE_DB_PASSWORD) {
+    args.push('--password', process.env.SUPABASE_DB_PASSWORD);
+  }
+
   if (process.platform === 'win32' && cmd.endsWith('.cmd')) {
     args = ['/d', '/s', '/c', cmd, ...args];
     cmd = 'cmd.exe';
