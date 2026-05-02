@@ -92,7 +92,10 @@ export type ErrorCode =
   | 'ALREADY_REVOKED'
   | 'WITHDRAW_NOT_PERMITTED'
   | 'ALREADY_WITHDRAWN'
-  | 'ASSET_WITHDRAWN';
+  | 'ASSET_WITHDRAWN'
+  | 'IDEA_INVALID_TITLE'
+  | 'IDEA_INVALID_DESCRIPTION'
+  | 'IDEA_NOT_PERMITTED';
 
 export interface TreeEpisode {
   id: string;
