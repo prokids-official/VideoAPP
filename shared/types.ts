@@ -77,7 +77,10 @@ export type ErrorCode =
   | 'INTERNAL_ERROR'
   | 'PAYLOAD_MALFORMED'
   | 'DOMAIN_ALREADY_WHITELISTED'
-  | 'ALREADY_REVOKED';
+  | 'ALREADY_REVOKED'
+  | 'WITHDRAW_NOT_PERMITTED'
+  | 'ALREADY_WITHDRAWN'
+  | 'ASSET_WITHDRAWN';
 
 export interface TreeEpisode {
   id: string;

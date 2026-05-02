@@ -1,7 +1,6 @@
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { err, ok } from '@/lib/api-response';
 import { requireUser } from '@/lib/auth-guard';
@@ -42,10 +41,6 @@ interface AssetRow {
 }
 
 type GithubStatus = 'reverted' | 'revert_failed' | 'no_github_assets';
-
-function codedError(code: string, message: string, status: number): Response {
-  return NextResponse.json({ ok: false, error: { code, message } }, { status });
-}
 
 function revertMessage(pushId: string, displayName: string, reason?: string): string {
   const base = `revert: withdraw push ${pushId} by ${displayName}`;
@@ -104,11 +99,11 @@ export async function POST(
   }
 
   if (push.pushed_by !== auth.user_id && actor.role !== 'admin') {
-    return codedError('WITHDRAW_NOT_PERMITTED', 'withdraw not permitted', 403);
+    return err('WITHDRAW_NOT_PERMITTED', 'withdraw not permitted', undefined, 403);
   }
 
   if (push.withdrawn_at) {
-    return codedError('ALREADY_WITHDRAWN', 'push already withdrawn', 410);
+    return err('ALREADY_WITHDRAWN', 'push already withdrawn', undefined, 410);
   }
 
   const { data: assets, error: assetsError } = await admin
@@ -142,7 +137,7 @@ export async function POST(
   }
 
   if (!withdrawn) {
-    return codedError('ALREADY_WITHDRAWN', 'push already withdrawn', 410);
+    return err('ALREADY_WITHDRAWN', 'push already withdrawn', undefined, 410);
   }
 
   const { data: affectedAssets, error: assetWithdrawError } = await admin

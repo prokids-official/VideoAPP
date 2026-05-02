@@ -64,18 +64,14 @@ export async function GET(
     }
 
     if (!canIncludeWithdrawn) {
-      return Response.json(
+      return err(
+        'ASSET_WITHDRAWN',
+        '该资产已撤回',
         {
-          error: {
-            code: 'ASSET_WITHDRAWN',
-            message: '该资产已撤回',
-            details: {
-              withdrawn_at: asset.withdrawn_at,
-              push_id: asset.push_id,
-            },
-          },
+          withdrawn_at: asset.withdrawn_at,
+          push_id: asset.push_id,
         },
-        { status: 410 },
+        410,
       );
     }
   }
