@@ -136,3 +136,97 @@ export async function getBlobContent(sha: string): Promise<string> {
 
   return data.content;
 }
+
+export async function revertCommitPaths(opts: {
+  commitSha: string;
+  paths: string[];
+  message: string;
+  branch?: string;
+}): Promise<string> {
+  const octokit = getOctokit();
+  const owner = env.GITHUB_REPO_OWNER;
+  const repo = env.GITHUB_REPO_NAME;
+  const branch = opts.branch ?? env.GITHUB_DEFAULT_BRANCH;
+  const { data: badCommit } = await octokit.rest.git.getCommit({
+    owner,
+    repo,
+    commit_sha: opts.commitSha,
+  });
+  const parentSha = badCommit.parents[0]?.sha;
+
+  if (!parentSha) {
+    throw new Error('Cannot revert root commit');
+  }
+
+  const { data: parentCommit } = await octokit.rest.git.getCommit({
+    owner,
+    repo,
+    commit_sha: parentSha,
+  });
+  const { data: parentTree } = await octokit.rest.git.getTree({
+    owner,
+    repo,
+    tree_sha: parentCommit.tree.sha,
+    recursive: 'true',
+  });
+  const parentByPath = new Map(parentTree.tree.map((entry) => [entry.path, entry]));
+  const { data: head } = await octokit.rest.git.getRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+  });
+  const { data: headCommit } = await octokit.rest.git.getCommit({
+    owner,
+    repo,
+    commit_sha: head.object.sha,
+  });
+  const tree = opts.paths.map((path) => {
+    const parentEntry = parentByPath.get(path);
+
+    if (parentEntry?.type === 'blob' && parentEntry.sha) {
+      return {
+        path,
+        mode: '100644' as const,
+        type: 'blob' as const,
+        sha: parentEntry.sha,
+      };
+    }
+
+    return {
+      path,
+      mode: '100644' as const,
+      type: 'blob' as const,
+      sha: null,
+    };
+  });
+  const { data: revertTree } = await octokit.rest.git.createTree({
+    owner,
+    repo,
+    base_tree: headCommit.tree.sha,
+    tree,
+  });
+  const { data: revertCommit } = await octokit.rest.git.createCommit({
+    owner,
+    repo,
+    message: opts.message,
+    tree: revertTree.sha,
+    parents: [head.object.sha],
+  });
+
+  try {
+    await octokit.rest.git.updateRef({
+      owner,
+      repo,
+      ref: `heads/${branch}`,
+      sha: revertCommit.sha,
+    });
+  } catch (error) {
+    if ((error as { status?: number }).status === 422) {
+      throw new GithubConflictError();
+    }
+
+    throw error;
+  }
+
+  return revertCommit.sha;
+}

@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -84,4 +85,23 @@ export async function headObject(key: string): Promise<{
 
 export async function deleteObject(key: string): Promise<void> {
   await getS3Client().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
+}
+
+function encodeCopySource(key: string): string {
+  return `${bucket()}/${key.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+export async function moveObjectToTrash(key: string): Promise<string> {
+  const trashKey = `trash/${key}`;
+
+  await getS3Client().send(
+    new CopyObjectCommand({
+      Bucket: bucket(),
+      CopySource: encodeCopySource(key),
+      Key: trashKey,
+    }),
+  );
+  await deleteObject(key);
+
+  return trashKey;
 }
