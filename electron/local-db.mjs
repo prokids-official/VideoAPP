@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 let db = null;
 
@@ -53,6 +54,18 @@ function applyMigrations(handle) {
       key text primary key,
       value text not null
     );
+
+    create table if not exists sandbox_drafts (
+      id text primary key,
+      title text not null,
+      body text not null default '',
+      kind text not null default 'note',
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_sandbox_drafts_updated_at
+      on sandbox_drafts(updated_at desc);
   `);
   ensureColumn(handle, 'local_drafts', 'storage_backend', "text not null default 'github'");
   ensureColumn(handle, 'local_drafts', 'storage_ref', "text not null default ''");
@@ -133,4 +146,57 @@ export function viewCacheSet(input) {
     presigned_url: input.presigned_url ?? null,
     presigned_expires_at: input.presigned_expires_at ?? null,
   });
+}
+
+export function sandboxDraftCreate(input = {}) {
+  const now = new Date().toISOString();
+  const row = {
+    id: `sandbox_${randomUUID()}`,
+    title: String(input.title || '未命名草稿'),
+    body: String(input.body || ''),
+    kind: String(input.kind || 'note'),
+    created_at: now,
+    updated_at: now,
+  };
+
+  ensureDb().prepare(`
+    insert into sandbox_drafts (id, title, body, kind, created_at, updated_at)
+    values (@id, @title, @body, @kind, @created_at, @updated_at)
+  `).run(row);
+  return row;
+}
+
+export function sandboxDraftsList() {
+  return ensureDb()
+    .prepare('select * from sandbox_drafts order by updated_at desc')
+    .all();
+}
+
+export function sandboxDraftUpdate(id, input = {}) {
+  const existing = ensureDb().prepare('select * from sandbox_drafts where id = ?').get(id);
+  if (!existing) {
+    throw new Error('Sandbox draft not found');
+  }
+
+  const row = {
+    ...existing,
+    title: input.title === undefined ? existing.title : String(input.title),
+    body: input.body === undefined ? existing.body : String(input.body),
+    updated_at: new Date().toISOString(),
+  };
+
+  ensureDb().prepare(`
+    update sandbox_drafts
+    set title = @title, body = @body, updated_at = @updated_at
+    where id = @id
+  `).run(row);
+  return row;
+}
+
+export function sandboxDraftDelete(id) {
+  ensureDb().prepare('delete from sandbox_drafts where id = ?').run(id);
+}
+
+export function sandboxDraftsClear() {
+  ensureDb().prepare('delete from sandbox_drafts').run();
 }

@@ -5,6 +5,11 @@ import {
   draftCreate,
   draftDelete,
   draftsList,
+  sandboxDraftCreate,
+  sandboxDraftDelete,
+  sandboxDraftsClear,
+  sandboxDraftsList,
+  sandboxDraftUpdate,
   sessionClear,
   sessionDelete,
   sessionGet,
@@ -40,6 +45,15 @@ ipcMain.handle('db:drafts:create', (_event, draft) => draftCreate(draft));
 ipcMain.handle('db:drafts:list', (_event, episodeId) => draftsList(episodeId));
 ipcMain.handle('db:drafts:delete', (_event, id) => {
   draftDelete(id);
+});
+ipcMain.handle('db:sandbox-drafts:create', (_event, input) => sandboxDraftCreate(input));
+ipcMain.handle('db:sandbox-drafts:list', () => sandboxDraftsList());
+ipcMain.handle('db:sandbox-drafts:update', (_event, id, input) => sandboxDraftUpdate(id, input));
+ipcMain.handle('db:sandbox-drafts:delete', (_event, id) => {
+  sandboxDraftDelete(id);
+});
+ipcMain.handle('db:sandbox-drafts:clear', () => {
+  sandboxDraftsClear();
 });
 ipcMain.handle('db:view-cache:get', (_event, assetId) => viewCacheGet(assetId));
 ipcMain.handle('db:view-cache:set', (_event, entry) => {

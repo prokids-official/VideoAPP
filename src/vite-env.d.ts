@@ -8,6 +8,7 @@ import type {
   AssetPushResult,
   CreateLocalDraftInput,
   LocalDraft,
+  SandboxDraft,
   StorageBackend,
   ViewCacheEntry,
 } from '../shared/types';
@@ -25,6 +26,11 @@ interface FableglitchDb {
   draftCreate: (draft: CreateLocalDraftInput) => Promise<LocalDraft>;
   draftsList: (episodeId: string) => Promise<LocalDraft[]>;
   draftDelete: (id: string) => Promise<void>;
+  sandboxDraftCreate: (input?: { title?: string; body?: string; kind?: string }) => Promise<SandboxDraft>;
+  sandboxDraftsList: () => Promise<SandboxDraft[]>;
+  sandboxDraftUpdate: (id: string, input: { title?: string; body?: string }) => Promise<SandboxDraft>;
+  sandboxDraftDelete: (id: string) => Promise<void>;
+  sandboxDraftsClear: () => Promise<void>;
   viewCacheGet: (assetId: string) => Promise<ViewCacheEntry | null>;
   viewCacheSet: (entry: ViewCacheEntry) => Promise<void>;
 }

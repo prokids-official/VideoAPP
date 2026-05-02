@@ -155,6 +155,15 @@ export interface LocalDraft {
 
 export type CreateLocalDraftInput = Omit<LocalDraft, 'created_at'>;
 
+export interface SandboxDraft {
+  id: string;
+  title: string;
+  body: string;
+  kind: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AssetRow {
   id: string;
   type_code: string;
