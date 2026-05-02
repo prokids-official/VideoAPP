@@ -62,6 +62,18 @@ export interface EpisodeSummary {
   asset_count_pushed: number;
 }
 
+export interface RecentEpisode {
+  id: string;
+  name_cn: string;
+  episode_path: string;
+  status: 'drafting' | 'review' | 'published' | 'archived';
+  updated_at: string;
+  series_name_cn: string;
+  album_name_cn: string;
+  content_name_cn: string;
+  asset_count_pushed: number;
+}
+
 export type ErrorCode =
   | 'INVALID_EMAIL_DOMAIN'
   | 'EMAIL_DOMAIN_NOT_ALLOWED'

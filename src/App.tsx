@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from './stores/use-auth';
 import { LoginRoute } from './routes/LoginRoute';
-import { ShellEmptyRoute } from './routes/ShellEmptyRoute';
+import { HomeRoute } from './routes/HomeRoute';
+import { IdeasPlaceholderRoute } from './routes/IdeasPlaceholderRoute';
+import { SandboxRoute } from './routes/SandboxRoute';
 import { TreeRoute } from './routes/TreeRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
 import { PushReviewRoute } from './routes/PushReviewRoute';
@@ -9,39 +11,17 @@ import { api } from './lib/api';
 import { TitleBar } from './components/chrome/TitleBar';
 import { EpisodeWizard } from './components/wizards/EpisodeWizard';
 
-type AppRoute = 'studio' | 'settings' | 'push-review';
+type AppRoute = 'home' | 'studio' | 'sandbox' | 'ideas' | 'settings' | 'push-review';
 
 export default function App() {
   const { user, loading } = useAuth();
-  const [projectState, setProjectState] = useState<{ userId: string; hasProjects: boolean } | null>(null);
-  const [route, setRoute] = useState<AppRoute>('studio');
+  const [route, setRoute] = useState<AppRoute>('home');
   const [pushReviewEpisode, setPushReviewEpisode] = useState<{ id: string; name: string } | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [episodeWizardOpen, setEpisodeWizardOpen] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [treeReloadKey, setTreeReloadKey] = useState(0);
 
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    let cancelled = false;
-    const userId = user.id;
-
-    void (async () => {
-      const result = await api.tree();
-      if (!cancelled) {
-        setProjectState({ userId, hasProjects: result.ok && result.data.series.length > 0 });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
-  const hasProjects = user && projectState?.userId === user.id ? projectState.hasProjects : null;
   const activeRoute = user ? route : 'studio';
 
   async function createEpisode(input: {
@@ -64,7 +44,6 @@ export default function App() {
     setEpisodeWizardOpen(false);
     setRoute('studio');
     setSelectedEpisodeId(episodeId);
-    setProjectState({ userId: user.id, hasProjects: true });
     setTreeReloadKey((value) => value + 1);
   }
 
@@ -88,6 +67,7 @@ export default function App() {
   }
 
   let content;
+  const subtitle = user ? routeSubtitle(activeRoute) : undefined;
 
   if (loading) {
     content = (
@@ -98,7 +78,7 @@ export default function App() {
   } else if (!user) {
     content = <LoginRoute />;
   } else if (activeRoute === 'settings') {
-    content = <SettingsRoute onBack={() => setRoute('studio')} />;
+    content = <SettingsRoute onBack={() => setRoute('home')} />;
   } else if (activeRoute === 'push-review' && pushReviewEpisode) {
     content = (
       <PushReviewRoute
@@ -109,20 +89,21 @@ export default function App() {
         onPushed={handleAssetsPushed}
       />
     );
-  } else if (hasProjects === null) {
+  } else if (activeRoute === 'home') {
     content = (
-      <div className="h-full flex items-center justify-center bg-bg text-text-3 font-mono text-xs">
-        fetching tree...
-      </div>
-    );
-  } else if (!hasProjects) {
-    content = (
-      <ShellEmptyRoute
-        onCreateEpisode={() => setEpisodeWizardOpen(true)}
-        onBrowse={() => setProjectState({ userId: user.id, hasProjects: true })}
+      <HomeRoute
+        user={user}
+        onOpenTree={() => setRoute('studio')}
+        onOpenSandbox={() => setRoute('sandbox')}
+        onOpenIdeas={() => setRoute('ideas')}
         onOpenSettings={() => setRoute('settings')}
+        onCreateEpisode={() => setEpisodeWizardOpen(true)}
       />
     );
+  } else if (activeRoute === 'sandbox') {
+    content = <SandboxRoute onBack={() => setRoute('home')} />;
+  } else if (activeRoute === 'ideas') {
+    content = <IdeasPlaceholderRoute onBack={() => setRoute('home')} />;
   } else {
     content = (
       <TreeRoute
@@ -138,7 +119,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-bg text-text overflow-hidden">
-      <TitleBar />
+      <TitleBar subtitle={subtitle} />
       <div className="flex-1 min-h-0 overflow-hidden">{content}</div>
       {successToast && (
         <div
@@ -158,4 +139,21 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function routeSubtitle(route: AppRoute) {
+  switch (route) {
+    case 'home':
+      return '主页';
+    case 'sandbox':
+      return '个人沙盒';
+    case 'ideas':
+      return '芝兰点子王';
+    case 'settings':
+      return '设置';
+    case 'push-review':
+      return '入库确认';
+    case 'studio':
+      return '公司项目';
+  }
 }

@@ -5,6 +5,7 @@ import type {
   AssetStage,
   AssetContentResult,
   PreviewFilenameResult,
+  RecentEpisode,
   StorageBackend,
   SignupPendingResult,
   TreeResponse,
@@ -129,6 +130,9 @@ export const api = {
 
   tree: () =>
     call<TreeResponse>({ method: 'GET', path: '/tree', requireAuth: true }),
+
+  recentEpisodes: (limit = 5) =>
+    call<{ episodes: RecentEpisode[] }>({ method: 'GET', path: `/episodes/recent?limit=${limit}`, requireAuth: true }),
 
   createEpisode: (input: {
     series_name_cn: string;
