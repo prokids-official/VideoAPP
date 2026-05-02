@@ -5,8 +5,22 @@ import { Input } from '../components/ui/Input';
 import { useAuth } from '../stores/use-auth';
 
 type AuthTab = 'login' | 'signup';
+type EmailMode = 'prefix' | 'full';
 
-const bevaEmailPattern = /^[^\s@]+@beva\.com$/i;
+// Two patterns:
+//   bevaPrefixPattern: validates the LOCAL part typed in prefix-mode (no '@', no whitespace).
+//   genericEmailPattern: lightweight client-side check in full-mode. Real domain
+//     whitelist enforcement happens server-side (EMAIL_DOMAIN_NOT_ALLOWED).
+const bevaPrefixPattern = /^[a-zA-Z0-9._+-]+$/;
+const genericEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Hardcoded admin contact for "联系管理员开通" popover. Make this server-driven
+// (e.g. GET /api/admin/contact) when there's more than one admin to surface.
+// TODO(p1): swap to API-driven list of role=admin users.
+const ADMIN_CONTACT = {
+  display_name: '乐美林',
+  email: 'lemeilin@beva.com',
+} as const;
 
 function validatePassword(password: string): string | null {
   if (password.length < 8) return '密码至少 8 位。';
@@ -18,6 +32,10 @@ function validatePassword(password: string): string | null {
 export function LoginRoute() {
   const { signup, login, resendVerification, resetPassword } = useAuth();
   const [tab, setTab] = useState<AuthTab>('login');
+  // emailMode determines what `email` state holds:
+  //   'prefix' → just the local part, '@beva.com' is appended at submit
+  //   'full'   → the entire email address (for whitelisted external domains)
+  const [emailMode, setEmailMode] = useState<EmailMode>('prefix');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,6 +48,21 @@ export function LoginRoute() {
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
+
+  function composeEmail(): string {
+    return emailMode === 'prefix' ? `${email.trim()}@beva.com` : email.trim();
+  }
+
+  function switchEmailMode(next: EmailMode, preserve?: string): void {
+    setEmailMode(next);
+    if (preserve !== undefined) {
+      setEmail(preserve);
+    } else {
+      setEmail('');
+    }
+    setError(null);
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -38,12 +71,20 @@ export function LoginRoute() {
     setNotice(null);
 
     try {
-      const normalizedEmail = email.trim().toLowerCase();
-
-      if (!bevaEmailPattern.test(normalizedEmail)) {
-        setError('请使用 @beva.com 内部邮箱。');
-        return;
+      // Client-side shape check. Domain whitelist (beva.com OR admin-allowed)
+      // is enforced server-side, returning EMAIL_DOMAIN_NOT_ALLOWED.
+      if (emailMode === 'prefix') {
+        if (!bevaPrefixPattern.test(email.trim())) {
+          setError('邮箱前缀格式不对（仅允许字母、数字、._+-）。');
+          return;
+        }
+      } else {
+        if (!genericEmailPattern.test(email.trim())) {
+          setError('邮箱格式不对，请填写完整地址，如 name@somedomain.com');
+          return;
+        }
       }
+      const normalizedEmail = composeEmail().toLowerCase();
 
       if (tab === 'signup') {
         const passwordError = validatePassword(password);
@@ -75,6 +116,10 @@ export function LoginRoute() {
           return;
         }
 
+        if (result.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
+          setError('该邮箱域名暂未开通注册。请联系管理员开通。');
+          return;
+        }
         setError(
           result.message === 'Email already registered'
             ? '这个邮箱已经注册过。请直接登录，或使用找回密码。'
@@ -98,10 +143,13 @@ export function LoginRoute() {
     }
   }
 
-  async function resend(emailToSend = pendingEmail ?? email) {
-    const normalizedEmail = emailToSend.trim().toLowerCase();
-    if (!bevaEmailPattern.test(normalizedEmail)) {
-      setError('请先填写有效的 @beva.com 邮箱。');
+  async function resend(emailToSend?: string) {
+    // pendingEmail is always a fully-qualified address; for the inline resend
+    // button we compose from the current input fields based on emailMode.
+    const candidate = emailToSend ?? pendingEmail ?? composeEmail();
+    const normalizedEmail = candidate.trim().toLowerCase();
+    if (!genericEmailPattern.test(normalizedEmail)) {
+      setError('请先填写有效的邮箱地址。');
       return;
     }
 
@@ -122,9 +170,9 @@ export function LoginRoute() {
   }
 
   async function sendResetPassword() {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!bevaEmailPattern.test(normalizedEmail)) {
-      setError('请先填写有效的 @beva.com 邮箱。');
+    const normalizedEmail = composeEmail().toLowerCase();
+    if (!genericEmailPattern.test(normalizedEmail)) {
+      setError('请先填写有效的邮箱地址。');
       return;
     }
 
@@ -199,15 +247,11 @@ export function LoginRoute() {
             </div>
 
             <form onSubmit={onSubmit}>
-              <Input
-                label="邮箱"
-                type="email"
-                mono
-                required
-                placeholder="name@beva.com"
-                hint="@beva.com 内部邮箱"
+              <EmailField
+                mode={emailMode}
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={setEmail}
+                onSwitchMode={switchEmailMode}
               />
               <PasswordField
                 label="密码"
@@ -244,7 +288,7 @@ export function LoginRoute() {
                     <button
                       type="button"
                       className="border-b border-accent/35 hover:text-accent-hi"
-                      onClick={() => void resend(email)}
+                      onClick={() => void resend()}
                       disabled={resending}
                     >
                       {resending ? '发送中...' : '重发验证邮件'}
@@ -289,11 +333,23 @@ export function LoginRoute() {
                 </button>
               </div>
             )}
+            <div className="text-center text-xs text-text-3 mt-3">
+              邮箱域名未开通？{' '}
+              <button
+                type="button"
+                onClick={() => setContactOpen(true)}
+                className="text-text-2 border-b border-border hover:text-text"
+              >
+                联系管理员开通
+              </button>
+            </div>
           </>
         )}
 
         <div className="text-center font-mono text-2xs text-text-4 mt-7">v0.1.0 · build 2026.04.29</div>
       </motion.div>
+
+      {contactOpen && <ContactAdminDialog onClose={() => setContactOpen(false)} />}
     </div>
   );
 }
@@ -386,6 +442,147 @@ function VerificationPending({
           {resending ? '发送中...' : '重发邮件'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Segmented email input. In 'prefix' mode shows `[ prefix ] @beva.com` so users
+ * never have to type the company suffix; in 'full' mode shows a normal email
+ * input for whitelisted external domains.
+ *
+ * If a user types '@' in prefix mode we auto-flip to full mode with what they
+ * typed preserved — so accidental full-email typing doesn't get truncated.
+ */
+function EmailField({
+  mode,
+  value,
+  onChange,
+  onSwitchMode,
+}: {
+  mode: EmailMode;
+  value: string;
+  onChange: (next: string) => void;
+  onSwitchMode: (mode: EmailMode, preserve?: string) => void;
+}) {
+  function handlePrefixChange(text: string) {
+    if (text.includes('@')) {
+      onSwitchMode('full', text);
+      return;
+    }
+    onChange(text);
+  }
+
+  if (mode === 'prefix') {
+    return (
+      <div className="mb-4">
+        <label className="block text-sm text-text-2 font-medium mb-2" htmlFor="email-prefix">
+          邮箱
+        </label>
+        <div className="flex items-stretch h-11 rounded bg-surface-2 border border-border focus-within:border-accent/35 focus-within:bg-surface-3 transition overflow-hidden">
+          <input
+            id="email-prefix"
+            type="text"
+            required
+            autoComplete="username"
+            spellCheck={false}
+            value={value}
+            placeholder="lemeilin"
+            onChange={(event) => handlePrefixChange(event.target.value)}
+            className="flex-1 bg-transparent outline-none px-3.5 font-mono text-sm text-text placeholder:text-text-4 min-w-0"
+          />
+          <span className="flex items-center pr-3.5 pl-1 font-mono text-sm text-text-3 select-none whitespace-nowrap">
+            @beva.com
+          </span>
+        </div>
+        <div className="font-mono text-xs text-text-3 mt-2 flex items-center justify-between gap-4">
+          <span className="truncate">公司邮箱前缀，无需输入 @beva.com</span>
+          <button
+            type="button"
+            onClick={() => onSwitchMode('full')}
+            className="text-text-2 border-b border-border hover:text-text whitespace-nowrap"
+          >
+            使用其他域名邮箱 →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm text-text-2 font-medium mb-2" htmlFor="email-full">
+        邮箱
+      </label>
+      <input
+        id="email-full"
+        type="email"
+        required
+        autoComplete="email"
+        spellCheck={false}
+        value={value}
+        placeholder="name@somedomain.com"
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full h-11 px-3.5 rounded bg-surface-2 border border-border focus:border-accent/35 focus:bg-surface-3 outline-none transition font-mono text-sm text-text placeholder:text-text-4"
+      />
+      <div className="font-mono text-xs text-text-3 mt-2 flex items-center justify-between gap-4">
+        <span className="truncate">完整邮箱地址（外部协作者使用）</span>
+        <button
+          type="button"
+          onClick={() => onSwitchMode('prefix', '')}
+          className="text-text-2 border-b border-border hover:text-text whitespace-nowrap"
+        >
+          ← 切回 @beva.com
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Modal-ish overlay shown when the user clicks "联系管理员开通". Displays the
+ * hardcoded admin contact and a one-click mailto: link.
+ */
+function ContactAdminDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/75 backdrop-blur-sm px-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.14 }}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="contact-admin-title"
+        className="w-full max-w-[420px] bg-surface border border-border rounded-xl p-7"
+      >
+        <div className="font-mono text-xs text-accent mb-3">CONTACT ADMIN</div>
+        <h2 id="contact-admin-title" className="text-lg font-bold tracking-tight mb-3">
+          请联系管理员开通
+        </h2>
+        <p className="text-sm text-text-2 leading-6 mb-5">
+          注册需要管理员先开通你的邮箱域名。如果你的邮箱不是 @beva.com 也不在已开通的列表里，请联系内部管理员申请：
+        </p>
+        <a
+          href={`mailto:${ADMIN_CONTACT.email}?subject=${encodeURIComponent('FableGlitch Studio · 申请开通邮箱域名')}`}
+          className="block bg-surface-2 border border-border rounded-lg px-4 py-3 mb-5 hover:border-accent/35 transition"
+        >
+          <div className="text-sm text-text font-medium">{ADMIN_CONTACT.display_name}</div>
+          <div className="font-mono text-xs text-text-3 mt-1">{ADMIN_CONTACT.email}</div>
+        </a>
+        <p className="font-mono text-xs text-text-3 mb-5 leading-5">
+          也可以在公司内部 IM 中找 @{ADMIN_CONTACT.display_name} 申请开通。
+        </p>
+        <div className="flex justify-end">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            知道了
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ export interface AuthState {
   loading: boolean;
   signup: (input: { email: string; password: string; display_name: string }) => Promise<{
     ok: boolean;
+    code?: string;
     message?: string;
     pendingEmail?: string;
     signedIn?: boolean;

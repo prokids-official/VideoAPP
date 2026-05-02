@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { ok: true, pendingEmail: r.data.user.email };
     }
-    return { ok: false, message: r.message };
+    return { ok: false, code: r.code, message: r.message };
   }
 
   async function login(input: { email: string; password: string }) {
