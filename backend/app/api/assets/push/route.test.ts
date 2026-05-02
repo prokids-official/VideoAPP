@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   recordIdemDead: vi.fn(async () => {}),
   selectAssetType: vi.fn(),
   selectEpisode: vi.fn(),
+  selectExistingPush: vi.fn(),
+  selectExistingAssets: vi.fn(),
   insertPush: vi.fn(),
   insertAssets: vi.fn(),
   updateEpisode: vi.fn(async () => ({ error: null })),
@@ -36,11 +38,25 @@ vi.mock('@/lib/supabase-admin', () => ({
       }
 
       if (table === 'assets') {
-        return { insert: (rows: unknown[]) => ({ select: async () => mocks.insertAssets(rows) }) };
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => mocks.selectExistingAssets(),
+            }),
+          }),
+          insert: (rows: unknown[]) => ({ select: async () => mocks.insertAssets(rows) }),
+        };
       }
 
       if (table === 'pushes') {
         return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => mocks.selectExistingPush(),
+              }),
+            }),
+          }),
           insert: (row: unknown) => ({
             select: () => ({
               single: async () => mocks.insertPush(row),
@@ -144,6 +160,8 @@ describe('POST /api/assets/push', () => {
     vi.clearAllMocks();
     mocks.getUser.mockResolvedValue({ data: { user: { id: 'u-1', email: 'a@beva.com' } }, error: null });
     mocks.lookupIdem.mockResolvedValue(null);
+    mocks.selectExistingPush.mockResolvedValue({ data: null, error: null });
+    mocks.selectExistingAssets.mockResolvedValue({ data: [], error: null });
     mocks.selectAssetType.mockResolvedValue({
       data: [
         {
@@ -270,6 +288,56 @@ describe('POST /api/assets/push', () => {
     expect(mocks.createCommit).not.toHaveBeenCalled();
     expect(mocks.putR2).not.toHaveBeenCalled();
     expect(mocks.insertPush).not.toHaveBeenCalled();
+  });
+
+  it('200 replays from persisted pushes before side effects when short-lived cache expired', async () => {
+    mocks.selectExistingPush.mockResolvedValueOnce({
+      data: { id: 'push-existing', github_commit_sha: 'commit-existing' },
+      error: null,
+    });
+    mocks.selectExistingAssets.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'asset-script-existing',
+          storage_backend: 'github',
+          storage_ref: '童话剧_NA_侏儒怪/02_Data/Script/童话剧_侏儒怪_SCRIPT.md',
+          final_filename: '童话剧_侏儒怪_SCRIPT.md',
+          status: 'pushed',
+        },
+      ],
+      error: null,
+    });
+
+    const res = await POST(
+      makeMultipart(
+        {
+          idempotency_key: 'k-expired-cache',
+          commit_message: 'push assets',
+          items: [scriptItem()],
+        },
+        {},
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({
+      commit_sha: 'commit-existing',
+      assets: [
+        {
+          local_draft_id: 'draft-script',
+          id: 'asset-script-existing',
+          storage_backend: 'github',
+          storage_ref: '童话剧_NA_侏儒怪/02_Data/Script/童话剧_侏儒怪_SCRIPT.md',
+          final_filename: '童话剧_侏儒怪_SCRIPT.md',
+          status: 'pushed',
+        },
+      ],
+    });
+    expect(mocks.createCommit).not.toHaveBeenCalled();
+    expect(mocks.putR2).not.toHaveBeenCalled();
+    expect(mocks.insertPush).not.toHaveBeenCalled();
+    expect(mocks.insertAssets).not.toHaveBeenCalled();
+    expect(mocks.recordIdemSuccess).toHaveBeenCalledWith('k-expired-cache', 'u-1', expect.any(Object));
   });
 
   it('201 happy path: 1 SCRIPT text + 1 CHAR image succeeds and returns mixed assets', async () => {

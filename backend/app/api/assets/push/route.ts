@@ -80,6 +80,31 @@ interface ResolvedItem {
   storage_ref: string;
 }
 
+interface ExistingPushRow {
+  id: string;
+  github_commit_sha: string | null;
+}
+
+interface ExistingAssetRow {
+  id: string;
+  storage_backend: StorageBackend;
+  storage_ref: string;
+  final_filename: string;
+  status: 'pushed';
+}
+
+interface PushResult {
+  commit_sha?: string;
+  assets: Array<{
+    local_draft_id: string;
+    id?: string;
+    storage_backend?: StorageBackend;
+    storage_ref?: string;
+    final_filename?: string;
+    status: 'pushed';
+  }>;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -328,6 +353,67 @@ async function rollbackPush(pushId: string): Promise<void> {
   await supabaseAdmin().from('pushes').delete().eq('id', pushId);
 }
 
+async function lookupPersistedPushResult(opts: {
+  idempotencyKey: string;
+  userId: string;
+  resolved: ResolvedItem[];
+}): Promise<{ result: PushResult | null; error: string | null }> {
+  const admin = supabaseAdmin();
+  const { data: push, error: pushError } = await admin
+    .from('pushes')
+    .select('id,github_commit_sha')
+    .eq('pushed_by', opts.userId)
+    .eq('idempotency_key', opts.idempotencyKey)
+    .maybeSingle<ExistingPushRow>();
+
+  if (pushError) {
+    return { result: null, error: pushError.message };
+  }
+
+  if (!push) {
+    return { result: null, error: null };
+  }
+
+  const { data: assets, error: assetsError } = await admin
+    .from('assets')
+    .select('id,storage_backend,storage_ref,final_filename,status')
+    .eq('push_id', push.id)
+    .order('pushed_at', { ascending: true });
+
+  if (assetsError) {
+    return { result: null, error: assetsError.message };
+  }
+
+  const byStorageRef = new Map(
+    ((assets ?? []) as ExistingAssetRow[]).map((asset) => [asset.storage_ref, asset]),
+  );
+
+  const replayAssets = opts.resolved.map((resolvedItem) => {
+    const asset = byStorageRef.get(resolvedItem.storage_ref);
+
+    if (!asset) {
+      throw new Error(`persisted push asset missing for ${resolvedItem.storage_ref}`);
+    }
+
+    return {
+      local_draft_id: resolvedItem.item.local_draft_id,
+      id: asset.id,
+      storage_backend: asset.storage_backend,
+      storage_ref: asset.storage_ref,
+      final_filename: asset.final_filename,
+      status: 'pushed' as const,
+    };
+  });
+
+  return {
+    result: {
+      commit_sha: push.github_commit_sha ?? undefined,
+      assets: replayAssets,
+    },
+    error: null,
+  };
+}
+
 export async function POST(req: Request): Promise<Response> {
   const auth = await requireUser(req);
 
@@ -359,12 +445,6 @@ export async function POST(req: Request): Promise<Response> {
 
   if (cached?.status === 'success') {
     return ok(cached.result, 200);
-  }
-
-  const files = await readFiles(formData, payload.items);
-
-  if (files instanceof Response) {
-    return files;
   }
 
   const admin = supabaseAdmin();
@@ -402,6 +482,31 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     return err('PAYLOAD_MALFORMED', (error as Error).message, undefined, 400);
+  }
+
+  try {
+    const persisted = await lookupPersistedPushResult({
+      idempotencyKey: payload.idempotency_key,
+      userId: auth.user_id,
+      resolved,
+    });
+
+    if (persisted.error) {
+      return err('INTERNAL_ERROR', persisted.error, undefined, 500);
+    }
+
+    if (persisted.result) {
+      await recordIdempotencySuccess(payload.idempotency_key, auth.user_id, persisted.result);
+      return ok(persisted.result, 200);
+    }
+  } catch (error) {
+    return err('INTERNAL_ERROR', (error as Error).message, undefined, 500);
+  }
+
+  const files = await readFiles(formData, payload.items);
+
+  if (files instanceof Response) {
+    return files;
   }
 
   const textItems = resolved.filter((item) => item.type.storage_backend === 'github');
@@ -524,7 +629,7 @@ export async function POST(req: Request): Promise<Response> {
 
   await admin.from('episodes').update({ updated_at: new Date().toISOString() }).eq('id', episodeId);
 
-  const result = {
+  const result: PushResult = {
     commit_sha: commitSha ?? undefined,
     assets: resolved.map((resolvedItem, index) => ({
       local_draft_id: resolvedItem.item.local_draft_id,
