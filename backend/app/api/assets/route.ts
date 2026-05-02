@@ -15,6 +15,7 @@ export async function GET(req: Request): Promise<Response> {
   const episodeId = url.searchParams.get('episode_id');
   const typeCode = url.searchParams.get('type_code');
   const status = url.searchParams.get('status') ?? 'pushed';
+  const includeWithdrawn = url.searchParams.get('include_withdrawn') === 'true';
 
   if (!episodeId) {
     return err('PAYLOAD_MALFORMED', 'episode_id required', undefined, 400);
@@ -23,11 +24,15 @@ export async function GET(req: Request): Promise<Response> {
   let query = supabaseAdmin()
     .from('assets')
     .select(
-      'id,type_code,name,variant,version,stage,language,final_filename,storage_backend,storage_ref,file_size_bytes,mime_type,author:author_id(display_name),pushed_at,status',
+      'id,type_code,name,variant,version,stage,language,final_filename,storage_backend,storage_ref,file_size_bytes,mime_type,author:author_id(display_name),pushed_at,status,withdrawn_at',
       { count: 'exact' },
     )
     .eq('episode_id', episodeId)
     .eq('status', status);
+
+  if (!includeWithdrawn) {
+    query = query.is('withdrawn_at', null);
+  }
 
   if (typeCode) {
     query = query.eq('type_code', typeCode);
