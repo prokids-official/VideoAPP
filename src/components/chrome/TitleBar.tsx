@@ -13,7 +13,7 @@ import { useTheme, type Theme } from '../../lib/theme';
  * Window control IPC is already wired in electron/main.mjs + electron/preload.cjs;
  * we just consume window.fableglitch.window.{minimize,maximizeToggle,close,isMaximized}.
  */
-export function TitleBar({ subtitle }: { subtitle?: string } = {}) {
+export function TitleBar({ subtitle, onQuickIdea }: { subtitle?: string; onQuickIdea?: () => void } = {}) {
   const [isMaximized, setIsMaximized] = useState(false);
   const controls = window.fableglitch?.window;
   const { theme, setTheme } = useTheme();
@@ -65,7 +65,16 @@ export function TitleBar({ subtitle }: { subtitle?: string } = {}) {
       </div>
 
       {/* ─────────── theme switcher (right) ─────────── */}
-      <div className="pr-3 [-webkit-app-region:no-drag]">
+      <div className="flex items-center gap-2 pr-3 [-webkit-app-region:no-drag]">
+        {onQuickIdea && (
+          <button
+            type="button"
+            onClick={onQuickIdea}
+            className="h-7 rounded-md border border-border bg-surface-2 px-3 text-[12px] font-semibold tracking-tight text-text transition hover:border-border-hi hover:bg-surface-3 active:translate-y-px"
+          >
+            + 新想法
+          </button>
+        )}
         <ThemeSegmented theme={theme} onChange={setTheme} />
       </div>
     </header>

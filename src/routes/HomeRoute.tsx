@@ -106,7 +106,7 @@ export function HomeRoute({
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <HomeCard title="公司项目" text="团队资产库和入库流程" action="进入" onClick={onOpenTree} />
             <HomeCard title="个人沙盒" text="本机草稿，不同步公司资产库" action="打开" onClick={onOpenSandbox} />
-            <HomeCard title="芝兰点子王" text="团队想法墙，P1.1 启用" action="预览" onClick={onOpenIdeas} />
+            <HomeCard title="芝兰点子王" text="团队灵感池，提交、筛选和推进想法" action="进入" onClick={onOpenIdeas} />
             <HomeCard title="AI 工具" text="P1.2 接入模型和配额" action="敬请期待" disabled />
           </div>
           <div className="mt-4">

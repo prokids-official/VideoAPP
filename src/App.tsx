@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from './stores/use-auth';
 import { LoginRoute } from './routes/LoginRoute';
 import { HomeRoute } from './routes/HomeRoute';
-import { IdeasPlaceholderRoute } from './routes/IdeasPlaceholderRoute';
+import { IdeasRoute } from './routes/IdeasRoute';
 import { SandboxRoute } from './routes/SandboxRoute';
 import { TreeRoute } from './routes/TreeRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
@@ -10,6 +10,8 @@ import { PushReviewRoute } from './routes/PushReviewRoute';
 import { api } from './lib/api';
 import { TitleBar } from './components/chrome/TitleBar';
 import { EpisodeWizard } from './components/wizards/EpisodeWizard';
+import { NewIdeaDialog } from './components/ideas/NewIdeaDialog';
+import type { IdeaSummary } from '../shared/types';
 
 type AppRoute = 'home' | 'studio' | 'sandbox' | 'ideas' | 'settings' | 'push-review';
 
@@ -19,8 +21,10 @@ export default function App() {
   const [pushReviewEpisode, setPushReviewEpisode] = useState<{ id: string; name: string } | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [episodeWizardOpen, setEpisodeWizardOpen] = useState(false);
+  const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [treeReloadKey, setTreeReloadKey] = useState(0);
+  const [ideasReloadKey, setIdeasReloadKey] = useState(0);
 
   const activeRoute = user ? route : 'studio';
 
@@ -66,6 +70,12 @@ export default function App() {
     window.setTimeout(() => setSuccessToast(null), 3_000);
   }
 
+  function handleIdeaCreated(idea: IdeaSummary) {
+    setIdeasReloadKey((value) => value + 1);
+    setSuccessToast(`✓ 已发布想法：${idea.title}`);
+    window.setTimeout(() => setSuccessToast(null), 3_000);
+  }
+
   let content;
   const subtitle = user ? routeSubtitle(activeRoute) : undefined;
 
@@ -103,7 +113,14 @@ export default function App() {
   } else if (activeRoute === 'sandbox') {
     content = <SandboxRoute onBack={() => setRoute('home')} />;
   } else if (activeRoute === 'ideas') {
-    content = <IdeasPlaceholderRoute onBack={() => setRoute('home')} />;
+    content = (
+      <IdeasRoute
+        user={user}
+        reloadKey={ideasReloadKey}
+        onBack={() => setRoute('home')}
+        onCreateIdea={() => setIdeaDialogOpen(true)}
+      />
+    );
   } else {
     content = (
       <TreeRoute
@@ -119,7 +136,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-bg text-text overflow-hidden">
-      <TitleBar subtitle={subtitle} />
+      <TitleBar subtitle={subtitle} onQuickIdea={user ? () => setIdeaDialogOpen(true) : undefined} />
       <div className="flex-1 min-h-0 overflow-hidden">{content}</div>
       {successToast && (
         <div
@@ -135,6 +152,14 @@ export default function App() {
           onClose={() => setEpisodeWizardOpen(false)}
           onCreate={createEpisode}
           onCreated={handleEpisodeCreated}
+        />
+      )}
+      {user && (
+        <NewIdeaDialog
+          open={ideaDialogOpen}
+          user={user}
+          onClose={() => setIdeaDialogOpen(false)}
+          onCreated={handleIdeaCreated}
         />
       )}
     </div>

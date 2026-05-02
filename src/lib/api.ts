@@ -4,6 +4,11 @@ import type {
   AuthResult,
   AssetStage,
   AssetContentResult,
+  IdeaCreateResult,
+  IdeaDetailResult,
+  IdeasListResult,
+  IdeaStatus,
+  IdeaUpdateResult,
   PreviewFilenameResult,
   RecentEpisode,
   StorageBackend,
@@ -180,4 +185,48 @@ export const api = {
     call<UsageMeResponse>({ method: 'GET', path: '/usage/me', requireAuth: true }),
 
   assetContent,
+
+  ideas: (input: {
+    status?: IdeaStatus | 'all';
+    authorId?: string;
+    tag?: string;
+    limit?: number;
+    cursor?: string | null;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (input.status && input.status !== 'all') {
+      qs.set('status', input.status);
+    }
+    if (input.authorId) {
+      qs.set('author_id', input.authorId);
+    }
+    if (input.tag) {
+      qs.set('tag', input.tag);
+    }
+    if (input.limit) {
+      qs.set('limit', String(input.limit));
+    }
+    if (input.cursor) {
+      qs.set('cursor', input.cursor);
+    }
+    const suffix = qs.toString();
+    return call<IdeasListResult>({ method: 'GET', path: `/ideas${suffix ? `?${suffix}` : ''}`, requireAuth: true });
+  },
+
+  createIdea: (input: { title: string; description: string; tags?: string[] }) =>
+    call<IdeaCreateResult>({ method: 'POST', path: '/ideas', body: input, requireAuth: true }),
+
+  ideaDetail: (id: string) =>
+    call<IdeaDetailResult>({ method: 'GET', path: `/ideas/${id}`, requireAuth: true }),
+
+  updateIdea: (id: string, input: {
+    title?: string;
+    description?: string;
+    status?: IdeaStatus;
+    tags?: string[];
+  }) =>
+    call<IdeaUpdateResult>({ method: 'PATCH', path: `/ideas/${id}`, body: input, requireAuth: true }),
+
+  deleteIdea: (id: string) =>
+    call<{ id: string; deleted_at: string }>({ method: 'DELETE', path: `/ideas/${id}`, requireAuth: true }),
 };

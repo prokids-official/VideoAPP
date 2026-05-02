@@ -144,6 +144,53 @@ export interface UsageMeResponse {
   recent: UsageLogSummary[];
 }
 
+export type IdeaStatus = 'pending' | 'accepted' | 'rejected' | 'shipped';
+
+export interface IdeaSummary {
+  id: string;
+  author_id: string;
+  author_name: string;
+  title: string;
+  description: string;
+  status: IdeaStatus;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  status_changed_at?: string | null;
+  status_changed_by?: string | null;
+  status_changed_by_name?: string | null;
+  is_editable_by_me?: boolean;
+}
+
+export interface IdeaReference {
+  id: string;
+  source: 'douyin' | 'bilibili' | 'youtube' | 'article' | 'other';
+  url: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  added_by: 'user' | 'agent';
+  added_at: string;
+}
+
+export interface IdeasListResult {
+  ideas: IdeaSummary[];
+  total: number;
+  next_cursor: string | null;
+}
+
+export interface IdeaDetailResult {
+  idea: IdeaSummary;
+  references: IdeaReference[];
+}
+
+export interface IdeaCreateResult {
+  idea: IdeaSummary;
+}
+
+export interface IdeaUpdateResult {
+  idea: IdeaSummary;
+}
+
 export type AssetStage = 'ROUGH' | 'REVIEW' | 'FINAL';
 export type AssetSource = 'imported' | 'pasted' | 'ai-generated';
 
