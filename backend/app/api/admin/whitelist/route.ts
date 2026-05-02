@@ -1,6 +1,5 @@
 export const runtime = 'edge';
 
-import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { err, ok } from '@/lib/api-response';
 import { requireAdmin } from '@/lib/auth-guard';
