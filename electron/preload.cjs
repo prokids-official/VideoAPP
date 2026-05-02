@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('fableglitch', {
     readDraftFile: (path) => ipcRenderer.invoke('fs:draft:read', path),
     deleteDraftFile: (localDraftId) => ipcRenderer.invoke('fs:draft:delete', localDraftId),
     openFileDialog: (filters) => ipcRenderer.invoke('fs:file:open', filters),
+    saveAssetFile: (payload) => ipcRenderer.invoke('fs:asset:save', payload),
     saveViewCacheFile: (payload) => ipcRenderer.invoke('fs:view-cache:save', payload),
   },
   net: {

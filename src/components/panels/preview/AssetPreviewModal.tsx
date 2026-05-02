@@ -11,15 +11,24 @@ export function AssetPreviewModal({
   content,
   loading,
   error,
+  actionStatus,
   onClose,
+  onCopyText,
+  onDownloadAsset,
 }: {
   open: boolean;
   asset: AssetRow | null;
   content: AssetContentResult | null;
   loading: boolean;
   error: string | null;
+  actionStatus: string | null;
   onClose: () => void;
+  onCopyText: () => void;
+  onDownloadAsset: () => void;
 }) {
+  const canCopy = content?.kind === 'markdown';
+  const canDownload = Boolean(content);
+
   return (
     <AnimatePresence>
       {open && asset && (
@@ -39,14 +48,34 @@ export function AssetPreviewModal({
           >
             <div className="mb-5 flex items-start justify-between gap-6">
               <div className="min-w-0">
-                <div className="font-mono text-xs text-text-3 mb-2">{asset.type_code} · v{asset.version}</div>
+                <div className="mb-2 font-mono text-xs text-text-3">
+                  {asset.type_code} · v{asset.version}
+                </div>
                 <h2 className="truncate text-xl font-bold tracking-tight">{asset.name}</h2>
-                <div className="mt-1 font-mono text-xs text-text-3 break-all">{asset.final_filename}</div>
+                <div className="mt-1 break-all font-mono text-xs text-text-3">{asset.final_filename}</div>
               </div>
-              <Button variant="secondary" onClick={onClose}>
-                关闭
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                {canCopy && (
+                  <Button variant="secondary" onClick={onCopyText}>
+                    复制文本
+                  </Button>
+                )}
+                {canDownload && (
+                  <Button variant="secondary" onClick={onDownloadAsset}>
+                    下载到本地
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={onClose}>
+                  关闭
+                </Button>
+              </div>
             </div>
+
+            {actionStatus && (
+              <div role="status" className="mb-4 rounded border border-border bg-surface-2 px-3 py-2 text-sm text-text-2">
+                {actionStatus}
+              </div>
+            )}
 
             {loading ? (
               <div className="flex min-h-[320px] items-center justify-center font-mono text-xs text-text-3">

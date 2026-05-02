@@ -43,6 +43,11 @@ interface FableglitchFs {
     size_bytes: number;
     content: Uint8Array;
   } | null>;
+  saveAssetFile: (payload: {
+    defaultFilename: string;
+    content?: string | ArrayBuffer | Uint8Array | number[];
+    url?: string;
+  }) => Promise<{ path: string; size_bytes: number } | null>;
   saveViewCacheFile: (payload: {
     assetId: string;
     extension: string;

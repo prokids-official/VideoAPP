@@ -67,6 +67,33 @@ export async function openFileDialog(filters) {
   };
 }
 
+export async function saveAssetFile({ defaultFilename, content, url }) {
+  const result = await dialog.showSaveDialog({
+    defaultPath: path.basename(defaultFilename || 'asset'),
+  });
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  let data;
+  if (url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Download failed: HTTP ${response.status}`);
+    }
+    data = Buffer.from(await response.arrayBuffer());
+  } else if (typeof content === 'string') {
+    data = Buffer.from(content, 'utf8');
+  } else if (content) {
+    data = Buffer.from(content);
+  } else {
+    throw new Error('content or url required');
+  }
+
+  await fs.writeFile(result.filePath, data);
+  return { path: result.filePath, size_bytes: data.byteLength };
+}
+
 export async function saveViewCacheFile({ assetId, extension, content }) {
   const safeExt = extension.startsWith('.') ? extension : `.${extension}`;
   const dir = viewCacheRoot();

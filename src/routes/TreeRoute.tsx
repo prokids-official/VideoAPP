@@ -86,6 +86,7 @@ export function TreeRoute({
   const [previewContent, setPreviewContent] = useState<AssetContentResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewActionStatus, setPreviewActionStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reviewDraftCount, setReviewDraftCount] = useState(0);
@@ -298,6 +299,7 @@ export function TreeRoute({
     setPreviewAsset(asset);
     setPreviewContent(null);
     setPreviewError(null);
+    setPreviewActionStatus(null);
     setPreviewLoading(true);
 
     try {
@@ -320,6 +322,42 @@ export function TreeRoute({
       setPreviewError(cause instanceof Error ? cause.message : '预览加载失败');
     } finally {
       setPreviewLoading(false);
+    }
+  }
+
+  async function handleCopyPreviewText() {
+    if (previewContent?.kind !== 'markdown') {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(previewContent.content);
+      setPreviewActionStatus('已复制到剪贴板');
+    } catch (cause) {
+      setPreviewActionStatus(cause instanceof Error ? cause.message : '复制失败');
+    }
+  }
+
+  async function handleDownloadPreviewAsset() {
+    if (!previewAsset || !previewContent) {
+      return;
+    }
+
+    if (!window.fableglitch?.fs?.saveAssetFile) {
+      setPreviewActionStatus('桌面文件保存桥接未加载，请重启桌面端');
+      return;
+    }
+
+    try {
+      const saved = await window.fableglitch.fs.saveAssetFile(
+        previewContent.kind === 'markdown'
+          ? { defaultFilename: previewAsset.final_filename, content: previewContent.content }
+          : { defaultFilename: previewAsset.final_filename, url: previewContent.url },
+      );
+
+      setPreviewActionStatus(saved ? `已保存到 ${saved.path}` : '已取消保存');
+    } catch (cause) {
+      setPreviewActionStatus(cause instanceof Error ? cause.message : '保存失败');
     }
   }
 
@@ -399,10 +437,14 @@ export function TreeRoute({
         content={previewContent}
         loading={previewLoading}
         error={previewError}
+        actionStatus={previewActionStatus}
+        onCopyText={handleCopyPreviewText}
+        onDownloadAsset={handleDownloadPreviewAsset}
         onClose={() => {
           setPreviewAsset(null);
           setPreviewContent(null);
           setPreviewError(null);
+          setPreviewActionStatus(null);
         }}
       />
     </div>

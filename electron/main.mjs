@@ -16,6 +16,7 @@ import {
   deleteDraftFile,
   openFileDialog,
   readDraftFile,
+  saveAssetFile,
   saveDraftFile,
   saveViewCacheFile,
 } from './file-system.mjs';
@@ -49,6 +50,7 @@ ipcMain.handle('fs:draft:save', (_event, payload) => saveDraftFile(payload));
 ipcMain.handle('fs:draft:read', (_event, filePath) => readDraftFile(filePath));
 ipcMain.handle('fs:draft:delete', (_event, localDraftId) => deleteDraftFile(localDraftId));
 ipcMain.handle('fs:file:open', (_event, filters) => openFileDialog(filters));
+ipcMain.handle('fs:asset:save', (_event, payload) => saveAssetFile(payload));
 ipcMain.handle('fs:view-cache:save', (_event, payload) => saveViewCacheFile(payload));
 
 ipcMain.handle('net:request', (_event, payload) => apiRequest(payload));
