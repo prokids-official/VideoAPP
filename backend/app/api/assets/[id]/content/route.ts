@@ -19,6 +19,12 @@ interface AssetRow {
   mime_type?: string | null;
   episode_id?: string | null;
   file_size_bytes?: number | null;
+  withdrawn_at?: string | null;
+  push_id?: string | null;
+}
+
+interface ActorRow {
+  role: string | null;
 }
 
 export async function GET(
@@ -32,14 +38,46 @@ export async function GET(
   }
 
   const { id } = await ctx.params;
+  const includeWithdrawn = new URL(req.url).searchParams.get('include_withdrawn') === 'true';
   const { data: asset, error } = await supabaseAdmin()
     .from('assets')
-    .select('id,storage_backend,storage_ref,storage_metadata,mime_type,episode_id,file_size_bytes')
+    .select(
+      'id,storage_backend,storage_ref,storage_metadata,mime_type,episode_id,file_size_bytes,withdrawn_at,push_id',
+    )
     .eq('id', id)
     .single<AssetRow>();
 
   if (error || !asset) {
     return err('PAYLOAD_MALFORMED', 'asset not found', undefined, 404);
+  }
+
+  if (asset.withdrawn_at) {
+    let canIncludeWithdrawn = false;
+
+    if (includeWithdrawn) {
+      const { data: actor } = await supabaseAdmin()
+        .from('users')
+        .select('role')
+        .eq('auth_user_id', auth.user_id)
+        .single<ActorRow>();
+      canIncludeWithdrawn = actor?.role === 'admin';
+    }
+
+    if (!canIncludeWithdrawn) {
+      return Response.json(
+        {
+          error: {
+            code: 'ASSET_WITHDRAWN',
+            message: '该资产已撤回',
+            details: {
+              withdrawn_at: asset.withdrawn_at,
+              push_id: asset.push_id,
+            },
+          },
+        },
+        { status: 410 },
+      );
+    }
   }
 
   if (asset.storage_backend === 'github') {
