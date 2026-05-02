@@ -466,6 +466,7 @@ export async function POST(req: Request): Promise<Response> {
 
   const rows = resolved.map((resolvedItem) => ({
     episode_id: episodeId,
+    idempotency_key: payload.idempotency_key,
     type_code: resolvedItem.item.type_code,
     name: resolvedItem.item.name ?? '',
     variant: resolvedItem.item.variant ?? null,

@@ -35,7 +35,7 @@ vi.mock('@/lib/supabase-admin', () => ({
       }
 
       if (table === 'assets') {
-        return { insert: () => ({ select: async () => mocks.insertAssets() }) };
+        return { insert: (rows: unknown[]) => ({ select: async () => mocks.insertAssets(rows) }) };
       }
 
       return {};
@@ -309,6 +309,10 @@ describe('POST /api/assets/push', () => {
     });
     expect(mocks.recordIdemSuccess).toHaveBeenCalledWith('k-happy', 'u-1', body.data);
     expect(mocks.updateEpisode).toHaveBeenCalled();
+    expect(mocks.insertAssets).toHaveBeenCalledWith([
+      expect.objectContaining({ idempotency_key: 'k-happy' }),
+      expect.objectContaining({ idempotency_key: 'k-happy' }),
+    ]);
   });
 
   it('502 GITHUB_CONFLICT after retry exhausted', async () => {
