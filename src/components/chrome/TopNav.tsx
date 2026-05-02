@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useAuth } from '../../stores/use-auth';
 
-export function TopNav({ onOpenSettings }: { onOpenSettings?: () => void }) {
+export function TopNav({
+  onOpenSettings,
+  onBackHome,
+}: {
+  onOpenSettings?: () => void;
+  onBackHome?: () => void;
+}) {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -16,6 +22,16 @@ export function TopNav({ onOpenSettings }: { onOpenSettings?: () => void }) {
       <div className="text-md font-bold tracking-tight bg-gradient-brand bg-clip-text text-transparent">
         FableGlitch
       </div>
+      {onBackHome && (
+        <button
+          type="button"
+          aria-label="返回主页"
+          onClick={onBackHome}
+          className="h-9 rounded-full border border-border bg-surface-2 px-4 text-sm font-semibold text-text-2 transition hover:border-border-hi hover:bg-surface-3 hover:text-text active:translate-y-px"
+        >
+          ← 主页
+        </button>
+      )}
       <div className="flex-1" />
       <div className="relative">
         <button

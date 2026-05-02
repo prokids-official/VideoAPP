@@ -89,7 +89,7 @@ function draft(id: string): LocalDraft {
   };
 }
 
-function renderTree(onOpenPushReview = vi.fn()) {
+function renderTree(onOpenPushReview = vi.fn(), onBackHome = vi.fn()) {
   render(
     <AuthContext.Provider value={authState}>
       <TreeRoute
@@ -98,11 +98,12 @@ function renderTree(onOpenPushReview = vi.fn()) {
         onSelectEpisode={vi.fn()}
         onCreateEpisode={vi.fn()}
         onOpenSettings={vi.fn()}
+        onBackHome={onBackHome}
         onOpenPushReview={onOpenPushReview}
       />
     </AuthContext.Provider>,
   );
-  return onOpenPushReview;
+  return { onOpenPushReview, onBackHome };
 }
 
 beforeEach(() => {
@@ -148,6 +149,16 @@ afterEach(() => {
 });
 
 describe('TreeRoute push review FAB', () => {
+  it('offers a clear way back to the home route', async () => {
+    draftsList.mockResolvedValue([]);
+    const { onBackHome } = renderTree();
+
+    const homeButton = await screen.findByRole('button', { name: '返回主页' });
+    fireEvent.click(homeButton);
+
+    expect(onBackHome).toHaveBeenCalled();
+  });
+
   it('does not render the FAB when there are no local drafts', async () => {
     draftsList.mockResolvedValue([]);
 
@@ -170,7 +181,7 @@ describe('TreeRoute push review FAB', () => {
 
   it('opens push review for the current episode when clicked', async () => {
     draftsList.mockResolvedValue([draft('d1'), draft('d2')]);
-    const onOpenPushReview = renderTree();
+    const { onOpenPushReview } = renderTree();
 
     fireEvent.click(await screen.findByTestId('push-review-fab'));
 

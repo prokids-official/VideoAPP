@@ -14,6 +14,34 @@ const STATUS_COPY: Record<IdeaStatus | 'all', { label: string; dot: string; text
   rejected: { label: '暂不做', dot: 'bg-bad', text: 'text-bad' },
 };
 
+function initialStatusFilter(): IdeaStatus | 'all' {
+  const value = new URLSearchParams(window.location.search).get('status');
+  return STATUS_FILTERS.includes(value as IdeaStatus | 'all') ? (value as IdeaStatus | 'all') : 'all';
+}
+
+function initialScope(): 'team' | 'mine' {
+  return new URLSearchParams(window.location.search).get('scope') === 'mine' ? 'mine' : 'team';
+}
+
+function syncIdeaFiltersToUrl(status: IdeaStatus | 'all', scope: 'team' | 'mine') {
+  const params = new URLSearchParams(window.location.search);
+
+  if (status === 'all') {
+    params.delete('status');
+  } else {
+    params.set('status', status);
+  }
+
+  if (scope === 'mine') {
+    params.set('scope', 'mine');
+  } else {
+    params.delete('scope');
+  }
+
+  const query = params.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+}
+
 export function IdeasRoute({
   user,
   reloadKey,
@@ -25,8 +53,8 @@ export function IdeasRoute({
   onBack: () => void;
   onCreateIdea: () => void;
 }) {
-  const [statusFilter, setStatusFilter] = useState<IdeaStatus | 'all'>('all');
-  const [scope, setScope] = useState<'team' | 'mine'>('team');
+  const [statusFilter, setStatusFilter] = useState<IdeaStatus | 'all'>(() => initialStatusFilter());
+  const [scope, setScope] = useState<'team' | 'mine'>(() => initialScope());
   const [ideas, setIdeas] = useState<IdeaSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -41,6 +69,7 @@ export function IdeasRoute({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailMode, setDetailMode] = useState<'view' | 'edit'>('view');
   const [detail, setDetail] = useState<IdeaDetailResult | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -172,6 +201,32 @@ export function IdeasRoute({
     setRefreshKey((value) => value + 1);
   }
 
+  function changeStatusFilter(next: IdeaStatus | 'all') {
+    setStatusFilter(next);
+    syncIdeaFiltersToUrl(next, scope);
+  }
+
+  function changeScope(next: 'team' | 'mine') {
+    setScope(next);
+    syncIdeaFiltersToUrl(statusFilter, next);
+  }
+
+  function openIdea(id: string, mode: 'view' | 'edit' = 'view') {
+    setDetailMode(mode);
+    setDetailId(id);
+  }
+
+  async function deleteIdeaFromCard(idea: IdeaSummary) {
+    const result = await api.deleteIdea(idea.id);
+
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+
+    setRefreshKey((value) => value + 1);
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-[#111113] px-6 py-8 text-text md:px-10">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
@@ -206,7 +261,7 @@ export function IdeasRoute({
                   key={status}
                   type="button"
                   aria-pressed={statusFilter === status}
-                  onClick={() => setStatusFilter(status)}
+                  onClick={() => changeStatusFilter(status)}
                   className={`h-11 rounded-full border px-4 text-sm font-semibold transition ${
                     statusFilter === status
                       ? 'border-white/20 bg-white text-black'
@@ -220,8 +275,8 @@ export function IdeasRoute({
             </div>
 
             <div className="flex w-full rounded-full border border-white/10 bg-[#1c1c1e] p-1 md:w-auto">
-              <ScopeButton active={scope === 'team'} onClick={() => setScope('team')} label="团队全部" />
-              <ScopeButton active={scope === 'mine'} onClick={() => setScope('mine')} label="只看我的" />
+              <ScopeButton active={scope === 'team'} onClick={() => changeScope('team')} label="团队全部" />
+              <ScopeButton active={scope === 'mine'} onClick={() => changeScope('mine')} label="只看我的" />
             </div>
           </div>
 
@@ -237,7 +292,13 @@ export function IdeasRoute({
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {ideas.map((idea) => (
-                    <IdeaCard key={idea.id} idea={idea} onOpen={() => setDetailId(idea.id)} />
+                    <IdeaCard
+                      key={idea.id}
+                      idea={idea}
+                      onOpen={() => openIdea(idea.id)}
+                      onEdit={() => openIdea(idea.id, 'edit')}
+                      onDelete={() => void deleteIdeaFromCard(idea)}
+                    />
                   ))}
                 </div>
                 {nextCursor && (
@@ -268,9 +329,11 @@ export function IdeasRoute({
         detail={detail}
         loading={detailLoading}
         error={detailError}
+        initialEditing={detailMode === 'edit'}
         open={Boolean(detailId)}
         onClose={() => {
           setDetailId(null);
+          setDetailMode('view');
           setDetail(null);
           setDetailError(null);
         }}
@@ -296,43 +359,85 @@ function ScopeButton({ active, label, onClick }: { active: boolean; label: strin
   );
 }
 
-function IdeaCard({ idea, onOpen }: { idea: IdeaSummary; onOpen: () => void }) {
+function IdeaCard({
+  idea,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  idea: IdeaSummary;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const meta = STATUS_COPY[idea.status];
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const canEdit = Boolean(idea.is_editable_by_me);
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group min-h-[220px] rounded-xl border border-white/10 bg-[#1c1c1e] p-5 text-left shadow-[0_12px_34px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-white/22 hover:bg-[#252528]"
-    >
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <span className={`inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1 text-xs font-semibold ${meta.text}`}>
-          <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
-          {meta.label}
-        </span>
-        <span className="font-mono text-xs text-[#8e8e93]">{formatDate(idea.created_at)}</span>
-      </div>
+    <article className="group relative min-h-[220px] rounded-xl border border-white/10 bg-[#1c1c1e] p-5 shadow-[0_12px_34px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-white/22 hover:bg-[#252528]">
+      <button type="button" onClick={onOpen} className="block w-full text-left">
+        <div className="mb-5 flex items-center justify-between gap-3 pr-20">
+          <span className={`inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1 text-xs font-semibold ${meta.text}`}>
+            <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+            {meta.label}
+          </span>
+          <span className="font-mono text-xs text-[#8e8e93]">{formatDate(idea.created_at)}</span>
+        </div>
 
-      <h2 className="line-clamp-2 text-xl font-semibold leading-7 tracking-tight text-white">{idea.title}</h2>
-      <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#b8b8bf]">{idea.description}</p>
+        <h2 className="line-clamp-2 text-xl font-semibold leading-7 tracking-tight text-white">{idea.title}</h2>
+        <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#b8b8bf]">{idea.description}</p>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {idea.tags.length > 0 ? (
-          idea.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-[#d7d7dd]">
-              {tag}
-            </span>
-          ))
-        ) : (
-          <span className="rounded-full border border-white/8 px-2.5 py-1 text-xs text-[#8e8e93]">未加标签</span>
-        )}
-      </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {idea.tags.length > 0 ? (
+            idea.tags.slice(0, 3).map((tag) => (
+              <span key={tag} className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-[#d7d7dd]">
+                {tag}
+              </span>
+            ))
+          ) : (
+            <span className="rounded-full border border-white/8 px-2.5 py-1 text-xs text-[#8e8e93]">未加标签</span>
+          )}
+        </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/8 pt-4 text-sm text-[#a1a1aa]">
-        <span className="truncate">由 {idea.author_name || '团队成员'} 提出</span>
-        <span className="text-white opacity-0 transition group-hover:opacity-100">查看</span>
-      </div>
-    </button>
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/8 pt-4 text-sm text-[#a1a1aa]">
+          <span className="truncate">由 {idea.author_name || '团队成员'} 提出</span>
+          <span className="text-white opacity-0 transition group-hover:opacity-100">查看</span>
+        </div>
+      </button>
+
+      {canEdit && (
+        <div className="absolute right-4 top-4 flex gap-2 opacity-100 transition md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+          <button
+            type="button"
+            aria-label={`编辑 ${idea.title}`}
+            onClick={onEdit}
+            className="h-8 rounded-full border border-white/10 bg-white/8 px-3 text-xs font-semibold text-white backdrop-blur transition hover:border-white/20 hover:bg-white/14"
+          >
+            编辑
+          </button>
+          <button
+            type="button"
+            aria-label={`${deleteArmed ? '确认删除' : '删除'} ${idea.title}`}
+            onClick={() => {
+              if (!deleteArmed) {
+                setDeleteArmed(true);
+                return;
+              }
+              onDelete();
+            }}
+            onBlur={() => setDeleteArmed(false)}
+            className={`h-8 rounded-full border px-3 text-xs font-semibold backdrop-blur transition ${
+              deleteArmed
+                ? 'border-bad/40 bg-bad/16 text-bad'
+                : 'border-white/10 bg-white/8 text-[#d7d7dd] hover:border-bad/35 hover:text-bad'
+            }`}
+          >
+            {deleteArmed ? '确认' : '删除'}
+          </button>
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -371,6 +476,7 @@ function IdeaDetailDialog({
   detail,
   loading,
   error,
+  initialEditing,
   onClose,
   onChanged,
   onDeleted,
@@ -380,13 +486,14 @@ function IdeaDetailDialog({
   detail: IdeaDetailResult | null;
   loading: boolean;
   error: string | null;
+  initialEditing: boolean;
   onClose: () => void;
   onChanged: (idea: IdeaSummary) => void;
   onDeleted: () => void;
 }) {
   const idea = detail?.idea ?? null;
   const references = detail?.references ?? [];
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => initialEditing);
   const [title, setTitle] = useState(() => idea?.title ?? '');
   const [description, setDescription] = useState(() => idea?.description ?? '');
   const [status, setStatus] = useState<IdeaStatus>(() => idea?.status ?? 'pending');

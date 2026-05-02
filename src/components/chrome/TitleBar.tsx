@@ -69,10 +69,12 @@ export function TitleBar({ subtitle, onQuickIdea }: { subtitle?: string; onQuick
         {onQuickIdea && (
           <button
             type="button"
+            aria-label="快速发布新想法"
+            title="快速发布新想法"
             onClick={onQuickIdea}
-            className="h-7 rounded-md border border-border bg-surface-2 px-3 text-[12px] font-semibold tracking-tight text-text transition hover:border-border-hi hover:bg-surface-3 active:translate-y-px"
+            className="grid h-7 w-8 place-items-center rounded-md border border-border bg-surface-2 text-[14px] text-text transition hover:border-border-hi hover:bg-surface-3 active:translate-y-px"
           >
-            + 新想法
+            <span aria-hidden="true">💡</span>
           </button>
         )}
         <ThemeSegmented theme={theme} onChange={setTheme} />

@@ -129,6 +129,7 @@ export default function App() {
         onSelectEpisode={setSelectedEpisodeId}
         onCreateEpisode={() => setEpisodeWizardOpen(true)}
         onOpenSettings={() => setRoute('settings')}
+        onBackHome={() => setRoute('home')}
         onOpenPushReview={openPushReview}
       />
     );

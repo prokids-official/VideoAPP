@@ -59,6 +59,7 @@ export function TreeRoute({
   onSelectEpisode,
   onCreateEpisode,
   onOpenSettings,
+  onBackHome,
   onOpenPushReview,
 }: {
   selectedEpisodeId: string | null;
@@ -66,6 +67,7 @@ export function TreeRoute({
   onSelectEpisode: (id: string) => void;
   onCreateEpisode: () => void;
   onOpenSettings: () => void;
+  onBackHome: () => void;
   onOpenPushReview: (episode: { id: string; name: string }) => void;
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null);
@@ -363,7 +365,7 @@ export function TreeRoute({
 
   return (
     <div className="h-full flex flex-col bg-bg text-text">
-      <TopNav onOpenSettings={onOpenSettings} />
+      <TopNav onOpenSettings={onOpenSettings} onBackHome={onBackHome} />
       <div className="flex-1 flex overflow-hidden">
         <ProjectTree
           series={tree?.series ?? []}

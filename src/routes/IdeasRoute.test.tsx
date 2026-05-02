@@ -36,10 +36,13 @@ const idea: IdeaSummary = {
 
 const ideas = vi.mocked(api.ideas);
 const ideaDetail = vi.mocked(api.ideaDetail);
+const deleteIdea = vi.mocked(api.deleteIdea);
 
 beforeEach(() => {
+  window.history.replaceState({}, '', '/');
   ideas.mockReset();
   ideaDetail.mockReset();
+  deleteIdea.mockReset();
   ideas.mockImplementation(async (input = {}) => {
     if (input.limit === 1) {
       return {
@@ -51,6 +54,7 @@ beforeEach(() => {
     return { ok: true, data: { ideas: [idea], total: 1, next_cursor: null } };
   });
   ideaDetail.mockResolvedValue({ ok: true, data: { idea, references: [] } });
+  deleteIdea.mockResolvedValue({ ok: true, data: { id: idea.id, deleted_at: '2026-05-02T01:00:00Z' } });
 });
 
 describe('IdeasRoute', () => {
@@ -71,6 +75,37 @@ describe('IdeasRoute', () => {
 
     await waitFor(() => {
       expect(ideas).toHaveBeenCalledWith(expect.objectContaining({ authorId: 'me', limit: 20 }));
+    });
+  });
+
+  it('initializes filters from URL search params and keeps them in sync', async () => {
+    window.history.replaceState({}, '', '/ideas?status=accepted&scope=mine');
+
+    render(<IdeasRoute user={user} reloadKey={0} onBack={vi.fn()} onCreateIdea={vi.fn()} />);
+
+    await screen.findByText('睡前故事三段反转');
+    expect(ideas).toHaveBeenCalledWith(expect.objectContaining({ status: 'accepted', authorId: 'me', limit: 20 }));
+
+    fireEvent.click(screen.getByRole('button', { name: /待评估1/ }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain('status=pending');
+      expect(window.location.search).toContain('scope=mine');
+    });
+  });
+
+  it('shows editable card actions and supports quick soft delete', async () => {
+    render(<IdeasRoute user={user} reloadKey={0} onBack={vi.fn()} onCreateIdea={vi.fn()} />);
+
+    await screen.findByText('睡前故事三段反转');
+    expect(screen.getByRole('button', { name: '编辑 睡前故事三段反转' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '删除 睡前故事三段反转' }));
+    expect(screen.getByRole('button', { name: '确认删除 睡前故事三段反转' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '确认删除 睡前故事三段反转' }));
+
+    await waitFor(() => {
+      expect(deleteIdea).toHaveBeenCalledWith('idea-1');
     });
   });
 
