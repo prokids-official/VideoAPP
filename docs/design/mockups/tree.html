@@ -87,7 +87,8 @@ body{
 .row .icon{ font-size:13px; opacity:.85; flex:0 0 auto; }
 .row .lbl{ flex:1; overflow:hidden; text-overflow:ellipsis; }
 .row .count{
-  font-family:var(--mono); font-size:10px; color:var(--text-4);
+  font-size:11px; color:var(--text-4);
+  font-variant-numeric:tabular-nums;
 }
 .row.l1{ font-weight:500; color:var(--text); }
 .row.l2{ padding-left:24px; }
@@ -112,14 +113,16 @@ body{
 }
 .crumbs .sep{ color:var(--text-4); margin:0 6px; }
 h1.title{
-  font-size:40px; line-height:1.1; font-weight:700; letter-spacing:-0.022em;
+  font-size:32px; line-height:1.15; font-weight:700; letter-spacing:-0.018em;
   margin:0 0 14px;
 }
 .meta{
-  font-family:var(--mono); font-size:12px; color:var(--text-3);
+  font-size:13px; color:var(--text-3);
   margin-bottom:48px;
+  letter-spacing:-0.005em;
 }
 .meta .dot{ color:var(--text-4); margin:0 8px; }
+.meta .date{ font-family:var(--mono); font-size:12px; }
 .meta .status{ color:var(--amber); }
 .meta .status::before{
   content:""; display:inline-block; width:8px; height:8px; border-radius:50%;
@@ -153,9 +156,10 @@ h1.title{
 .tile .emoji{ font-size:24px; margin-bottom:14px; line-height:1; }
 .tile .name{ font-size:14px; font-weight:500; color:var(--text); margin-bottom:8px; }
 .tile .stat{
-  font-family:var(--mono); font-size:11px; color:var(--text-3);
+  font-size:12px; color:var(--text-3);
   margin-top:auto;
   display:flex; align-items:center; gap:6px;
+  letter-spacing:-0.005em;
 }
 .tile .stat .gd{ width:6px; height:6px; border-radius:50%; background:var(--green); display:inline-block; }
 .tile .stat .am{ width:6px; height:6px; border-radius:50%; background:var(--amber); display:inline-block; }
@@ -185,12 +189,15 @@ h1.title{
   cursor:pointer;
   box-shadow:0 10px 30px -8px rgba(155,124,255,0.45), 0 4px 12px rgba(0,0,0,0.4);
   letter-spacing:-0.005em;
+  transition:filter .15s, transform .05s;
 }
 .fab:hover{ filter:brightness(1.08); }
+.fab:active{ transform:translateY(1px); }
 .fab .pill{
   font-family:var(--mono); font-size:11px;
   background:rgba(255,255,255,0.18);
   padding:2px 7px; border-radius:10px;
+  font-variant-numeric:tabular-nums;
 }
 </style>
 </head>
@@ -282,9 +289,9 @@ h1.title{
         <h1 class="title">侏儒怪 第一集</h1>
 
         <div class="meta">
-          created by 乐美林
-          <span class="dot">·</span> 2026-04-15
-          <span class="dot">·</span> <span class="status">drafting</span>
+          由 乐美林 创建
+          <span class="dot">·</span> <span class="date">2026-04-15</span>
+          <span class="dot">·</span> <span class="status">草稿中</span>
         </div>
 
         <h2 class="section-title">板块</h2>

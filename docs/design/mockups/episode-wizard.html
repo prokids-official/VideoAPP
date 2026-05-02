@@ -105,9 +105,9 @@ body{
 .connector.done{ background:rgba(74,222,128,0.40); }
 
 .kicker{
-  font-family:var(--mono); font-size:11px;
-  color:var(--text-3); text-transform:uppercase;
-  letter-spacing:0.08em;
+  font-size:12px;
+  color:var(--text-3);
+  letter-spacing:-0.005em;
   margin-bottom:10px;
 }
 
@@ -140,9 +140,9 @@ body{
   border-radius:10px;
 }
 .preview .pl{
-  font-family:var(--mono); font-size:11px;
+  font-size:12px;
   color:var(--text-3);
-  margin-bottom:8px; letter-spacing:0.04em; text-transform:uppercase;
+  margin-bottom:8px; letter-spacing:-0.005em;
 }
 .preview .path{
   font-family:var(--mono); font-size:14px;
@@ -181,7 +181,8 @@ body{
 .btn-primary:hover{ filter:brightness(1.08); }
 
 .help{
-  font-family:var(--mono); font-size:11px; color:var(--text-3);
+  font-size:12px; color:var(--text-3);
+  letter-spacing:-0.005em;
 }
 </style>
 </head>
@@ -209,7 +210,7 @@ body{
         </div>
       </div>
 
-      <div class="kicker">step 4 of 4 · final</div>
+      <div class="kicker">第 4 步 / 共 4 步</div>
       <h2 class="h">为这一集起个正式名字</h2>
 
       <div class="field">
@@ -218,7 +219,7 @@ body{
       </div>
 
       <div class="preview">
-        <div class="pl">// 你的剧集路径将是</div>
+        <div class="pl">剧集路径预览</div>
         <div class="path">
           <span class="seg">童话剧</span><span class="sep">_</span><span class="seg">NA</span><span class="sep">_</span><span class="seg">侏儒怪</span><span class="sep">_</span><span class="seg">侏儒怪 第一集</span>
         </div>
@@ -227,7 +228,7 @@ body{
       <div class="foot">
         <button class="btn btn-secondary">← 上一步</button>
         <div style="display:flex;align-items:center;gap:18px">
-          <span class="help">enter ↵ 创建</span>
+          <span class="help">回车 创建</span>
           <button class="btn btn-primary">创建骨架</button>
         </div>
       </div>

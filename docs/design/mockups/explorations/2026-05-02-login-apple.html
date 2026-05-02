@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="design-version" content="2-apple" />
+<meta name="exploration" content="login · apple-style dark · 2026-05-02" />
+<title>FableGlitch Studio · 登录（Apple 风探索）</title>
+<style>
+/*
+  Design philosophy (vs design-version 1):
+  - 单一实色 accent，无渐变（紫粉渐变退役）
+  - 字体走系统栈，Mac 用户拿到 SF Pro，Windows 拿到 Segoe，CJK 用 Noto SC
+  - mono 字体只用在真·代码语义（版本号、域名、SHA 这类）
+  - 底色从 #0a0a0b 抬到 #1c1c1e（Apple Dark 系统灰 6）
+  - 删除径向渐变背景，回归纯净底
+  - logo 不再用 gradient text，纯字重区分
+  - 信息密度降低：tagline 移到 footer，brand 区只剩 logo
+  - 邮箱输入：前缀 + 固定 @beva.com 分段
+*/
+:root{
+  /* surface */
+  --bg:#1c1c1e;
+  --card:#2c2c2e;
+  --card-hi:#3a3a3c;
+  --hairline:rgba(255,255,255,0.08);
+  --hairline-strong:rgba(255,255,255,0.14);
+
+  /* text */
+  --text:#ffffff;
+  --text-2:#ebebf5;       /* white at 92 */
+  --text-3:#8e8e93;       /* sys gray */
+  --text-4:#636366;
+  --text-disabled:#48484a;
+
+  /* accent — single solid, no gradient */
+  --accent:#7c5cff;
+  --accent-hi:#9479ff;
+  --accent-press:#6346ff;
+  --accent-tint:rgba(124,92,255,0.14);
+
+  /* status — used sparingly */
+  --green:#30d158;
+  --amber:#ff9f0a;
+  --red:#ff453a;
+
+  /* type */
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,'Segoe UI','Noto Sans SC',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+
+  /* radii — Apple skew toward 10/12 for small surfaces, 16/20 for sheets */
+  --r-sm:8px;
+  --r-md:10px;
+  --r-lg:14px;
+  --r-xl:20px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  letter-spacing:-0.01em;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  font-feature-settings:'cv11','ss01';
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:48px 20px;
+}
+
+/* ------------------------------------------------------------------ */
+
+.card{
+  width:380px;
+  background:var(--card);
+  border-radius:var(--r-xl);
+  padding:36px 32px 28px;
+  box-shadow:
+    0 0 0 0.5px var(--hairline-strong),
+    0 8px 24px -8px rgba(0,0,0,0.4),
+    0 32px 64px -16px rgba(0,0,0,0.5);
+}
+
+/* brand --------------------------------------------------------------- */
+
+.brand{
+  text-align:center;
+  margin-bottom:32px;
+}
+.logo{
+  font-size:22px;
+  font-weight:600;
+  letter-spacing:-0.022em;
+  color:var(--text);
+}
+.logo-mark{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:3px;
+  background:var(--accent);
+  margin-right:8px;
+  transform:translateY(-2px);
+  vertical-align:middle;
+}
+
+/* tabs (segmented control) ------------------------------------------- */
+
+.segmented{
+  display:flex;
+  background:rgba(255,255,255,0.05);
+  border-radius:var(--r-md);
+  padding:2px;
+  margin-bottom:24px;
+  position:relative;
+}
+.segmented-item{
+  flex:1;
+  text-align:center;
+  padding:7px 12px;
+  font-size:13px;
+  font-weight:500;
+  color:var(--text-3);
+  border-radius:8px;
+  cursor:pointer;
+  transition:color .12s, background .12s;
+  user-select:none;
+}
+.segmented-item.active{
+  background:var(--card-hi);
+  color:var(--text);
+  box-shadow:0 0 0 0.5px var(--hairline-strong), 0 1px 2px rgba(0,0,0,0.2);
+}
+.segmented-item:not(.active):hover{ color:var(--text-2); }
+
+/* fields -------------------------------------------------------------- */
+
+.field{ margin-bottom:14px; }
+.field-label{
+  display:block;
+  font-size:12px;
+  color:var(--text-3);
+  margin-bottom:6px;
+  font-weight:500;
+  letter-spacing:-0.005em;
+}
+
+.input{
+  width:100%;
+  height:40px;
+  padding:0 12px;
+  background:rgba(255,255,255,0.04);
+  border:0.5px solid var(--hairline);
+  border-radius:var(--r-sm);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:14px;
+  outline:none;
+  transition:border-color .12s, background .12s;
+}
+.input::placeholder{ color:var(--text-4); }
+.input:focus{
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.06);
+  box-shadow:0 0 0 3px var(--accent-tint);
+}
+
+/* split email input — prefix + fixed suffix */
+.email-row{
+  display:flex;
+  align-items:stretch;
+  background:rgba(255,255,255,0.04);
+  border:0.5px solid var(--hairline);
+  border-radius:var(--r-sm);
+  overflow:hidden;
+  transition:border-color .12s, background .12s, box-shadow .12s;
+}
+.email-row:focus-within{
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.06);
+  box-shadow:0 0 0 3px var(--accent-tint);
+}
+.email-prefix{
+  flex:1;
+  height:40px;
+  padding:0 4px 0 12px;
+  background:transparent;
+  border:0;
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:14px;
+  outline:none;
+  letter-spacing:-0.005em;
+}
+.email-prefix::placeholder{ color:var(--text-4); }
+.email-suffix{
+  display:flex;
+  align-items:center;
+  padding:0 12px 0 4px;
+  font-family:var(--mono);
+  font-size:13px;
+  color:var(--text-3);
+  letter-spacing:-0.005em;
+  user-select:none;
+  white-space:nowrap;
+}
+
+.field-help{
+  margin-top:6px;
+  font-size:11px;
+  color:var(--text-4);
+  letter-spacing:-0.005em;
+}
+
+/* CTA ----------------------------------------------------------------- */
+
+.cta{
+  width:100%;
+  height:42px;
+  margin-top:20px;
+  border:0;
+  border-radius:var(--r-md);
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:600;
+  color:#fff;
+  cursor:pointer;
+  background:var(--accent);
+  letter-spacing:-0.005em;
+  transition:background .12s, transform .04s;
+}
+.cta:hover{ background:var(--accent-hi); }
+.cta:active{ background:var(--accent-press); transform:translateY(0.5px); }
+.cta:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px var(--accent-tint);
+}
+
+/* aux ---------------------------------------------------------------- */
+
+.aux{
+  margin-top:18px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  font-size:12.5px;
+  color:var(--text-3);
+  letter-spacing:-0.005em;
+}
+.aux a{
+  color:var(--text-2);
+  text-decoration:none;
+  transition:color .12s;
+}
+.aux a:hover{ color:var(--accent-hi); }
+
+.aux-secondary{
+  font-size:12px;
+  color:var(--text-4);
+  margin-top:2px;
+}
+.aux-secondary a{
+  color:var(--text-3);
+}
+.aux-secondary a:hover{ color:var(--text-2); }
+
+/* footer (outside card) ---------------------------------------------- */
+
+.footer{
+  margin-top:24px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  text-align:center;
+}
+.footer-name{
+  font-size:11px;
+  color:var(--text-4);
+  letter-spacing:-0.005em;
+}
+.footer-build{
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--text-disabled);
+  letter-spacing:0;
+}
+
+/* small spec annotations (only in this exploration file) ------------- */
+
+.spec-note{
+  position:fixed;
+  bottom:16px;
+  left:16px;
+  max-width:280px;
+  font-family:var(--mono);
+  font-size:10px;
+  line-height:1.5;
+  color:var(--text-4);
+  background:rgba(0,0,0,0.4);
+  border:0.5px solid var(--hairline);
+  border-radius:8px;
+  padding:10px 12px;
+  pointer-events:none;
+}
+.spec-note b{ color:var(--text-3); font-weight:600; }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="brand">
+      <div class="logo"><span class="logo-mark"></span>FableGlitch Studio</div>
+    </div>
+
+    <div class="segmented">
+      <div class="segmented-item active">登录</div>
+      <div class="segmented-item">注册</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="email-prefix">邮箱</label>
+      <div class="email-row">
+        <input
+          id="email-prefix"
+          class="email-prefix"
+          type="text"
+          placeholder="lemeilin"
+          value="lemeilin"
+          autocomplete="username"
+          spellcheck="false"
+        />
+        <span class="email-suffix">@beva.com</span>
+      </div>
+      <div class="field-help">公司邮箱前缀，无需输入 @beva.com</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="password">密码</label>
+      <input
+        id="password"
+        class="input"
+        type="password"
+        placeholder="••••••••"
+        value="••••••••••"
+        autocomplete="current-password"
+      />
+    </div>
+
+    <button class="cta">登录</button>
+
+    <div class="aux">
+      <span>还没有账号？<a href="#">联系管理员开通</a></span>
+      <span class="aux-secondary"><a href="#">使用其他域名邮箱 →</a></span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-name">菲博幻境工作室 · 内部资产管理</div>
+    <div class="footer-build">v0.2.0 · build 2026.05.02</div>
+  </div>
+
+  <div class="spec-note">
+    <b>EXPLORATION · 2026-05-02</b><br>
+    Apple-style dark · single accent · system-ui type stack · split-email input · whitelist-aware aux<br>
+    <b>diff vs v1:</b> drop gradient, drop radial bg, drop mono in copy, add segmented input, lift bg to #1c1c1e
+  </div>
+
+</body>
+</html>

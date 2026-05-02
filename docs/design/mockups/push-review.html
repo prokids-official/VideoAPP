@@ -54,8 +54,8 @@ body{
   padding:10px 32px;
 }
 .back{
-  font-family:var(--mono); font-size:12px;
-  color:var(--text-3); text-decoration:none;
+  font-size:13px; color:var(--text-3); text-decoration:none;
+  letter-spacing:-0.005em;
 }
 .back:hover{ color:var(--text); }
 
@@ -64,14 +64,20 @@ body{
 .inner{ max-width:880px; margin:0 auto; }
 
 h1{
-  font-size:40px; font-weight:700; letter-spacing:-0.022em;
-  margin:0 0 14px; line-height:1.1;
+  font-size:32px; font-weight:700; letter-spacing:-0.018em;
+  margin:0 0 14px; line-height:1.15;
 }
 .sub{
-  font-family:var(--mono); font-size:13px; color:var(--text-3);
+  font-size:13px; color:var(--text-3);
   margin-bottom:48px;
+  letter-spacing:-0.005em;
 }
 .sub .dot{ color:var(--text-4); margin:0 8px; }
+.sub .num{ font-family:var(--mono); color:var(--text-2); }
+.sub .branch{
+  font-family:var(--mono); color:var(--text-2);
+  background:var(--surface-2); padding:1px 7px; border-radius:5px;
+}
 
 .section{
   margin-bottom:32px;
@@ -174,7 +180,11 @@ h1{
   display:flex; align-items:center; justify-content:space-between;
 }
 .summary{
-  font-family:var(--mono); font-size:13px; color:var(--text-2);
+  font-size:13px; color:var(--text-3);
+  letter-spacing:-0.005em;
+}
+.summary .num{
+  font-family:var(--mono); color:var(--text);
 }
 .summary .accent{ color:var(--accent-hi); }
 .push{
@@ -185,14 +195,11 @@ h1{
   font-family:var(--sans); letter-spacing:-0.005em;
   cursor:pointer;
   display:inline-flex; align-items:center; gap:10px;
-  box-shadow:0 0 0 0 rgba(155,124,255,0.6);
-  animation:pulse 2.4s ease-in-out infinite;
+  box-shadow:0 6px 18px -2px rgba(155,124,255,0.45);
+  transition:filter .15s, box-shadow .15s, transform .05s;
 }
-.push:hover{ filter:brightness(1.08); }
-@keyframes pulse{
-  0%,100%{ box-shadow:0 0 0 0 rgba(155,124,255,0.45); }
-  50%   { box-shadow:0 0 0 14px rgba(155,124,255,0); }
-}
+.push:hover{ filter:brightness(1.08); box-shadow:0 8px 22px -2px rgba(155,124,255,0.55); }
+.push:active{ transform:translateY(1px); }
 </style>
 </head>
 <body>
@@ -215,7 +222,11 @@ h1{
 
       <h1>入库评审 · 侏儒怪 第一集</h1>
       <div class="sub">
-        3 项待入库 <span class="dot">·</span> 总计 4.2 MB <span class="dot">·</span> 目标分支 <span style="color:var(--text-2)">main</span>
+        <span class="num">3</span> 项待入库
+        <span class="dot">·</span>
+        总计 <span class="num">4.2 MB</span>
+        <span class="dot">·</span>
+        目标分支 <span class="branch">main</span>
       </div>
 
       <!-- 剧本 -->
@@ -266,7 +277,7 @@ h1{
   <div class="bottom">
     <div class="bottom-inner">
       <div class="summary">
-        已选 <span class="accent">3 项</span> · <span class="accent">4.2 MB</span>
+        已选 <span class="num accent">3</span> 项 · <span class="num accent">4.2 MB</span>
       </div>
       <button class="push">⚡ 推送</button>
     </div>

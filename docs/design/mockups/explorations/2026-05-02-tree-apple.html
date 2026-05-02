@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="design-version" content="2-apple" />
+<meta name="exploration" content="dashboard · apple-style dark · 2026-05-02" />
+<title>FableGlitch Studio · 侏儒怪 第一集（Apple 风探索）</title>
+<style>
+/*
+  Same token system as login exploration. Discipline applied:
+  - mono ONLY for true machine strings: email, filename, path, version, size, SHA, timestamp.
+  - drop mono for: counts, status copy, breadcrumb, section heads, hints.
+  - single solid accent (#7c5cff), no gradient anywhere.
+  - hairline 0.5px borders + soft layered shadows instead of 1px solid.
+*/
+:root{
+  --bg:#1c1c1e;
+  --surface:#2c2c2e;
+  --surface-hi:#3a3a3c;
+  --hairline:rgba(255,255,255,0.08);
+  --hairline-strong:rgba(255,255,255,0.14);
+
+  --text:#ffffff;
+  --text-2:#ebebf5;
+  --text-3:#8e8e93;
+  --text-4:#636366;
+  --text-disabled:#48484a;
+
+  --accent:#7c5cff;
+  --accent-hi:#9479ff;
+  --accent-press:#6346ff;
+  --accent-tint:rgba(124,92,255,0.14);
+  --accent-soft:rgba(124,92,255,0.10);
+
+  --green:#30d158;
+  --amber:#ff9f0a;
+  --red:#ff453a;
+
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,'Segoe UI','Noto Sans SC',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+
+  --r-sm:8px;
+  --r-md:10px;
+  --r-lg:14px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  letter-spacing:-0.005em;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  min-height:100vh;
+  display:flex; flex-direction:column;
+}
+
+/* ================= top nav ================= */
+
+.topnav{
+  height:52px; flex:0 0 52px;
+  background:rgba(28,28,30,0.72);
+  backdrop-filter:saturate(160%) blur(20px);
+  -webkit-backdrop-filter:saturate(160%) blur(20px);
+  border-bottom:0.5px solid var(--hairline);
+  display:flex; align-items:center; padding:0 20px; gap:20px;
+  position:sticky; top:0; z-index:10;
+}
+.brand{
+  display:flex; align-items:center; gap:8px;
+  font-size:14px; font-weight:600; letter-spacing:-0.012em;
+  color:var(--text);
+}
+.brand-mark{
+  width:8px; height:8px;
+  border-radius:2.5px;
+  background:var(--accent);
+}
+.spacer{ flex:1; }
+.user{
+  display:flex; align-items:center; gap:10px;
+  padding:4px 10px 4px 4px;
+  border-radius:20px;
+  cursor:pointer;
+  transition:background .12s;
+}
+.user:hover{ background:rgba(255,255,255,0.06); }
+.avatar{
+  width:24px; height:24px; border-radius:50%;
+  background:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:11px; font-weight:600;
+  letter-spacing:0;
+}
+.user-name{
+  font-family:var(--mono);
+  font-size:11.5px;
+  color:var(--text-2);
+  letter-spacing:-0.005em;
+}
+
+/* ================= body layout ================= */
+
+.body{ flex:1; display:flex; min-height:0; }
+
+/* ================= sidebar ================= */
+
+.sidebar{
+  width:260px; flex:0 0 260px;
+  border-right:0.5px solid var(--hairline);
+  padding:18px 0 40px;
+  overflow-y:auto;
+  font-size:13px;
+}
+.side-title{
+  font-size:11px;
+  font-weight:600;
+  color:var(--text-3);
+  padding:0 18px 10px;
+  letter-spacing:-0.005em;
+}
+.tree{ padding:0 6px; }
+.row{
+  display:flex; align-items:center; gap:6px;
+  padding:5px 10px;
+  border-radius:6px;
+  color:var(--text-2);
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+  font-size:13px;
+  transition:background .1s, color .1s;
+}
+.row:hover{ background:rgba(255,255,255,0.05); color:var(--text); }
+.row .chev{
+  display:inline-block; width:10px; color:var(--text-4);
+  font-size:9px; flex:0 0 10px; line-height:1;
+}
+.row .icon{ font-size:13px; opacity:.85; flex:0 0 auto; }
+.row .lbl{ flex:1; overflow:hidden; text-overflow:ellipsis; }
+.row .count{
+  font-size:11px; color:var(--text-4);
+  font-variant-numeric:tabular-nums;
+}
+.row.l1{ font-weight:500; color:var(--text); }
+.row.l2{ padding-left:22px; }
+.row.l3{ padding-left:38px; }
+.row.l4{ padding-left:54px; }
+.row.selected{
+  background:var(--accent-soft);
+  color:var(--text);
+}
+.row.selected:hover{ background:var(--accent-soft); }
+.row.selected .icon{ opacity:1; }
+.row.selected .chev{ color:var(--accent-hi); }
+
+/* ================= main ================= */
+
+.main{
+  flex:1; overflow-y:auto;
+  padding:56px 64px 120px;
+  position:relative;
+}
+.inner{ max-width:880px; margin:0 auto; }
+
+.crumbs{
+  font-size:13px; color:var(--text-3);
+  margin-bottom:12px;
+  letter-spacing:-0.005em;
+}
+.crumbs .sep{ color:var(--text-4); margin:0 6px; }
+
+h1.title{
+  font-size:32px; line-height:1.15; font-weight:600;
+  letter-spacing:-0.022em;
+  margin:0 0 12px;
+}
+
+.meta{
+  font-size:13px; color:var(--text-3);
+  margin-bottom:14px;
+  letter-spacing:-0.005em;
+  display:flex; align-items:center; gap:10px;
+  flex-wrap:wrap;
+}
+.meta .dot{ color:var(--text-4); }
+.meta .date{ font-family:var(--mono); font-size:12px; }
+.status-pill{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:2px 9px;
+  border-radius:9px;
+  background:rgba(255,159,10,0.14);
+  color:var(--amber);
+  font-size:12px;
+  font-weight:500;
+  letter-spacing:-0.005em;
+}
+.status-pill .swatch{
+  width:6px; height:6px; border-radius:50%;
+  background:var(--amber);
+}
+
+.draft-banner{
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:40px;
+  padding:10px 14px;
+  border-radius:var(--r-sm);
+  background:rgba(255,159,10,0.10);
+  border:0.5px solid rgba(255,159,10,0.28);
+  font-size:13px;
+  color:var(--amber);
+  letter-spacing:-0.005em;
+  width:fit-content;
+}
+.draft-banner .swatch{
+  width:6px; height:6px; border-radius:50%; background:var(--amber);
+}
+
+.section-title{
+  font-size:13px; font-weight:600;
+  color:var(--text-3);
+  margin:0 0 14px;
+  letter-spacing:-0.005em;
+  text-transform:none;
+}
+
+.grid{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:12px;
+  margin-bottom:48px;
+}
+
+/* tiles */
+.tile{
+  position:relative;
+  background:var(--surface);
+  border-radius:var(--r-md);
+  padding:22px 20px 18px;
+  cursor:pointer;
+  transition:background .12s, transform .08s;
+  min-height:128px;
+  display:flex; flex-direction:column;
+  box-shadow:
+    inset 0 0 0 0.5px var(--hairline);
+}
+.tile:hover{
+  background:var(--surface-hi);
+  transform:translateY(-1px);
+}
+.tile:active{ transform:translateY(0); }
+
+.tile .emoji{
+  font-size:22px; margin-bottom:14px; line-height:1;
+}
+.tile .name{
+  font-size:14px; font-weight:500;
+  color:var(--text);
+  margin-bottom:8px;
+  letter-spacing:-0.005em;
+}
+.tile .stat{
+  font-size:12px;
+  color:var(--text-3);
+  margin-top:auto;
+  display:flex; align-items:center; gap:6px;
+  letter-spacing:-0.005em;
+}
+.tile .stat .dot-s{
+  width:6px; height:6px; border-radius:50%;
+  display:inline-block;
+}
+.tile .stat .dot-s.gd{ background:var(--green); }
+.tile .stat .dot-s.am{ background:var(--amber); }
+
+.tile.locked{
+  opacity:0.45;
+  cursor:not-allowed;
+}
+.tile.locked:hover{
+  background:var(--surface);
+  transform:none;
+}
+.tile .badge-p4{
+  position:absolute; top:14px; right:14px;
+  font-size:10px;
+  font-weight:600;
+  color:var(--text-3);
+  letter-spacing:0.06em;
+  padding:2px 6px;
+  border-radius:4px;
+  background:rgba(255,255,255,0.06);
+}
+
+/* ================= FAB ================= */
+
+.fab{
+  position:fixed;
+  right:32px; bottom:32px;
+  height:46px;
+  padding:0 20px;
+  border:0;
+  border-radius:23px;
+  background:var(--accent);
+  color:#fff;
+  font-family:var(--sans);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:-0.005em;
+  display:inline-flex; align-items:center; gap:9px;
+  cursor:pointer;
+  box-shadow:
+    0 0 0 0.5px var(--hairline-strong),
+    0 4px 12px -2px rgba(124,92,255,0.4),
+    0 12px 28px -6px rgba(0,0,0,0.5);
+  transition:background .12s, transform .06s;
+}
+.fab:hover{ background:var(--accent-hi); }
+.fab:active{ background:var(--accent-press); transform:translateY(0.5px); }
+.fab .pill{
+  font-family:var(--mono);
+  font-size:11px;
+  background:rgba(255,255,255,0.20);
+  padding:2px 7px;
+  border-radius:9px;
+  font-variant-numeric:tabular-nums;
+}
+
+/* small spec annotation (only in this exploration file) */
+.spec-note{
+  position:fixed;
+  bottom:16px; left:16px;
+  max-width:300px;
+  font-family:var(--mono);
+  font-size:10px;
+  line-height:1.55;
+  color:var(--text-4);
+  background:rgba(0,0,0,0.4);
+  border:0.5px solid var(--hairline);
+  border-radius:8px;
+  padding:10px 12px;
+  pointer-events:none;
+  z-index:5;
+}
+.spec-note b{ color:var(--text-3); font-weight:600; }
+</style>
+</head>
+<body>
+
+  <!-- ============ top nav ============ -->
+  <div class="topnav">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      FableGlitch Studio
+    </div>
+    <div class="spacer"></div>
+    <div class="user">
+      <div class="avatar">乐</div>
+      <div class="user-name">lemeilin@beva.com</div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ============ sidebar ============ -->
+    <aside class="sidebar">
+      <div class="side-title">项目树</div>
+      <div class="tree">
+
+        <div class="row l1">
+          <span class="chev">▾</span><span class="icon">📚</span>
+          <span class="lbl">童话剧</span><span class="count">12</span>
+        </div>
+
+        <div class="row l2">
+          <span class="chev">▾</span><span class="icon">📖</span>
+          <span class="lbl">格林童话</span><span class="count">3</span>
+        </div>
+
+        <div class="row l3">
+          <span class="chev">▸</span><span class="icon">📁</span>
+          <span class="lbl">白雪公主</span>
+        </div>
+
+        <div class="row l3">
+          <span class="chev">▾</span><span class="icon">📁</span>
+          <span class="lbl">侏儒怪</span>
+        </div>
+
+        <div class="row l4 selected">
+          <span class="chev"></span><span class="icon">🎬</span>
+          <span class="lbl">侏儒怪 第一集</span>
+        </div>
+        <div class="row l4">
+          <span class="chev"></span><span class="icon">🎬</span>
+          <span class="lbl">侏儒怪 第二集</span>
+        </div>
+
+        <div class="row l3">
+          <span class="chev">▸</span><span class="icon">📁</span>
+          <span class="lbl">灰姑娘</span>
+        </div>
+
+        <div class="row l2">
+          <span class="chev">▸</span><span class="icon">📖</span>
+          <span class="lbl">安徒生童话</span><span class="count">2</span>
+        </div>
+
+        <div class="row l1">
+          <span class="chev">▸</span><span class="icon">📚</span>
+          <span class="lbl">民间故事</span><span class="count">8</span>
+        </div>
+
+        <div class="row l1">
+          <span class="chev">▸</span><span class="icon">📚</span>
+          <span class="lbl">原创短篇</span><span class="count">3</span>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ============ main ============ -->
+    <main class="main">
+      <div class="inner">
+
+        <div class="crumbs">
+          童话剧 <span class="sep">/</span> 格林童话 <span class="sep">/</span> 侏儒怪
+        </div>
+
+        <h1 class="title">侏儒怪 第一集</h1>
+
+        <div class="meta">
+          <span>由 乐美林 创建</span>
+          <span class="dot">·</span>
+          <span class="date">2026-04-15</span>
+          <span class="dot">·</span>
+          <span class="status-pill">
+            <span class="swatch"></span>
+            草稿中
+          </span>
+        </div>
+
+        <div class="draft-banner">
+          <span class="swatch"></span>
+          3 个本地草稿待入库
+        </div>
+
+        <h2 class="section-title">板块</h2>
+
+        <div class="grid">
+          <div class="tile">
+            <div class="emoji">📝</div>
+            <div class="name">剧本</div>
+            <div class="stat"><span class="dot-s am"></span>1 个草稿</div>
+          </div>
+          <div class="tile">
+            <div class="emoji">💭</div>
+            <div class="name">分镜图提示词</div>
+            <div class="stat"><span class="dot-s gd"></span>12 个已入库</div>
+          </div>
+          <div class="tile">
+            <div class="emoji">🎞️</div>
+            <div class="name">分镜视频提示词</div>
+            <div class="stat">尚未开始</div>
+          </div>
+          <div class="tile">
+            <div class="emoji">🖼️</div>
+            <div class="name">分镜图</div>
+            <div class="stat"><span class="dot-s gd"></span>8 个已入库</div>
+          </div>
+
+          <div class="tile">
+            <div class="emoji">🎬</div>
+            <div class="name">分镜视频</div>
+            <div class="stat">尚未开始</div>
+          </div>
+          <div class="tile">
+            <div class="emoji">👤</div>
+            <div class="name">角色</div>
+            <div class="stat"><span class="dot-s am"></span>2 个草稿</div>
+          </div>
+          <div class="tile">
+            <div class="emoji">🗝️</div>
+            <div class="name">道具</div>
+            <div class="stat"><span class="dot-s gd"></span>3 个已入库</div>
+          </div>
+          <div class="tile">
+            <div class="emoji">🏰</div>
+            <div class="name">场景</div>
+            <div class="stat"><span class="dot-s gd"></span>4 个已入库</div>
+          </div>
+        </div>
+
+        <h2 class="section-title">P4 · 后续板块</h2>
+
+        <div class="grid">
+          <div class="tile locked">
+            <div class="badge-p4">P4</div>
+            <div class="emoji">💬</div>
+            <div class="name">对白</div>
+            <div class="stat">未开放</div>
+          </div>
+          <div class="tile locked">
+            <div class="badge-p4">P4</div>
+            <div class="emoji">🎵</div>
+            <div class="name">配乐</div>
+            <div class="stat">未开放</div>
+          </div>
+          <div class="tile locked">
+            <div class="badge-p4">P4</div>
+            <div class="emoji">🎤</div>
+            <div class="name">歌曲</div>
+            <div class="stat">未开放</div>
+          </div>
+          <div class="tile locked">
+            <div class="badge-p4">P4</div>
+            <div class="emoji">🔊</div>
+            <div class="name">音效</div>
+            <div class="stat">未开放</div>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="fab">
+        ⚡ 入库 <span class="pill">3</span>
+      </button>
+    </main>
+
+  </div>
+
+  <div class="spec-note">
+    <b>EXPLORATION · 2026-05-02</b><br>
+    Apple-style dark · #1c1c1e bg · solid accent · sticky topnav with vibrancy<br>
+    <b>diff vs v1:</b> drop gradient, drop mono on counts/status/crumbs, status as soft pill not bare dot, draft banner above grid (P0-D Task 10), tiles use inset hairline + lift on hover, FAB is solid accent + drop pulse animation
+  </div>
+
+</body>
+</html>

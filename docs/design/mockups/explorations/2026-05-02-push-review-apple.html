@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="design-version" content="2-apple" />
+<meta name="exploration" content="push-review · apple-style dark · 2026-05-02" />
+<title>FableGlitch Studio · 入库评审（Apple 风探索）</title>
+<style>
+:root{
+  --bg:#1c1c1e;
+  --surface:#2c2c2e;
+  --surface-hi:#3a3a3c;
+  --hairline:rgba(255,255,255,0.08);
+  --hairline-strong:rgba(255,255,255,0.14);
+
+  --text:#ffffff;
+  --text-2:#ebebf5;
+  --text-3:#8e8e93;
+  --text-4:#636366;
+
+  --accent:#7c5cff;
+  --accent-hi:#9479ff;
+  --accent-press:#6346ff;
+  --accent-tint:rgba(124,92,255,0.14);
+  --accent-soft:rgba(124,92,255,0.10);
+
+  --green:#30d158;
+  --amber:#ff9f0a;
+  --red:#ff453a;
+
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,'Segoe UI','Noto Sans SC',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+
+  --r-sm:8px;
+  --r-md:10px;
+  --r-lg:14px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  letter-spacing:-0.005em;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  min-height:100vh;
+  display:flex; flex-direction:column;
+}
+
+/* ================= top nav ================= */
+
+.topnav{
+  height:52px; flex:0 0 52px;
+  background:rgba(28,28,30,0.72);
+  backdrop-filter:saturate(160%) blur(20px);
+  -webkit-backdrop-filter:saturate(160%) blur(20px);
+  border-bottom:0.5px solid var(--hairline);
+  display:flex; align-items:center; padding:0 20px; gap:20px;
+  position:sticky; top:0; z-index:10;
+}
+.brand{
+  display:flex; align-items:center; gap:8px;
+  font-size:14px; font-weight:600; letter-spacing:-0.012em;
+  color:var(--text);
+}
+.brand-mark{
+  width:8px; height:8px; border-radius:2.5px; background:var(--accent);
+}
+.spacer{ flex:1; }
+.user{
+  display:flex; align-items:center; gap:10px;
+  padding:4px 10px 4px 4px;
+  border-radius:20px;
+  cursor:pointer;
+  transition:background .12s;
+}
+.user:hover{ background:rgba(255,255,255,0.06); }
+.avatar{
+  width:24px; height:24px; border-radius:50%;
+  background:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:11px; font-weight:600;
+}
+.user-name{
+  font-family:var(--mono); font-size:11.5px;
+  color:var(--text-2);
+}
+
+/* ================= subnav back link ================= */
+
+.subnav{
+  border-bottom:0.5px solid var(--hairline);
+  padding:10px 32px;
+}
+.back{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:13px;
+  color:var(--text-3);
+  text-decoration:none;
+  letter-spacing:-0.005em;
+  transition:color .12s;
+}
+.back:hover{ color:var(--text-2); }
+.back .chev{
+  font-size:14px;
+  line-height:1;
+  margin-top:-1px;
+}
+
+/* ================= main ================= */
+
+.main{
+  flex:1; overflow-y:auto;
+  padding:48px 40px 140px;
+}
+.inner{ max-width:880px; margin:0 auto; }
+
+h1.title{
+  font-size:32px; font-weight:600;
+  letter-spacing:-0.022em;
+  margin:0 0 12px;
+  line-height:1.15;
+}
+.sub{
+  font-size:13px;
+  color:var(--text-3);
+  margin-bottom:40px;
+  letter-spacing:-0.005em;
+  display:flex; align-items:center; gap:10px;
+  flex-wrap:wrap;
+}
+.sub .dot{ color:var(--text-4); }
+.sub .num{
+  font-family:var(--mono); font-size:12.5px;
+  color:var(--text-2);
+  font-variant-numeric:tabular-nums;
+}
+.sub .branch{
+  font-family:var(--mono); font-size:12.5px;
+  color:var(--text-2);
+  background:rgba(255,255,255,0.06);
+  padding:1px 7px;
+  border-radius:5px;
+}
+
+/* ================= sections ================= */
+
+.section{ margin-bottom:24px; }
+.section-head{
+  display:flex; align-items:baseline; gap:10px;
+  margin-bottom:10px;
+  padding:0 4px;
+}
+.section-head .name{
+  font-size:15px; font-weight:600;
+  letter-spacing:-0.012em;
+  color:var(--text);
+}
+.section-head .count{
+  font-size:12px;
+  color:var(--text-3);
+  letter-spacing:-0.005em;
+  font-variant-numeric:tabular-nums;
+}
+
+/* card list */
+.card{
+  background:var(--surface);
+  border-radius:var(--r-md);
+  overflow:hidden;
+  box-shadow:inset 0 0 0 0.5px var(--hairline);
+}
+.item{
+  display:flex; align-items:center; gap:14px;
+  padding:14px 18px;
+  border-bottom:0.5px solid var(--hairline);
+  transition:background .1s;
+}
+.item:last-child{ border-bottom:0; }
+.item:hover{ background:var(--surface-hi); }
+
+/* checkbox */
+.cb{
+  width:18px; height:18px; flex:0 0 18px;
+  border-radius:5px;
+  background:rgba(255,255,255,0.06);
+  box-shadow:inset 0 0 0 1px var(--hairline-strong);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  transition:background .1s, box-shadow .1s;
+}
+.cb:hover{ box-shadow:inset 0 0 0 1px var(--text-3); }
+.cb.on{
+  background:var(--accent);
+  box-shadow:none;
+  color:#fff;
+}
+.cb.on::after{
+  content:"";
+  width:10px; height:5px;
+  border-left:1.6px solid #fff;
+  border-bottom:1.6px solid #fff;
+  transform:rotate(-45deg) translate(1px,-1px);
+}
+
+.fname{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--text);
+  flex:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  letter-spacing:-0.005em;
+}
+
+.tag{
+  font-size:11px;
+  padding:2px 7px;
+  border-radius:5px;
+  letter-spacing:-0.005em;
+  flex:0 0 auto;
+  background:var(--accent-soft);
+  color:var(--accent-hi);
+}
+
+.size{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--text-3);
+  flex:0 0 auto;
+  font-variant-numeric:tabular-nums;
+  min-width:56px;
+  text-align:right;
+}
+
+/* ================= commit ================= */
+
+.commit{ margin-top:24px; }
+.commit .label{
+  display:block;
+  font-size:13px;
+  color:var(--text-3);
+  font-weight:500;
+  margin-bottom:8px;
+  letter-spacing:-0.005em;
+}
+.commit textarea{
+  width:100%;
+  background:var(--surface);
+  border:0;
+  box-shadow:inset 0 0 0 0.5px var(--hairline);
+  border-radius:var(--r-md);
+  padding:13px 16px;
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:13px;
+  resize:vertical;
+  min-height:64px;
+  outline:none;
+  letter-spacing:-0.005em;
+  line-height:1.55;
+  transition:box-shadow .12s, background .12s;
+}
+.commit textarea:focus{
+  background:var(--surface-hi);
+  box-shadow:inset 0 0 0 0.5px var(--accent), 0 0 0 3px var(--accent-tint);
+}
+
+/* ================= sticky bottom ================= */
+
+.bottom{
+  position:fixed; left:0; right:0; bottom:0;
+  background:rgba(28,28,30,0.78);
+  backdrop-filter:saturate(160%) blur(24px);
+  -webkit-backdrop-filter:saturate(160%) blur(24px);
+  border-top:0.5px solid var(--hairline);
+  padding:14px 40px;
+}
+.bottom-inner{
+  max-width:880px; margin:0 auto;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:20px;
+}
+.summary{
+  font-size:13px;
+  color:var(--text-3);
+  letter-spacing:-0.005em;
+}
+.summary .num{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--text);
+  font-variant-numeric:tabular-nums;
+  margin:0 2px;
+}
+.summary .accent{
+  color:var(--accent-hi);
+}
+.push{
+  height:42px;
+  padding:0 22px;
+  border:0;
+  border-radius:21px;
+  background:var(--accent);
+  color:#fff;
+  font-weight:600;
+  font-size:14px;
+  font-family:var(--sans);
+  letter-spacing:-0.005em;
+  cursor:pointer;
+  display:inline-flex; align-items:center; gap:8px;
+  box-shadow:
+    0 0 0 0.5px var(--hairline-strong),
+    0 4px 12px -2px rgba(124,92,255,0.4),
+    0 8px 20px -4px rgba(0,0,0,0.4);
+  transition:background .12s, transform .06s;
+}
+.push:hover{ background:var(--accent-hi); }
+.push:active{ background:var(--accent-press); transform:translateY(0.5px); }
+.push:focus-visible{
+  outline:none;
+  box-shadow:
+    0 0 0 0.5px var(--hairline-strong),
+    0 0 0 3px var(--accent-tint),
+    0 4px 12px -2px rgba(124,92,255,0.4);
+}
+
+/* ================= spec note ================= */
+
+.spec-note{
+  position:fixed;
+  bottom:84px; left:16px;
+  max-width:300px;
+  font-family:var(--mono);
+  font-size:10px;
+  line-height:1.55;
+  color:var(--text-4);
+  background:rgba(0,0,0,0.4);
+  border:0.5px solid var(--hairline);
+  border-radius:8px;
+  padding:10px 12px;
+  pointer-events:none;
+  z-index:5;
+}
+.spec-note b{ color:var(--text-3); font-weight:600; }
+</style>
+</head>
+<body>
+
+  <div class="topnav">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      FableGlitch Studio
+    </div>
+    <div class="spacer"></div>
+    <div class="user">
+      <div class="avatar">乐</div>
+      <div class="user-name">lemeilin@beva.com</div>
+    </div>
+  </div>
+
+  <div class="subnav">
+    <a class="back" href="#"><span class="chev">‹</span> 童话剧 / 格林童话 / 侏儒怪 / 侏儒怪 第一集</a>
+  </div>
+
+  <main class="main">
+    <div class="inner">
+
+      <h1 class="title">入库评审</h1>
+      <div class="sub">
+        <span class="num">3</span> 项待入库
+        <span class="dot">·</span>
+        总计 <span class="num">4.2 MB</span>
+        <span class="dot">·</span>
+        目标分支 <span class="branch">main</span>
+      </div>
+
+      <!-- 剧本 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="name">📝 剧本</span>
+          <span class="count">1 项</span>
+        </div>
+        <div class="card">
+          <div class="item">
+            <div class="cb on"></div>
+            <div class="fname">童话剧_侏儒怪_SCRIPT.md</div>
+            <div class="tag">来自 .docx 转换</div>
+            <div class="size">12.5 KB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 角色 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="name">👤 角色</span>
+          <span class="count">2 项</span>
+        </div>
+        <div class="card">
+          <div class="item">
+            <div class="cb on"></div>
+            <div class="fname">侏儒怪_CHAR_主角_白天_v001.png</div>
+            <div class="size">1.2 MB</div>
+          </div>
+          <div class="item">
+            <div class="cb on"></div>
+            <div class="fname">侏儒怪_CHAR_NPC_v001.png</div>
+            <div class="size">2.1 MB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- commit message -->
+      <div class="commit">
+        <label class="label">commit message</label>
+        <textarea>feat(侏儒怪 第一集): 剧本初稿 + 主角设定 by 乐美林</textarea>
+      </div>
+
+    </div>
+  </main>
+
+  <div class="bottom">
+    <div class="bottom-inner">
+      <div class="summary">
+        已选 <span class="num accent">3</span> 项 · <span class="num accent">4.2 MB</span>
+      </div>
+      <button class="push">⚡ 推送</button>
+    </div>
+  </div>
+
+  <div class="spec-note">
+    <b>EXPLORATION · 2026-05-02</b><br>
+    Apple-style dark · vibrancy bottom bar (no pulse) · refined checkbox draws ✓ via CSS borders<br>
+    <b>diff vs v1:</b> drop gradient (logo / push button), title 40→32, drop mono on bulk copy, only filenames/sizes/branch/commit msg keep mono, tag pill more subtle, push button solid accent + soft layered shadow + animation removed
+  </div>
+
+</body>
+</html>
