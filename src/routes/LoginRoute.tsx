@@ -19,7 +19,7 @@ const genericEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // TODO(p1): swap to API-driven list of role=admin users.
 const ADMIN_CONTACT = {
   display_name: '乐美林',
-  email: 'lemeilin@beva.com',
+  email: 'loy27felix@gmail.com',
 } as const;
 
 function validatePassword(password: string): string | null {
@@ -487,7 +487,7 @@ function EmailField({
             autoComplete="username"
             spellCheck={false}
             value={value}
-            placeholder="lemeilin"
+            placeholder="meilinle"
             onChange={(event) => handlePrefixChange(event.target.value)}
             className="flex-1 bg-transparent outline-none px-3.5 font-mono text-sm text-text placeholder:text-text-4 min-w-0"
           />
@@ -575,7 +575,7 @@ function ContactAdminDialog({ onClose }: { onClose: () => void }) {
           <div className="font-mono text-xs text-text-3 mt-1">{ADMIN_CONTACT.email}</div>
         </a>
         <p className="font-mono text-xs text-text-3 mb-5 leading-5">
-          也可以在公司内部 IM 中找 @{ADMIN_CONTACT.display_name} 申请开通。
+          也可以直接发送邮件到 {ADMIN_CONTACT.email} 申请开通。
         </p>
         <div className="flex justify-end">
           <Button type="button" variant="secondary" onClick={onClose}>
