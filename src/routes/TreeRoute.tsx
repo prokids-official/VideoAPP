@@ -25,6 +25,18 @@ import type {
 const PANELS_P0 = ASSET_TYPES.filter((type) => type.enabled).sort((a, b) => a.sort_order - b.sort_order);
 const PANELS_P4 = ASSET_TYPES.filter((type) => !type.enabled).sort((a, b) => a.sort_order - b.sort_order);
 
+// Translate raw episode status enum to user-facing Chinese labels.
+// Falls through to the raw value for any future status we haven't translated yet.
+function translateStatus(status: string): string {
+  switch (status) {
+    case 'drafting': return '草稿中';
+    case 'in_progress': return '进行中';
+    case 'shipped': return '已交付';
+    case 'archived': return '已归档';
+    default: return status;
+  }
+}
+
 interface EpisodeDetail {
   episode: {
     id: string;
@@ -641,22 +653,22 @@ function Dashboard({
 
   return (
     <div className="max-w-[880px] mx-auto">
-      <div className="font-mono text-xs text-text-3 mb-3">
+      <div className="text-sm text-text-3 mb-3">
         {ep.series_name}
         <span className="text-text-4 mx-1.5">/</span>
         {ep.album_name}
         <span className="text-text-4 mx-1.5">/</span>
         {ep.content_name}
       </div>
-      <h1 className="text-4xl font-bold tracking-tight mb-3.5">{ep.name_cn}</h1>
-      <div className="font-mono text-xs text-text-3 mb-12">
-        created by {ep.created_by_name}
+      <h1 className="text-3xl font-bold tracking-tight mb-3.5">{ep.name_cn}</h1>
+      <div className="text-sm text-text-3 mb-12">
+        由 {ep.created_by_name} 创建
         <span className="text-text-4 mx-2">·</span>
-        {new Date(ep.created_at).toLocaleString('zh-CN')}
+        <span className="font-mono text-xs">{new Date(ep.created_at).toLocaleString('zh-CN')}</span>
         <span className="text-text-4 mx-2">·</span>
         <span className="text-warn">
           <span className="inline-block w-2 h-2 rounded-full bg-warn mr-1.5 align-[1px]" />
-          {ep.status}
+          {translateStatus(ep.status)}
         </span>
       </div>
 
@@ -727,13 +739,13 @@ function PanelCard({
       )}
       <div className="text-3xl mb-3 leading-none">{panel.icon ?? '□'}</div>
       <div className="text-base font-medium mb-2">{panel.name_cn}</div>
-      <div className="font-mono text-xs text-text-3 flex items-center gap-1.5">
+      <div className="text-xs text-text-3 flex items-center gap-1.5">
         {disabled ? (
           '即将推出'
         ) : count > 0 ? (
           <>
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-good" />
-            {count} 个已入库
+            <span className="font-mono">{count}</span> 个已入库
           </>
         ) : (
           <>

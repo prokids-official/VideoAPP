@@ -22,7 +22,6 @@ export function ProjectTree({ series, selectedEpisodeId, onSelectEpisode }: Prop
       {series.length === 0 ? (
         <div className="px-5 py-3 text-sm text-text-3">
           暂无剧集
-          <span className="block font-mono text-xs text-text-4 mt-1">// no episodes yet</span>
         </div>
       ) : (
         <div className="pb-6 px-2">
@@ -61,7 +60,7 @@ function SeriesNode({
         <span className="text-text-3 text-xs w-3">{open ? '▾' : '▸'}</span>
         <span className="text-sm">📚</span>
         <span className="text-sm text-text font-medium truncate">{series.name_cn}</span>
-        <span className="ml-auto font-mono text-2xs text-text-4">{epCount}</span>
+        <span className="ml-auto text-xs text-text-4 tabular-nums">{epCount}</span>
       </TreeButton>
       {open &&
         series.albums.map((album) => (

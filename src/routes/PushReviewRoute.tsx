@@ -203,14 +203,14 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
 
       <main className="flex-1 overflow-y-auto px-10 py-12 pb-36">
         <div className="mx-auto max-w-[880px]">
-          <h1 className="mb-3.5 text-4xl font-bold tracking-tight">入库评审 · {episodeName}</h1>
+          <h1 className="mb-3.5 text-3xl font-bold tracking-tight">入库评审 · {episodeName}</h1>
           <div
             aria-label={`${drafts.length} 项待入库 · ${formatBytes(totalBytes)}`}
-            className="mb-12 font-mono text-xs text-text-3"
+            className="mb-12 text-sm text-text-3"
           >
-            {drafts.length} 项待入库
+            <span className="font-mono text-text-2">{drafts.length}</span> 项待入库
             <span className="mx-2 text-text-4">·</span>
-            {formatBytes(totalBytes)}
+            <span className="font-mono text-text-2">{formatBytes(totalBytes)}</span>
           </div>
 
           {error ? (
@@ -249,22 +249,16 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
 
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/85 px-10 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[880px] items-center justify-between gap-4">
-          <div data-testid="push-selected-summary" className="font-mono text-sm text-text-2">
-            已选 <span className="text-accent-hi">{selectedDrafts.length}</span> 项
+          <div data-testid="push-selected-summary" className="text-sm text-text-3">
+            已选 <span className="font-mono text-accent-hi">{selectedDrafts.length}</span> 项
             <span className="mx-2 text-text-4">·</span>
-            {formatBytes(selectedBytes)}
+            <span className="font-mono text-text">{formatBytes(selectedBytes)}</span>
           </div>
-          <motion.button
+          <button
             type="button"
             disabled={selectedDrafts.length === 0 || pushing}
             onClick={handlePush}
-            animate={
-              selectedDrafts.length > 0
-                ? { boxShadow: ['0 0 0 0 rgba(155,124,255,0.42)', '0 0 0 14px rgba(155,124,255,0)'] }
-                : { boxShadow: '0 0 0 0 rgba(155,124,255,0)' }
-            }
-            transition={{ duration: 2.4, repeat: selectedDrafts.length > 0 ? Infinity : 0, ease: 'easeInOut' }}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border-0 bg-gradient-brand px-7 text-base font-semibold tracking-tight text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border-0 bg-gradient-brand px-7 text-base font-semibold tracking-tight text-white shadow-[0_6px_18px_-2px_rgba(155,124,255,0.45)] transition hover:brightness-110 hover:shadow-[0_8px_22px_-2px_rgba(155,124,255,0.55)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pushing ? (
               <>
@@ -274,7 +268,7 @@ export function PushReviewRoute({ episodeId, episodeName, onBack, onOpenSettings
             ) : (
               '⚡ 推送'
             )}
-          </motion.button>
+          </button>
         </div>
       </div>
       {pushing && <PushOverlay />}
@@ -316,7 +310,7 @@ function DraftSection({
           <span className="mr-2">{group.assetType.icon ?? '□'}</span>
           {panelName}
         </div>
-        <div className="font-mono text-xs text-text-3">{group.drafts.length} 项</div>
+        <div className="text-xs text-text-3"><span className="font-mono">{group.drafts.length}</span> 项</div>
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
         {group.drafts.map((draft) => (
