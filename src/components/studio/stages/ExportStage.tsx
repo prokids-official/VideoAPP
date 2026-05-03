@@ -118,7 +118,10 @@ export function ExportStage({
     setStatus(null);
     setError(null);
     try {
-      const exportAssets = await Promise.all(selectedAssets.map((asset) => prepareExportAsset(asset, target.episode.id)));
+      const selectedAssetIdsForRelations = new Set(selectedAssets.map((asset) => asset.id));
+      const exportAssets = await Promise.all(
+        selectedAssets.map((asset) => prepareExportAsset(asset, target.episode.id, selectedAssetIdsForRelations)),
+      );
       const payload: AssetPushPayload = {
         idempotency_key: crypto.randomUUID(),
         commit_message: commitMessage,
@@ -269,13 +272,17 @@ function pushableAssets(assets: StudioAsset[]) {
   return assets.filter((asset) => !NON_PUSHABLE_TYPES.has(asset.type_code));
 }
 
-async function prepareExportAsset(asset: StudioAsset, episodeId: string): Promise<ExportAsset> {
+async function prepareExportAsset(
+  asset: StudioAsset,
+  episodeId: string,
+  selectedAssetIdsForRelations: ReadonlySet<string>,
+): Promise<ExportAsset> {
   const generated = await exportFileFor(asset);
   return {
     asset,
     file: generated,
     item: {
-      ...toPushItemSkeleton(asset, episodeId),
+      ...toPushItemSkeleton(asset, episodeId, selectedAssetIdsForRelations),
       original_filename: generated.originalFilename,
       mime_type: generated.mimeType,
       size_bytes: generated.sizeBytes,
@@ -283,7 +290,11 @@ async function prepareExportAsset(asset: StudioAsset, episodeId: string): Promis
   };
 }
 
-function toPushItemSkeleton(asset: StudioAsset, episodeId: string): Omit<AssetPushItem, 'mime_type' | 'size_bytes'> & {
+function toPushItemSkeleton(
+  asset: StudioAsset,
+  episodeId: string,
+  selectedAssetIdsForRelations: ReadonlySet<string> = new Set(),
+): Omit<AssetPushItem, 'mime_type' | 'size_bytes'> & {
   mime_type?: string;
   size_bytes?: number;
 } {
@@ -300,7 +311,47 @@ function toPushItemSkeleton(asset: StudioAsset, episodeId: string): Omit<AssetPu
     language: 'ZH',
     source: 'studio-export',
     original_filename: originalFilenameFor(asset),
+    relations: relationsForAsset(meta, selectedAssetIdsForRelations),
   };
+}
+
+function relationsForAsset(
+  meta: Record<string, unknown>,
+  selectedAssetIdsForRelations: ReadonlySet<string>,
+): AssetPushItem['relations'] {
+  const relations: NonNullable<AssetPushItem['relations']> = [];
+  const sourcePromptAssetId = stringMeta(meta.source_prompt_asset_id)
+    ?? stringMeta(meta.generated_from_prompt_asset_id);
+
+  if (sourcePromptAssetId && selectedAssetIdsForRelations.has(sourcePromptAssetId)) {
+    relations.push({
+      relation_type: 'generated_from_prompt',
+      target_local_draft_id: sourcePromptAssetId,
+      metadata: storyboardMetadata(meta),
+    });
+  }
+
+  const storyboardAssetId = stringMeta(meta.storyboard_asset_id);
+  if (storyboardAssetId && selectedAssetIdsForRelations.has(storyboardAssetId)) {
+    relations.push({
+      relation_type: 'derived_from_storyboard',
+      target_local_draft_id: storyboardAssetId,
+      metadata: storyboardMetadata(meta),
+    });
+  }
+
+  return relations.length > 0 ? relations : undefined;
+}
+
+function storyboardMetadata(meta: Record<string, unknown>) {
+  const storyboardNumber = Number(meta.storyboard_number);
+  return Number.isInteger(storyboardNumber) && storyboardNumber >= 0
+    ? { storyboard_number: storyboardNumber }
+    : {};
+}
+
+function stringMeta(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : null;
 }
 
 async function exportFileFor(asset: StudioAsset) {

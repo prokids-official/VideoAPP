@@ -94,4 +94,64 @@ describe('AssetPreviewModal', () => {
     expect(onCopyImage).toHaveBeenCalledTimes(1);
     expect(onDownloadAsset).toHaveBeenCalledTimes(1);
   });
+
+  it('shows related prompt and generated assets when available', () => {
+    render(
+      <AssetPreviewModal
+        open
+        asset={{ ...asset, type_code: 'PROMPT_IMG' }}
+        content={{ kind: 'markdown', content: 'wide shot', content_type: 'text/markdown' }}
+        relations={{
+          asset_id: 'asset-1',
+          outgoing: [
+            {
+              id: 'rel-source',
+              relation_type: 'derived_from_storyboard',
+              metadata: { storyboard_number: 1 },
+              created_at: '2026-05-03T00:00:00Z',
+              asset: {
+                id: 'storyboard-1',
+                type_code: 'STORYBOARD_UNIT',
+                name: 'Storyboard 01',
+                final_filename: 'storyboard.md',
+                storage_backend: 'github',
+                storage_ref: 'path/storyboard.md',
+                mime_type: 'text/markdown',
+              },
+            },
+          ],
+          incoming: [
+            {
+              id: 'rel-generated',
+              relation_type: 'generated_from_prompt',
+              metadata: {},
+              created_at: '2026-05-03T00:01:00Z',
+              asset: {
+                id: 'shot-img-1',
+                type_code: 'SHOT_IMG',
+                name: 'Shot image 01',
+                final_filename: 'shot.png',
+                storage_backend: 'r2',
+                storage_ref: 'path/shot.png',
+                mime_type: 'image/png',
+              },
+            },
+          ],
+        }}
+        loading={false}
+        error={null}
+        actionStatus={null}
+        onClose={() => {}}
+        onCopyText={() => {}}
+        onCopyImage={() => {}}
+        onDownloadAsset={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Related assets')).toBeTruthy();
+    expect(screen.getByText('Source')).toBeTruthy();
+    expect(screen.getByText('Storyboard 01')).toBeTruthy();
+    expect(screen.getByText('Generated')).toBeTruthy();
+    expect(screen.getByText('Shot image 01')).toBeTruthy();
+  });
 });

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import type { AssetContentResult, AssetRow } from '../../../../shared/types';
+import type { AssetContentResult, AssetRelationDetail, AssetRelationsResult, AssetRow } from '../../../../shared/types';
 import { Button } from '../../ui/Button';
 import { ImagePreview } from './ImagePreview';
 import { MdPreview } from './MdPreview';
@@ -9,6 +9,7 @@ export function AssetPreviewModal({
   open,
   asset,
   content,
+  relations,
   loading,
   error,
   actionStatus,
@@ -20,6 +21,7 @@ export function AssetPreviewModal({
   open: boolean;
   asset: AssetRow | null;
   content: AssetContentResult | null;
+  relations?: AssetRelationsResult | null;
   loading: boolean;
   error: string | null;
   actionStatus: string | null;
@@ -92,12 +94,51 @@ export function AssetPreviewModal({
             ) : error ? (
               <div className="flex min-h-[320px] items-center justify-center font-mono text-xs text-bad">{error}</div>
             ) : content ? (
-              <PreviewContent asset={asset} content={content} onCopyImage={onCopyImage} />
+              <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <PreviewContent asset={asset} content={content} onCopyImage={onCopyImage} />
+                <RelatedAssetsPanel relations={relations ?? null} />
+              </div>
             ) : null}
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+function RelatedAssetsPanel({ relations }: { relations: AssetRelationsResult | null }) {
+  const hasRelations = Boolean(relations && (relations.outgoing.length > 0 || relations.incoming.length > 0));
+
+  if (!hasRelations || !relations) {
+    return null;
+  }
+
+  return (
+    <aside className="rounded-lg border border-border bg-surface-2 p-4">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-4">Related assets</div>
+      {relations.outgoing.length > 0 && (
+        <RelationGroup title="Source" items={relations.outgoing} />
+      )}
+      {relations.incoming.length > 0 && (
+        <RelationGroup title="Generated" items={relations.incoming} />
+      )}
+    </aside>
+  );
+}
+
+function RelationGroup({ title, items }: { title: string; items: AssetRelationDetail[] }) {
+  return (
+    <section className="mb-4 last:mb-0">
+      <div className="mb-2 text-xs font-medium text-text-3">{title}</div>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div key={item.id} className="rounded border border-border bg-surface px-3 py-2">
+            <div className="truncate text-sm font-medium text-text">{item.asset.name}</div>
+            <div className="mt-1 font-mono text-[11px] text-text-4">{item.asset.type_code}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

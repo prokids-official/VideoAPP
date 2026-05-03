@@ -193,6 +193,7 @@ export interface IdeaUpdateResult {
 
 export type AssetStage = 'ROUGH' | 'REVIEW' | 'FINAL';
 export type AssetSource = 'imported' | 'pasted' | 'ai-generated' | 'studio-export';
+export type AssetRelationType = 'generated_from_prompt' | 'derived_from_storyboard';
 
 export interface LocalDraft {
   id: string;
@@ -315,6 +316,30 @@ export interface AssetsListResult {
   total: number;
 }
 
+export interface AssetRelationAsset {
+  id: string;
+  type_code: string;
+  name: string;
+  final_filename: string;
+  storage_backend: StorageBackend;
+  storage_ref: string;
+  mime_type: string | null;
+}
+
+export interface AssetRelationDetail {
+  id: string;
+  relation_type: AssetRelationType;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  asset: AssetRelationAsset;
+}
+
+export interface AssetRelationsResult {
+  asset_id: string;
+  outgoing: AssetRelationDetail[];
+  incoming: AssetRelationDetail[];
+}
+
 export interface PreviewFilenameResult {
   final_filename: string;
   storage_backend: StorageBackend;
@@ -351,6 +376,11 @@ export interface AssetPushItem {
   original_filename?: string;
   mime_type: string;
   size_bytes: number;
+  relations?: Array<{
+    relation_type: AssetRelationType;
+    target_local_draft_id: string;
+    metadata?: Record<string, unknown>;
+  }>;
 }
 
 export interface AssetPushPayload {

@@ -14,6 +14,7 @@ import { createDraft, listDrafts, saveDraftFile } from '../lib/drafts';
 import type {
   AssetRow,
   AssetContentResult,
+  AssetRelationsResult,
   AssetType,
   CreateLocalDraftInput,
   LocalDraft,
@@ -86,6 +87,7 @@ export function TreeRoute({
   const [pasteAssetType, setPasteAssetType] = useState<AssetType | null>(null);
   const [previewAsset, setPreviewAsset] = useState<AssetRow | null>(null);
   const [previewContent, setPreviewContent] = useState<AssetContentResult | null>(null);
+  const [previewRelations, setPreviewRelations] = useState<AssetRelationsResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewActionStatus, setPreviewActionStatus] = useState<string | null>(null);
@@ -300,6 +302,7 @@ export function TreeRoute({
   async function handlePreviewAsset(asset: AssetRow) {
     setPreviewAsset(asset);
     setPreviewContent(null);
+    setPreviewRelations(null);
     setPreviewError(null);
     setPreviewActionStatus(null);
     setPreviewLoading(true);
@@ -309,6 +312,10 @@ export function TreeRoute({
       const cachedContent = await contentFromCache(asset, cached);
       if (cachedContent) {
         setPreviewContent(cachedContent);
+        const relationsResult = await api.assetRelations(asset.id);
+        if (relationsResult.ok) {
+          setPreviewRelations(relationsResult.data);
+        }
         return;
       }
 
@@ -320,6 +327,11 @@ export function TreeRoute({
 
       await writeContentCache(asset, result.data);
       setPreviewContent(result.data);
+
+      const relationsResult = await api.assetRelations(asset.id);
+      if (relationsResult.ok) {
+        setPreviewRelations(relationsResult.data);
+      }
     } catch (cause) {
       setPreviewError(cause instanceof Error ? cause.message : '预览加载失败');
     } finally {
@@ -471,6 +483,7 @@ export function TreeRoute({
         open={Boolean(previewAsset)}
         asset={previewAsset}
         content={previewContent}
+        relations={previewRelations}
         loading={previewLoading}
         error={previewError}
         actionStatus={previewActionStatus}
@@ -480,6 +493,7 @@ export function TreeRoute({
         onClose={() => {
           setPreviewAsset(null);
           setPreviewContent(null);
+          setPreviewRelations(null);
           setPreviewError(null);
           setPreviewActionStatus(null);
         }}

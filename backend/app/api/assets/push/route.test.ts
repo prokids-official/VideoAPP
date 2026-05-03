@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   selectExistingAssets: vi.fn(),
   insertPush: vi.fn(),
   insertAssets: vi.fn(),
+  insertAssetRelations: vi.fn(),
   updateEpisode: vi.fn(async () => ({ error: null })),
   createCommit: vi.fn(),
   putR2: vi.fn(),
@@ -45,6 +46,12 @@ vi.mock('@/lib/supabase-admin', () => ({
             }),
           }),
           insert: (rows: unknown[]) => ({ select: async () => mocks.insertAssets(rows) }),
+        };
+      }
+
+      if (table === 'asset_relations') {
+        return {
+          insert: async (rows: unknown[]) => mocks.insertAssetRelations(rows),
         };
       }
 
@@ -200,6 +207,7 @@ describe('POST /api/assets/push', () => {
       data: [{ id: 'asset-script' }, { id: 'asset-char' }],
       error: null,
     });
+    mocks.insertAssetRelations.mockResolvedValue({ error: null });
   });
 
   it('401 without token', async () => {
@@ -426,6 +434,87 @@ describe('POST /api/assets/push', () => {
         source: 'studio-export',
         idempotency_key: 'k-studio-export',
       }),
+    ]);
+  });
+
+  it('201 persists same-batch asset relations for studio generated outputs', async () => {
+    mocks.selectAssetType.mockResolvedValueOnce({
+      data: [
+        {
+          code: 'PROMPT_IMG',
+          folder_path: '02_Data/Prompts/Image',
+          filename_tpl: '{content}_PROMPT_IMG_{number:03}',
+          storage_ext: '.md',
+          storage_backend: 'github',
+        },
+        {
+          code: 'SHOT_IMG',
+          folder_path: '03_Visual/Images',
+          filename_tpl: '{content}_SHOT_IMG_{number:03}',
+          storage_ext: 'keep_as_is',
+          storage_backend: 'r2',
+        },
+      ],
+      error: null,
+    });
+    mocks.insertAssets.mockResolvedValueOnce({
+      data: [{ id: 'asset-prompt-img' }, { id: 'asset-shot-img' }],
+      error: null,
+    });
+
+    const imageFile = new ArrayBuffer(4);
+    const res = await POST(
+      makeMultipart(
+        {
+          idempotency_key: 'k-relations',
+          commit_message: 'push linked studio assets',
+          items: [
+            scriptItem({
+              local_draft_id: 'local-prompt-img',
+              type_code: 'PROMPT_IMG',
+              name: 'image prompt 01',
+              number: 1,
+              source: 'studio-export',
+              original_filename: 'prompt.md',
+              mime_type: 'text/markdown',
+              size_bytes: 12,
+            }),
+            charItem({
+              local_draft_id: 'local-shot-img',
+              type_code: 'SHOT_IMG',
+              name: 'shot image 01',
+              number: 1,
+              source: 'studio-export',
+              original_filename: 'shot.png',
+              mime_type: 'image/png',
+              size_bytes: 4,
+              relations: [
+                {
+                  relation_type: 'generated_from_prompt',
+                  target_local_draft_id: 'local-prompt-img',
+                  metadata: { storyboard_number: 1 },
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          'file__local-prompt-img': { content: 'wide shot', type: 'text/markdown' },
+          'file__local-shot-img': { content: imageFile, type: 'image/png' },
+        },
+      ),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mocks.insertAssetRelations).toHaveBeenCalledWith([
+      {
+        episode_id: EPISODE_ID,
+        source_asset_id: 'asset-shot-img',
+        target_asset_id: 'asset-prompt-img',
+        relation_type: 'generated_from_prompt',
+        metadata: { storyboard_number: 1 },
+        created_by: 'u-1',
+      },
     ]);
   });
 

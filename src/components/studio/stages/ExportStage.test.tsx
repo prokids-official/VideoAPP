@@ -135,6 +135,42 @@ describe('ExportStage', () => {
       }));
     });
   });
+
+  it('includes local prompt relations when pushing generated studio assets', async () => {
+    render(
+      <ExportStage
+        project={project}
+        assets={[makePromptAsset(), makeGeneratedImageAsset()]}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(api.tree).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect((screen.getByRole('button', { name: '推送 2 项' }) as HTMLButtonElement).disabled).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: '推送 2 项' }));
+
+    await waitFor(() => {
+      expect(assetPush).toHaveBeenCalledWith(expect.objectContaining({
+        payload: expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              local_draft_id: 'shot-img-1',
+              relations: [
+                {
+                  relation_type: 'generated_from_prompt',
+                  target_local_draft_id: 'prompt-img-1',
+                  metadata: { storyboard_number: 1 },
+                },
+              ],
+            }),
+          ]),
+        }),
+      }));
+    });
+  });
 });
 
 function makePromptAsset(): StudioAsset {
@@ -168,6 +204,28 @@ function makeCharacterAsset(): StudioAsset {
     content_path: null,
     size_bytes: null,
     mime_type: null,
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeGeneratedImageAsset(): StudioAsset {
+  return {
+    id: 'shot-img-1',
+    project_id: 'studio-1',
+    type_code: 'SHOT_IMG',
+    name: '鍒嗛暅鍥?01',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({
+      source_prompt_asset_id: 'prompt-img-1',
+      storyboard_number: 1,
+    }),
+    content_path: 'E:\\studio\\shot-img-1.png',
+    size_bytes: 21,
+    mime_type: 'image/png',
     pushed_to_episode_id: null,
     pushed_at: null,
     created_at: Date.now(),

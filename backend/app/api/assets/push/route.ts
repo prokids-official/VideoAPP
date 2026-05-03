@@ -27,6 +27,13 @@ const ITEM_COUNT_MAX = 20;
 type Stage = 'ROUGH' | 'REVIEW' | 'FINAL';
 type Source = 'imported' | 'pasted' | 'ai-generated' | 'studio-export';
 type StorageBackend = 'github' | 'r2';
+type AssetRelationType = 'generated_from_prompt' | 'derived_from_storyboard';
+
+interface PushItemRelation {
+  relation_type: AssetRelationType;
+  target_local_draft_id: string;
+  metadata?: Record<string, unknown>;
+}
 
 interface PushItem {
   local_draft_id: string;
@@ -42,6 +49,7 @@ interface PushItem {
   original_filename?: string;
   mime_type: string;
   size_bytes: number;
+  relations?: PushItemRelation[];
 }
 
 interface PushPayload {
@@ -117,6 +125,30 @@ function isSource(value: unknown): value is Source {
   return value === 'imported' || value === 'pasted' || value === 'ai-generated' || value === 'studio-export';
 }
 
+function isRelationType(value: unknown): value is AssetRelationType {
+  return value === 'generated_from_prompt' || value === 'derived_from_storyboard';
+}
+
+function parseRelation(value: unknown): PushItemRelation | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (!isRelationType(value.relation_type) || typeof value.target_local_draft_id !== 'string') {
+    return null;
+  }
+
+  if (value.metadata !== undefined && !isRecord(value.metadata)) {
+    return null;
+  }
+
+  return {
+    relation_type: value.relation_type,
+    target_local_draft_id: value.target_local_draft_id,
+    metadata: isRecord(value.metadata) ? value.metadata : undefined,
+  };
+}
+
 function parseItem(value: unknown): PushItem | null {
   if (!isRecord(value)) {
     return null;
@@ -145,6 +177,16 @@ function parseItem(value: unknown): PushItem | null {
     return null;
   }
 
+  const relations = value.relations === undefined
+    ? undefined
+    : Array.isArray(value.relations)
+      ? value.relations.map(parseRelation)
+      : null;
+
+  if (relations === null || relations?.some((relation) => relation === null)) {
+    return null;
+  }
+
   return {
     local_draft_id: value.local_draft_id,
     episode_id: value.episode_id,
@@ -159,6 +201,7 @@ function parseItem(value: unknown): PushItem | null {
     original_filename: typeof value.original_filename === 'string' ? value.original_filename : undefined,
     mime_type: value.mime_type,
     size_bytes: value.size_bytes,
+    relations: relations as PushItemRelation[] | undefined,
   };
 }
 
@@ -351,6 +394,15 @@ async function insertPush(row: Record<string, unknown>): Promise<{ data: { id: s
 
 async function rollbackPush(pushId: string): Promise<void> {
   await supabaseAdmin().from('pushes').delete().eq('id', pushId);
+}
+
+async function insertAssetRelations(rows: Record<string, unknown>[]): Promise<{ error: { message?: string } | null }> {
+  if (rows.length === 0) {
+    return { error: null };
+  }
+
+  const { error } = await supabaseAdmin().from('asset_relations').insert(rows);
+  return { error };
 }
 
 async function lookupPersistedPushResult(opts: {
@@ -625,6 +677,48 @@ export async function POST(req: Request): Promise<Response> {
     await rollbackPush(pushId).catch(() => undefined);
     await recordIdempotencyDeadLetter(payload.idempotency_key, auth.user_id, inserted.error);
     return err('INTERNAL_ERROR', 'metadata persistence failed', { code: 'BACKEND_UNAVAILABLE' }, 502);
+  }
+
+  const insertedIdByLocalDraftId = new Map(
+    resolved.map((resolvedItem, index) => [resolvedItem.item.local_draft_id, inserted.data?.[index]?.id]),
+  );
+  const relationRows: Record<string, unknown>[] = [];
+
+  for (const resolvedItem of resolved) {
+    const sourceAssetId = insertedIdByLocalDraftId.get(resolvedItem.item.local_draft_id);
+    if (!sourceAssetId || !resolvedItem.item.relations) {
+      continue;
+    }
+
+    for (const relation of resolvedItem.item.relations) {
+      const targetAssetId = insertedIdByLocalDraftId.get(relation.target_local_draft_id);
+      if (!targetAssetId) {
+        await rollbackPush(pushId).catch(() => undefined);
+        return err(
+          'PAYLOAD_MALFORMED',
+          `Relation target ${relation.target_local_draft_id} was not included in this push`,
+          { code: 'RELATION_TARGET_MISSING' },
+          400,
+        );
+      }
+
+      relationRows.push({
+        episode_id: episodeId,
+        source_asset_id: sourceAssetId,
+        target_asset_id: targetAssetId,
+        relation_type: relation.relation_type,
+        metadata: relation.metadata ?? {},
+        created_by: auth.user_id,
+      });
+    }
+  }
+
+  const relationInsert = await insertAssetRelations(relationRows);
+
+  if (relationInsert.error) {
+    await rollbackPush(pushId).catch(() => undefined);
+    await recordIdempotencyDeadLetter(payload.idempotency_key, auth.user_id, relationInsert.error);
+    return err('INTERNAL_ERROR', 'asset relation persistence failed', { code: 'BACKEND_UNAVAILABLE' }, 502);
   }
 
   await admin.from('episodes').update({ updated_at: new Date().toISOString() }).eq('id', episodeId);

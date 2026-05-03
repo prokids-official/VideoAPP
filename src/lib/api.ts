@@ -4,6 +4,7 @@ import type {
   AuthResult,
   AssetStage,
   AssetContentResult,
+  AssetRelationsResult,
   IdeaCreateResult,
   IdeaDetailResult,
   IdeasListResult,
@@ -185,6 +186,9 @@ export const api = {
     call<UsageMeResponse>({ method: 'GET', path: '/usage/me', requireAuth: true }),
 
   assetContent,
+
+  assetRelations: (assetId: string) =>
+    call<AssetRelationsResult>({ method: 'GET', path: `/assets/${assetId}/relations`, requireAuth: true }),
 
   ideas: (input: {
     status?: IdeaStatus | 'all';
