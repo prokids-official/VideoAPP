@@ -228,20 +228,20 @@ export function IdeasRoute({
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#111113] px-6 py-8 text-text md:px-10">
+    <div className="h-full overflow-y-auto bg-bg px-6 py-8 text-text md:px-10">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
-        <header className="flex flex-col gap-6 rounded-[24px] border border-white/8 bg-[#1c1c1e] px-6 py-7 shadow-[0_22px_80px_rgba(0,0,0,0.28)] md:flex-row md:items-end md:justify-between md:px-8">
+        <header className="flex flex-col gap-6 rounded-[24px] border border-border bg-surface px-6 py-7 shadow-[0_22px_80px_rgba(0,0,0,0.14)] md:flex-row md:items-end md:justify-between md:px-8">
           <div className="max-w-[720px]">
             <button
               type="button"
               onClick={onBack}
-              className="mb-5 text-sm font-medium text-[#a1a1aa] transition hover:text-white"
+              className="mb-5 text-sm font-medium text-text-3 transition hover:text-text"
             >
               ← 回到主页
             </button>
-            <p className="mb-2 text-sm font-semibold tracking-[0.16em] text-[#8e8e93] uppercase">P1.1 Ideas Board</p>
-            <h1 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">芝兰点子王</h1>
-            <p className="mt-4 max-w-[680px] text-base leading-7 text-[#b8b8bf]">{intro}</p>
+            <p className="mb-2 text-sm font-semibold tracking-[0.16em] text-text-3 uppercase">P1.1 Ideas Board</p>
+            <h1 className="text-4xl font-semibold tracking-tight text-text md:text-5xl">芝兰点子王</h1>
+            <p className="mt-4 max-w-[680px] text-base leading-7 text-text-2">{intro}</p>
           </div>
           <Button
             variant="gradient"
@@ -264,8 +264,8 @@ export function IdeasRoute({
                   onClick={() => changeStatusFilter(status)}
                   className={`h-11 rounded-full border px-4 text-sm font-semibold transition ${
                     statusFilter === status
-                      ? 'border-white/20 bg-white text-black'
-                      : 'border-white/10 bg-[#1c1c1e] text-[#d7d7dd] hover:border-white/20 hover:bg-[#252528]'
+                      ? 'border-accent bg-accent text-white'
+                      : 'border-border bg-surface text-text-2 hover:border-border-hi hover:bg-surface-2 hover:text-text'
                   }`}
                 >
                   {STATUS_COPY[status].label}
@@ -274,7 +274,7 @@ export function IdeasRoute({
               ))}
             </div>
 
-            <div className="flex w-full rounded-full border border-white/10 bg-[#1c1c1e] p-1 md:w-auto">
+            <div className="flex w-full rounded-full border border-border bg-surface p-1 md:w-auto">
               <ScopeButton active={scope === 'team'} onClick={() => changeScope('team')} label="团队全部" />
               <ScopeButton active={scope === 'mine'} onClick={() => changeScope('mine')} label="只看我的" />
             </div>
@@ -287,8 +287,8 @@ export function IdeasRoute({
               <StatusPanel title="加载失败" text={error} tone="bad" />
             ) : ideas.length > 0 ? (
               <>
-                <div className="mb-4 text-sm text-[#8e8e93]">
-                  当前视图 <span className="font-mono text-[#f5f5f7]">{total}</span> 个想法
+                <div className="mb-4 text-sm text-text-3">
+                  当前视图 <span className="font-mono text-text">{total}</span> 个想法
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {ideas.map((idea) => (
@@ -351,7 +351,7 @@ function ScopeButton({ active, label, onClick }: { active: boolean; label: strin
       aria-pressed={active}
       onClick={onClick}
       className={`h-10 flex-1 rounded-full px-5 text-sm font-semibold transition md:flex-none ${
-        active ? 'bg-white text-black' : 'text-[#b8b8bf] hover:text-white'
+        active ? 'bg-accent text-white' : 'text-text-2 hover:text-text'
       }`}
     >
       {label}
@@ -375,34 +375,34 @@ function IdeaCard({
   const canEdit = Boolean(idea.is_editable_by_me);
 
   return (
-    <article className="group relative min-h-[220px] rounded-xl border border-white/10 bg-[#1c1c1e] p-5 shadow-[0_12px_34px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-white/22 hover:bg-[#252528]">
+    <article className="group relative min-h-[220px] rounded-xl border border-border bg-surface p-5 shadow-[0_12px_34px_rgba(0,0,0,0.10)] transition hover:-translate-y-0.5 hover:border-border-hi hover:bg-surface-2">
       <button type="button" onClick={onOpen} className="block w-full text-left">
         <div className="mb-5 flex items-center justify-between gap-3 pr-20">
-          <span className={`inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1 text-xs font-semibold ${meta.text}`}>
+          <span className={`inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold ${meta.text}`}>
             <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
             {meta.label}
           </span>
-          <span className="font-mono text-xs text-[#8e8e93]">{formatDate(idea.created_at)}</span>
+          <span className="font-mono text-xs text-text-3">{formatDate(idea.created_at)}</span>
         </div>
 
-        <h2 className="line-clamp-2 text-xl font-semibold leading-7 tracking-tight text-white">{idea.title}</h2>
-        <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#b8b8bf]">{idea.description}</p>
+        <h2 className="line-clamp-2 text-xl font-semibold leading-7 tracking-tight text-text">{idea.title}</h2>
+        <p className="mt-3 line-clamp-3 text-sm leading-6 text-text-2">{idea.description}</p>
 
         <div className="mt-5 flex flex-wrap gap-2">
           {idea.tags.length > 0 ? (
             idea.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-[#d7d7dd]">
+              <span key={tag} className="rounded-full border border-border px-2.5 py-1 text-xs text-text-2">
                 {tag}
               </span>
             ))
           ) : (
-            <span className="rounded-full border border-white/8 px-2.5 py-1 text-xs text-[#8e8e93]">未加标签</span>
+            <span className="rounded-full border border-border px-2.5 py-1 text-xs text-text-3">未加标签</span>
           )}
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/8 pt-4 text-sm text-[#a1a1aa]">
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4 text-sm text-text-3">
           <span className="truncate">由 {idea.author_name || '团队成员'} 提出</span>
-          <span className="text-white opacity-0 transition group-hover:opacity-100">查看</span>
+          <span className="text-text opacity-0 transition group-hover:opacity-100">查看</span>
         </div>
       </button>
 
@@ -412,7 +412,7 @@ function IdeaCard({
             type="button"
             aria-label={`编辑 ${idea.title}`}
             onClick={onEdit}
-            className="h-8 rounded-full border border-white/10 bg-white/8 px-3 text-xs font-semibold text-white backdrop-blur transition hover:border-white/20 hover:bg-white/14"
+            className="h-8 rounded-full border border-border bg-surface-2 px-3 text-xs font-semibold text-text backdrop-blur transition hover:border-border-hi hover:bg-surface-3"
           >
             编辑
           </button>
@@ -429,8 +429,8 @@ function IdeaCard({
             onBlur={() => setDeleteArmed(false)}
             className={`h-8 rounded-full border px-3 text-xs font-semibold backdrop-blur transition ${
               deleteArmed
-                ? 'border-bad/40 bg-bad/16 text-bad'
-                : 'border-white/10 bg-white/8 text-[#d7d7dd] hover:border-bad/35 hover:text-bad'
+                ? 'border-bad/40 bg-bad/10 text-bad'
+                : 'border-border bg-surface-2 text-text-2 hover:border-bad/35 hover:text-bad'
             }`}
           >
             {deleteArmed ? '确认' : '删除'}
@@ -443,9 +443,9 @@ function IdeaCard({
 
 function EmptyState({ onCreateIdea, mine }: { onCreateIdea: () => void; mine: boolean }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#1c1c1e] px-6 py-16 text-center">
-      <p className="text-2xl font-semibold tracking-tight text-white">{mine ? '你还没有提交想法' : '这个视图暂时是空的'}</p>
-      <p className="mx-auto mt-3 max-w-[520px] text-sm leading-6 text-[#b8b8bf]">
+    <div className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center">
+      <p className="text-2xl font-semibold tracking-tight text-text">{mine ? '你还没有提交想法' : '这个视图暂时是空的'}</p>
+      <p className="mx-auto mt-3 max-w-[520px] text-sm leading-6 text-text-2">
         先写一个小而清楚的点子就够了。标题负责让人想点开，说明负责让同事知道怎么接下去。
       </p>
       <Button
@@ -463,9 +463,9 @@ function EmptyState({ onCreateIdea, mine }: { onCreateIdea: () => void; mine: bo
 
 function StatusPanel({ title, text, tone = 'muted' }: { title: string; text: string; tone?: 'muted' | 'bad' }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#1c1c1e] px-6 py-16 text-center">
-      <p className={`text-xl font-semibold ${tone === 'bad' ? 'text-bad' : 'text-white'}`}>{title}</p>
-      <p className="mt-2 font-mono text-xs text-[#8e8e93]">{text}</p>
+    <div className="rounded-[24px] border border-border bg-surface px-6 py-16 text-center">
+      <p className={`text-xl font-semibold ${tone === 'bad' ? 'text-bad' : 'text-text'}`}>{title}</p>
+      <p className="mt-2 font-mono text-xs text-text-3">{text}</p>
     </div>
   );
 }
@@ -561,12 +561,12 @@ function IdeaDetailDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="idea-detail-title"
-        className="max-h-[86vh] w-full max-w-[820px] overflow-y-auto rounded-xl border border-white/10 bg-[#1c1c1e]/95 p-6 shadow-2xl"
+        className="max-h-[86vh] w-full max-w-[820px] overflow-y-auto rounded-xl border border-border bg-surface/95 p-6 shadow-2xl"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e8e93]">Idea Detail</p>
-            <h2 id="idea-detail-title" className="text-2xl font-semibold tracking-tight text-white">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-text-3">Idea Detail</p>
+            <h2 id="idea-detail-title" className="text-2xl font-semibold tracking-tight text-text">
               想法详情
             </h2>
           </div>
@@ -574,7 +574,7 @@ function IdeaDetailDialog({
             type="button"
             aria-label="关闭想法详情"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-full text-xl leading-none text-[#b8b8bf] transition hover:bg-white/10 hover:text-white"
+            className="grid h-9 w-9 place-items-center rounded-full text-xl leading-none text-text-2 transition hover:bg-surface-2 hover:text-text"
           >
             ×
           </button>
@@ -588,10 +588,10 @@ function IdeaDetailDialog({
           <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill status={idea.status} />
-              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-[#b8b8bf]">
+              <span className="rounded-full border border-border px-3 py-1 text-xs text-text-2">
                 {idea.author_name || '团队成员'}
               </span>
-              <span className="font-mono text-xs text-[#8e8e93]">{formatDate(idea.created_at)}</span>
+              <span className="font-mono text-xs text-text-3">{formatDate(idea.created_at)}</span>
             </div>
 
             {editing ? (
@@ -599,20 +599,20 @@ function IdeaDetailDialog({
                 {canEditContent && (
                   <>
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-[#f5f5f7]">标题</span>
+                      <span className="mb-2 block text-sm font-medium text-text">标题</span>
                       <input
                         value={title}
                         onChange={(event) => setTitle(event.target.value)}
-                        className="h-[52px] w-full rounded-xl border border-white/10 bg-[#2c2c2e] px-4 text-lg font-semibold text-white outline-none focus:border-white/28"
+                        className="h-[52px] w-full rounded-xl border border-border bg-surface-2 px-4 text-lg font-semibold text-text outline-none focus:border-border-hi"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-[#f5f5f7]">说明</span>
+                      <span className="mb-2 block text-sm font-medium text-text">说明</span>
                       <textarea
                         value={description}
                         rows={8}
                         onChange={(event) => setDescription(event.target.value)}
-                        className="w-full resize-none rounded-xl border border-white/10 bg-[#2c2c2e] px-4 py-3 text-base leading-7 text-white outline-none focus:border-white/28"
+                        className="w-full resize-none rounded-xl border border-border bg-surface-2 px-4 py-3 text-base leading-7 text-text outline-none focus:border-border-hi"
                       />
                     </label>
                   </>
@@ -620,11 +620,11 @@ function IdeaDetailDialog({
                 {canModerate && (
                   <div className="grid gap-4 md:grid-cols-[220px_1fr]">
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-[#f5f5f7]">状态</span>
+                      <span className="mb-2 block text-sm font-medium text-text">状态</span>
                       <select
                         value={status}
                         onChange={(event) => setStatus(event.target.value as IdeaStatus)}
-                        className="h-[52px] w-full rounded-xl border border-white/10 bg-[#2c2c2e] px-4 text-base text-white outline-none focus:border-white/28"
+                        className="h-[52px] w-full rounded-xl border border-border bg-surface-2 px-4 text-base text-text outline-none focus:border-border-hi"
                       >
                         <option value="pending">待评估</option>
                         <option value="accepted">已采纳</option>
@@ -633,11 +633,11 @@ function IdeaDetailDialog({
                       </select>
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-[#f5f5f7]">标签</span>
+                      <span className="mb-2 block text-sm font-medium text-text">标签</span>
                       <input
                         value={tags}
                         onChange={(event) => setTags(event.target.value)}
-                        className="h-[52px] w-full rounded-xl border border-white/10 bg-[#2c2c2e] px-4 text-base text-white outline-none focus:border-white/28"
+                        className="h-[52px] w-full rounded-xl border border-border bg-surface-2 px-4 text-base text-text outline-none focus:border-border-hi"
                       />
                     </label>
                   </div>
@@ -645,27 +645,27 @@ function IdeaDetailDialog({
               </div>
             ) : (
               <div>
-                <h3 className="text-3xl font-semibold leading-tight tracking-tight text-white">{idea.title}</h3>
-                <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-[#d7d7dd]">{idea.description}</p>
+                <h3 className="text-3xl font-semibold leading-tight tracking-tight text-text">{idea.title}</h3>
+                <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-text-2">{idea.description}</p>
               </div>
             )}
 
             <div className="flex flex-wrap gap-2">
               {idea.tags.length > 0 ? (
                 idea.tags.map((tag) => (
-                  <span key={tag} className="rounded-full border border-white/10 px-3 py-1 text-sm text-[#d7d7dd]">
+                  <span key={tag} className="rounded-full border border-border px-3 py-1 text-sm text-text-2">
                     {tag}
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-[#8e8e93]">暂无标签</span>
+                <span className="text-sm text-text-3">暂无标签</span>
               )}
             </div>
 
-            <section className="rounded-xl border border-white/10 bg-[#252528] p-4">
+            <section className="rounded-xl border border-border bg-surface-2 p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-white">参考资料</h4>
-                <span className="font-mono text-xs text-[#8e8e93]">{references.length}</span>
+                <h4 className="text-sm font-semibold text-text">参考资料</h4>
+                <span className="font-mono text-xs text-text-3">{references.length}</span>
               </div>
               {references.length > 0 ? (
                 <div className="space-y-2">
@@ -673,14 +673,14 @@ function IdeaDetailDialog({
                     <a
                       key={reference.id}
                       href={reference.url}
-                      className="block rounded-lg border border-white/8 bg-[#1c1c1e] px-3 py-2 text-sm text-[#d7d7dd] hover:border-white/18"
+                      className="block rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-2 hover:border-border-hi"
                     >
                       {reference.title || reference.url}
                     </a>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm leading-6 text-[#8e8e93]">还没有参考链接。后续可以在这里挂短视频、文章或竞品素材。</p>
+                <p className="text-sm leading-6 text-text-3">还没有参考链接。后续可以在这里挂短视频、文章或竞品素材。</p>
               )}
             </section>
 
@@ -690,8 +690,8 @@ function IdeaDetailDialog({
               </div>
             )}
 
-            <div className="flex flex-col gap-3 border-t border-white/8 pt-5 md:flex-row md:items-center md:justify-between">
-              <div className="text-xs leading-5 text-[#8e8e93]">
+            <div className="flex flex-col gap-3 border-t border-border pt-5 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs leading-5 text-text-3">
                 {idea.status_changed_by_name
                   ? `状态由 ${idea.status_changed_by_name} 更新`
                   : '状态还没有被管理员调整'}

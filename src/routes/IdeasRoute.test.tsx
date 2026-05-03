@@ -59,12 +59,16 @@ beforeEach(() => {
 
 describe('IdeasRoute', () => {
   it('renders the board with ideas and status counts', async () => {
-    render(<IdeasRoute user={user} reloadKey={0} onBack={vi.fn()} onCreateIdea={vi.fn()} />);
+    const { container } = render(<IdeasRoute user={user} reloadKey={0} onBack={vi.fn()} onCreateIdea={vi.fn()} />);
 
     expect(await screen.findByText('芝兰点子王')).toBeTruthy();
     expect(await screen.findByText('睡前故事三段反转')).toBeTruthy();
     expect(screen.getByRole('button', { name: /待评估1/ })).toBeTruthy();
     expect(screen.getByText(/当前视图/)).toBeTruthy();
+    expect(container.firstElementChild?.className).toContain('bg-bg');
+    expect(container.innerHTML).not.toContain('#111113');
+    expect(container.innerHTML).not.toContain('#1c1c1e');
+    expect(container.innerHTML).not.toContain('#2c2c2e');
   });
 
   it('filters to my ideas', async () => {

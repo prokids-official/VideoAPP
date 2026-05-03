@@ -60,6 +60,14 @@ describe('NewIdeaDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('uses theme tokens instead of fixed dark panels', () => {
+    render(<NewIdeaDialog open user={admin} onClose={vi.fn()} onCreated={vi.fn()} />);
+
+    expect(screen.getByRole('dialog').innerHTML).not.toContain('#1c1c1e');
+    expect(screen.getByRole('dialog').innerHTML).not.toContain('#2c2c2e');
+    expect(screen.getByRole('dialog').innerHTML).toContain('bg-surface');
+  });
+
   it('keeps the dialog open and shows backend errors', async () => {
     createIdea.mockResolvedValue({ ok: false, status: 400, code: 'IDEA_INVALID_TITLE', message: 'bad title' });
 
