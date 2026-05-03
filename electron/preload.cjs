@@ -28,6 +28,20 @@ contextBridge.exposeInMainWorld('fableglitch', {
   clipboard: {
     copyImageFromUrl: (payload) => ipcRenderer.invoke('clipboard:image:copy-from-url', payload),
   },
+  studio: {
+    projectCreate: (input) => ipcRenderer.invoke('studio:project:create', input),
+    projectList: () => ipcRenderer.invoke('studio:project:list'),
+    projectGet: (id) => ipcRenderer.invoke('studio:project:get', id),
+    projectUpdate: (id, patch) => ipcRenderer.invoke('studio:project:update', id, patch),
+    projectDelete: (id) => ipcRenderer.invoke('studio:project:delete', id),
+    assetSave: (input) => ipcRenderer.invoke('studio:asset:save', input),
+    assetList: (projectId, typeCode) => ipcRenderer.invoke('studio:asset:list', projectId, typeCode),
+    assetDelete: (id) => ipcRenderer.invoke('studio:asset:delete', id),
+    assetWriteFile: (id, content) => ipcRenderer.invoke('studio:asset:writeFile', id, content),
+    assetReadFile: (id) => ipcRenderer.invoke('studio:asset:readFile', id),
+    stageSave: (projectId, stage, stateJson) => ipcRenderer.invoke('studio:stage:save', projectId, stage, stateJson),
+    stageGet: (projectId, stage) => ipcRenderer.invoke('studio:stage:get', projectId, stage),
+  },
   net: {
     request: (payload) => ipcRenderer.invoke('net:request', payload),
     assetContent: (payload) => ipcRenderer.invoke('net:asset-content', payload),

@@ -9,6 +9,11 @@ import type {
   CreateLocalDraftInput,
   LocalDraft,
   SandboxDraft,
+  StudioAsset,
+  StudioProject,
+  StudioProjectBundle,
+  StudioSizeKind,
+  StudioStage,
   StorageBackend,
   ViewCacheEntry,
 } from '../shared/types';
@@ -65,6 +70,32 @@ interface FableglitchClipboard {
   copyImageFromUrl: (payload: { url: string }) => Promise<{ ok: true }>;
 }
 
+interface FableglitchStudio {
+  projectCreate: (input: {
+    name: string;
+    size_kind: StudioSizeKind;
+    inspiration_text?: string | null;
+    current_stage?: StudioStage;
+  }) => Promise<StudioProject>;
+  projectList: () => Promise<StudioProject[]>;
+  projectGet: (id: string) => Promise<StudioProjectBundle | null>;
+  projectUpdate: (
+    id: string,
+    patch: Partial<Pick<StudioProject, 'name' | 'size_kind' | 'inspiration_text' | 'current_stage'>>,
+  ) => Promise<StudioProject>;
+  projectDelete: (id: string) => Promise<void>;
+  assetSave: (input: Partial<StudioAsset> & Pick<StudioAsset, 'project_id' | 'type_code' | 'name'>) => Promise<StudioAsset>;
+  assetList: (projectId: string, typeCode?: string | null) => Promise<StudioAsset[]>;
+  assetDelete: (id: string) => Promise<void>;
+  assetWriteFile: (id: string, content: string | ArrayBuffer | Uint8Array | number[]) => Promise<{
+    path: string;
+    size_bytes: number;
+  }>;
+  assetReadFile: (id: string) => Promise<Uint8Array>;
+  stageSave: (projectId: string, stage: StudioStage, stateJson: string) => Promise<void>;
+  stageGet: (projectId: string, stage: StudioStage) => Promise<string | null>;
+}
+
 interface FableglitchNet {
   request: (payload: {
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -99,6 +130,7 @@ interface FableglitchBridge {
   db: FableglitchDb;
   fs: FableglitchFs;
   clipboard: FableglitchClipboard;
+  studio: FableglitchStudio;
   net: FableglitchNet;
   session: FableglitchSession;
   window: FableglitchWindow;

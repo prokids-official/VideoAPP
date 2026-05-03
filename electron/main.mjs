@@ -14,6 +14,18 @@ import {
   sessionDelete,
   sessionGet,
   sessionSet,
+  studioAssetDelete,
+  studioAssetReadFile,
+  studioAssetsList,
+  studioAssetSave,
+  studioAssetWriteFile,
+  studioProjectCreate,
+  studioProjectDelete,
+  studioProjectGet,
+  studioProjectsList,
+  studioProjectUpdate,
+  studioStageGet,
+  studioStageSave,
   viewCacheGet,
   viewCacheSet,
 } from './local-db.mjs';
@@ -59,6 +71,24 @@ ipcMain.handle('db:view-cache:get', (_event, assetId) => viewCacheGet(assetId));
 ipcMain.handle('db:view-cache:set', (_event, entry) => {
   viewCacheSet(entry);
 });
+ipcMain.handle('studio:project:create', (_event, input) => studioProjectCreate(input));
+ipcMain.handle('studio:project:list', () => studioProjectsList());
+ipcMain.handle('studio:project:get', (_event, id) => studioProjectGet(id));
+ipcMain.handle('studio:project:update', (_event, id, patch) => studioProjectUpdate(id, patch));
+ipcMain.handle('studio:project:delete', (_event, id) => {
+  studioProjectDelete(id);
+});
+ipcMain.handle('studio:asset:save', (_event, input) => studioAssetSave(input));
+ipcMain.handle('studio:asset:list', (_event, projectId, typeCode) => studioAssetsList(projectId, typeCode));
+ipcMain.handle('studio:asset:delete', (_event, id) => {
+  studioAssetDelete(id);
+});
+ipcMain.handle('studio:asset:writeFile', (_event, id, content) => studioAssetWriteFile(id, content));
+ipcMain.handle('studio:asset:readFile', (_event, id) => studioAssetReadFile(id));
+ipcMain.handle('studio:stage:save', (_event, projectId, stage, stateJson) => {
+  studioStageSave(projectId, stage, stateJson);
+});
+ipcMain.handle('studio:stage:get', (_event, projectId, stage) => studioStageGet(projectId, stage));
 
 ipcMain.handle('fs:draft:save', (_event, payload) => saveDraftFile(payload));
 ipcMain.handle('fs:draft:read', (_event, filePath) => readDraftFile(filePath));

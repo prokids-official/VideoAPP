@@ -226,6 +226,54 @@ export interface SandboxDraft {
   updated_at: string;
 }
 
+export type StudioSizeKind = 'short' | 'shorts' | 'feature' | 'unknown';
+
+export type StudioStage =
+  | 'inspiration'
+  | 'script'
+  | 'character'
+  | 'scene'
+  | 'prop'
+  | 'storyboard'
+  | 'prompt-img'
+  | 'prompt-vid'
+  | 'canvas'
+  | 'export';
+
+export interface StudioProject {
+  id: string;
+  name: string;
+  size_kind: StudioSizeKind;
+  inspiration_text: string | null;
+  current_stage: StudioStage;
+  owner_id: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface StudioAsset {
+  id: string;
+  project_id: string;
+  type_code: string;
+  name: string;
+  variant: string | null;
+  version: number;
+  meta_json: string;
+  content_path: string | null;
+  size_bytes: number | null;
+  mime_type: string | null;
+  pushed_to_episode_id: string | null;
+  pushed_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface StudioProjectBundle {
+  project: StudioProject;
+  assets: StudioAsset[];
+  stage_state: Partial<Record<StudioStage, string>>;
+}
+
 export interface AssetRow {
   id: string;
   type_code: string;
