@@ -37,8 +37,6 @@ export function StudioWorkspaceRoute({
   // Load project bundle on mount / projectId change.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     void (async () => {
       try {
         const result = await studioApi.getProject(projectId);
