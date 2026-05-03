@@ -31,6 +31,20 @@ interface PreviewRow {
   preview: PreviewFilenameResult;
 }
 
+interface PreflightShot {
+  key: string;
+  number: number;
+  title: string;
+  missing: string[];
+}
+
+interface PreflightReport {
+  readyShots: number;
+  totalShots: number;
+  globalMissing: string[];
+  shots: PreflightShot[];
+}
+
 const NON_PUSHABLE_TYPES = new Set(['STORYBOARD_UNIT']);
 
 export function ExportStage({
@@ -56,6 +70,7 @@ export function ExportStage({
     () => pushable.filter((asset) => selectedIds.has(asset.id)),
     [pushable, selectedIds],
   );
+  const preflight = useMemo(() => buildPreflightReport(assets), [assets]);
   const defaultCommitMessage = target ? `feat(${target.episode.name_cn}): 来自创作舱「${project.name}」推送` : '';
   const commitMessage = commitMessageOverride ?? defaultCommitMessage;
 
@@ -180,6 +195,8 @@ export function ExportStage({
       {error && <div className="rounded border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">{error}</div>}
       {status && <div role="status" className="rounded border border-good/40 bg-good/10 px-3 py-2 text-sm text-good">{status}</div>}
 
+      <PreflightPanel report={preflight} />
+
       <section className="rounded-lg border border-border bg-surface-2 p-4">
         <div className="mb-3 text-xs uppercase tracking-widest text-text-4">目标公司项目</div>
         {loadingTree ? (
@@ -228,6 +245,101 @@ export function ExportStage({
   );
 }
 
+function PreflightPanel({ report }: { report: PreflightReport }) {
+  const hasWarnings = report.globalMissing.length > 0 || report.shots.some((shot) => shot.missing.length > 0);
+  return (
+    <section className="rounded-lg border border-border bg-surface-2 p-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-widest text-text-4">Preflight review</div>
+          <h3 className="mt-2 text-lg font-semibold text-text">入库前资产检查</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-text-3">
+            这里只做提示，不阻塞推送。缺口补齐后，公司项目里的 prompt、图片和视频关系会更完整。
+          </p>
+        </div>
+        <div className="grid min-w-[220px] grid-cols-2 gap-2">
+          <PreflightMetric label="Ready shots" value={`${report.readyShots} / ${report.totalShots}`} />
+          <PreflightMetric label="Warnings" value={String(report.globalMissing.length + report.shots.reduce((sum, shot) => sum + shot.missing.length, 0))} />
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-4">全局板块</div>
+          {report.globalMissing.length === 0 ? (
+            <PreflightChip tone="good">Global assets ready</PreflightChip>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {report.globalMissing.map((label) => (
+                <PreflightChip key={label} tone="warn">{label}</PreflightChip>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-widest text-text-4">分镜链路</div>
+            <span className={hasWarnings ? 'text-xs text-warn' : 'text-xs text-good'}>
+              {hasWarnings ? 'Needs attention' : 'Ready to push'}
+            </span>
+          </div>
+          {report.shots.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border bg-surface-2 p-4 text-sm text-text-3">
+              No storyboard units yet
+            </div>
+          ) : (
+            <div className="grid gap-2 xl:grid-cols-2">
+              {report.shots.map((shot) => (
+                <div key={shot.key} className="rounded-md border border-border bg-surface-2 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="rounded border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-xs text-accent">
+                      SHOT {padNumber(shot.number)}
+                    </span>
+                    <span className={shot.missing.length === 0 ? 'text-xs text-good' : 'text-xs text-warn'}>
+                      {shot.missing.length === 0 ? 'Complete' : `${shot.missing.length} missing`}
+                    </span>
+                  </div>
+                  <div className="mt-2 line-clamp-1 text-sm font-medium text-text">{shot.title}</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {shot.missing.length === 0 ? (
+                      <PreflightChip tone="good">Ready</PreflightChip>
+                    ) : (
+                      shot.missing.map((label) => (
+                        <PreflightChip key={label} tone="warn">{label}</PreflightChip>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PreflightMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface px-3 py-2">
+      <div className="text-[11px] uppercase tracking-widest text-text-4">{label}</div>
+      <div className="mt-1 font-mono text-lg font-semibold text-text">{value}</div>
+    </div>
+  );
+}
+
+function PreflightChip({ children, tone }: { children: string; tone: 'good' | 'warn' }) {
+  const className = tone === 'good'
+    ? 'border-good/30 bg-good/10 text-good'
+    : 'border-warn/30 bg-warn/10 text-warn';
+  return (
+    <span className={`rounded border px-2 py-1 text-xs ${className}`}>
+      {children}
+    </span>
+  );
+}
+
 function AssetExportRow({
   asset,
   selected,
@@ -270,6 +382,84 @@ function AssetExportRow({
 
 function pushableAssets(assets: StudioAsset[]) {
   return assets.filter((asset) => !NON_PUSHABLE_TYPES.has(asset.type_code));
+}
+
+function buildPreflightReport(assets: StudioAsset[]): PreflightReport {
+  const globalMissing = requiredGlobalTypes()
+    .filter((item) => !assets.some((asset) => asset.type_code === item.typeCode))
+    .map((item) => item.label);
+  const storyboards = assets
+    .filter((asset) => asset.type_code === 'STORYBOARD_UNIT')
+    .map((asset, index) => {
+      const meta = parseMeta(asset.meta_json);
+      return {
+        asset,
+        meta,
+        number: positiveInteger(meta.number) ?? positiveInteger(meta.storyboard_number) ?? index + 1,
+        title: stringMeta(meta.summary) ?? asset.name,
+      };
+    })
+    .sort((a, b) => a.number - b.number);
+
+  if (storyboards.length === 0) {
+    globalMissing.push('Missing storyboard units');
+  }
+
+  const prompts = assets.filter((asset) => asset.type_code === 'PROMPT_IMG' || asset.type_code === 'PROMPT_VID');
+  const generated = assets.filter((asset) => asset.type_code === 'SHOT_IMG' || asset.type_code === 'SHOT_VID');
+
+  const shots = storyboards.map((storyboard): PreflightShot => {
+    const promptImg = prompts.some((asset) => asset.type_code === 'PROMPT_IMG' && belongsToStoryboard(asset, storyboard.asset.id, storyboard.number));
+    const promptVid = prompts.some((asset) => asset.type_code === 'PROMPT_VID' && belongsToStoryboard(asset, storyboard.asset.id, storyboard.number));
+    const shotImg = generated.some((asset) => asset.type_code === 'SHOT_IMG' && generatedBelongsToStoryboard(asset, prompts, storyboard.asset.id, storyboard.number));
+    const shotVid = generated.some((asset) => asset.type_code === 'SHOT_VID' && generatedBelongsToStoryboard(asset, prompts, storyboard.asset.id, storyboard.number));
+    const missing = [
+      ...(!promptImg ? ['Missing image prompt'] : []),
+      ...(!promptVid ? ['Missing video prompt'] : []),
+      ...(!shotImg ? ['Missing generated image'] : []),
+      ...(!shotVid ? ['Missing generated video'] : []),
+    ];
+    return {
+      key: storyboard.asset.id,
+      number: storyboard.number,
+      title: storyboard.title,
+      missing,
+    };
+  });
+
+  return {
+    readyShots: shots.filter((shot) => shot.missing.length === 0).length,
+    totalShots: shots.length,
+    globalMissing,
+    shots,
+  };
+}
+
+function requiredGlobalTypes() {
+  return [
+    { typeCode: 'SCRIPT', label: 'Missing script' },
+    { typeCode: 'CHAR', label: 'Missing character assets' },
+    { typeCode: 'SCENE', label: 'Missing scene assets' },
+  ];
+}
+
+function belongsToStoryboard(asset: StudioAsset, storyboardAssetId: string, storyboardNumber: number) {
+  const meta = parseMeta(asset.meta_json);
+  return stringMeta(meta.storyboard_asset_id) === storyboardAssetId
+    || positiveInteger(meta.storyboard_number) === storyboardNumber;
+}
+
+function generatedBelongsToStoryboard(
+  asset: StudioAsset,
+  prompts: StudioAsset[],
+  storyboardAssetId: string,
+  storyboardNumber: number,
+) {
+  if (belongsToStoryboard(asset, storyboardAssetId, storyboardNumber)) return true;
+  const meta = parseMeta(asset.meta_json);
+  const promptId = stringMeta(meta.source_prompt_asset_id) ?? stringMeta(meta.generated_from_prompt_asset_id);
+  const prompt = promptId ? prompts.find((item) => item.id === promptId) : null;
+  return prompt ? belongsToStoryboard(prompt, storyboardAssetId, storyboardNumber) : false;
 }
 
 async function prepareExportAsset(
@@ -352,6 +542,11 @@ function storyboardMetadata(meta: Record<string, unknown>) {
 
 function stringMeta(value: unknown) {
   return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function positiveInteger(value: unknown) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 async function exportFileFor(asset: StudioAsset) {
@@ -476,4 +671,8 @@ function formatBytes(value: number | null) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function padNumber(value: number) {
+  return String(value).padStart(2, '0');
 }

@@ -171,7 +171,49 @@ describe('ExportStage', () => {
       }));
     });
   });
+
+  it('shows a preflight checklist for missing storyboard outputs before push', async () => {
+    render(
+      <ExportStage
+        project={project}
+        assets={[
+          makeScriptAsset(),
+          makeCharacterAsset(),
+          makeSceneAsset(),
+          makeStoryboardAsset(),
+          makePromptAsset(),
+          makeGeneratedImageAsset(),
+        ]}
+      />,
+    );
+
+    expect(await screen.findByText('Preflight review')).toBeTruthy();
+    expect(screen.getByText('Ready shots')).toBeTruthy();
+    expect(screen.getByText('0 / 1')).toBeTruthy();
+    expect(screen.getByText('SHOT 01')).toBeTruthy();
+    expect(screen.getByText('Missing video prompt')).toBeTruthy();
+    expect(screen.getByText('Missing generated video')).toBeTruthy();
+  });
 });
+
+function makeScriptAsset(): StudioAsset {
+  return {
+    id: 'script-1',
+    project_id: 'studio-1',
+    type_code: 'SCRIPT',
+    name: 'Main script',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({}),
+    content_path: 'E:\\studio\\script-1.md',
+    size_bytes: 1024,
+    mime_type: 'text/markdown',
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
 
 function makePromptAsset(): StudioAsset {
   return {
@@ -201,6 +243,44 @@ function makeCharacterAsset(): StudioAsset {
     variant: '主角',
     version: 1,
     meta_json: JSON.stringify({ appearance: '青年男性', personality: '冷静' }),
+    content_path: null,
+    size_bytes: null,
+    mime_type: null,
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeSceneAsset(): StudioAsset {
+  return {
+    id: 'scene-1',
+    project_id: 'studio-1',
+    type_code: 'SCENE',
+    name: 'Rain gate',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({}),
+    content_path: null,
+    size_bytes: null,
+    mime_type: null,
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeStoryboardAsset(): StudioAsset {
+  return {
+    id: 'storyboard-1',
+    project_id: 'studio-1',
+    type_code: 'STORYBOARD_UNIT',
+    name: 'Storyboard 01',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({ number: 1, duration_s: 15, summary: 'Rain gate opener' }),
     content_path: null,
     size_bytes: null,
     mime_type: null,
