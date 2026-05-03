@@ -5,6 +5,10 @@ import { StageProgressBar } from '../components/studio/StageProgressBar';
 import { StudioThreeColumn } from '../components/studio/StudioThreeColumn';
 import { InspirationStage } from '../components/studio/stages/InspirationStage';
 import { ScriptStage, type SaveScriptInput } from '../components/studio/stages/ScriptStage';
+import { CharacterStage } from '../components/studio/stages/CharacterStage';
+import { SceneStage } from '../components/studio/stages/SceneStage';
+import { PropStage } from '../components/studio/stages/PropStage';
+import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
 /**
@@ -159,6 +163,38 @@ export function StudioWorkspaceRoute({
     return updatedAsset;
   }
 
+  async function handleSaveEntity(input: SaveEntityInput): Promise<StudioAsset> {
+    const stage = entityStage(input.typeCode);
+    const saved = await studioApi.saveAsset({
+      project_id: projectId,
+      type_code: input.typeCode,
+      name: input.name,
+      variant: input.variant,
+      version: 1,
+      meta_json: JSON.stringify(input.meta),
+      mime_type: null,
+    });
+    const stateJson = JSON.stringify({
+      type_code: input.typeCode,
+      asset_count: countAssetsAfterSave(bundle?.assets ?? [], saved),
+      last_asset_id: saved.id,
+      last_asset_name: saved.name,
+    });
+    await studioApi.saveStage(projectId, stage, stateJson);
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: [
+          saved,
+          ...prev.assets.filter((asset) => asset.id !== saved.id),
+        ],
+        stage_state: { ...prev.stage_state, [stage]: stateJson },
+      };
+    });
+    return saved;
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -231,6 +267,30 @@ export function StudioWorkspaceRoute({
             onSave={handleSaveScript}
             onAdvance={handleAdvance}
           />
+        ) : activeStage === 'character' ? (
+          <CharacterStage
+            project={project}
+            assets={stageAssets}
+            stateJson={bundle.stage_state.character ?? null}
+            onSave={handleSaveEntity}
+            onAdvance={handleAdvance}
+          />
+        ) : activeStage === 'scene' ? (
+          <SceneStage
+            project={project}
+            assets={stageAssets}
+            stateJson={bundle.stage_state.scene ?? null}
+            onSave={handleSaveEntity}
+            onAdvance={handleAdvance}
+          />
+        ) : activeStage === 'prop' ? (
+          <PropStage
+            project={project}
+            assets={stageAssets}
+            stateJson={bundle.stage_state.prop ?? null}
+            onSave={handleSaveEntity}
+            onAdvance={handleAdvance}
+          />
         ) : (
           <StagePlaceholder stage={activeStage} assets={stageAssets} />
         )}
@@ -268,6 +328,23 @@ function stageTypeCode(stage: StudioStage): string | null {
     default:
       return null;
   }
+}
+
+function entityStage(typeCode: SaveEntityInput['typeCode']): StudioStage {
+  switch (typeCode) {
+    case 'CHAR':
+      return 'character';
+    case 'SCENE':
+      return 'scene';
+    case 'PROP':
+      return 'prop';
+  }
+}
+
+function countAssetsAfterSave(assets: StudioAsset[], saved: StudioAsset) {
+  const ids = new Set(assets.filter((asset) => asset.type_code === saved.type_code).map((asset) => asset.id));
+  ids.add(saved.id);
+  return ids.size;
 }
 
 /**

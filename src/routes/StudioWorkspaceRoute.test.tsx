@@ -162,4 +162,51 @@ describe('StudioWorkspaceRoute', () => {
       );
     });
   });
+
+  it('saves character assets through the studio bridge', async () => {
+    const savedAsset = {
+      id: 'char-asset-new',
+      project_id: 'studio-1',
+      type_code: 'CHAR',
+      name: '李火旺',
+      variant: '主角',
+      version: 1,
+      meta_json: '{}',
+      content_path: null,
+      size_bytes: null,
+      mime_type: null,
+      pushed_to_episode_id: null,
+      pushed_at: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'character' },
+      assets: [],
+      stage_state: {},
+    });
+    studio.assetSave.mockResolvedValueOnce(savedAsset);
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('角色名称'), { target: { value: '李火旺' } });
+    fireEvent.change(screen.getByLabelText('版本/定位'), { target: { value: '主角' } });
+    fireEvent.change(screen.getByLabelText('外貌'), { target: { value: '青年男性，眼神锐利' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存角色资产' }));
+
+    await waitFor(() => {
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        project_id: 'studio-1',
+        type_code: 'CHAR',
+        name: '李火旺',
+        variant: '主角',
+      }));
+      expect(studio.stageSave).toHaveBeenCalledWith(
+        'studio-1',
+        'character',
+        expect.stringContaining('"last_asset_id":"char-asset-new"'),
+      );
+    });
+  });
 });
