@@ -9,6 +9,8 @@ import { CharacterStage } from '../components/studio/stages/CharacterStage';
 import { SceneStage } from '../components/studio/stages/SceneStage';
 import { PropStage } from '../components/studio/stages/PropStage';
 import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/stages/StoryboardStage';
+import { PromptImgStage, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
+import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
 import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
@@ -231,6 +233,53 @@ export function StudioWorkspaceRoute({
     return saved;
   }
 
+  async function handleSavePrompt(
+    stage: 'prompt-img' | 'prompt-vid',
+    typeCode: 'PROMPT_IMG' | 'PROMPT_VID',
+    input: SavePromptInput,
+  ): Promise<StudioAsset> {
+    const meta = {
+      storyboard_asset_id: input.storyboardAssetId,
+      storyboard_number: input.storyboardNumber,
+      storyboard_summary: input.storyboardSummary,
+      prompt_text: input.promptText,
+    };
+    const saved = await studioApi.saveAsset({
+      project_id: projectId,
+      type_code: typeCode,
+      name: `${promptAssetLabel(typeCode)} ${padStoryboardNumber(input.storyboardNumber)}`,
+      variant: null,
+      version: 1,
+      meta_json: JSON.stringify(meta),
+      mime_type: 'text/markdown',
+    });
+    const file = await studioApi.writeAssetFile(saved.id, input.promptText);
+    const updatedAsset: StudioAsset = {
+      ...saved,
+      content_path: file.path,
+      size_bytes: file.size_bytes,
+      updated_at: Date.now(),
+    };
+    const stateJson = JSON.stringify({
+      prompt_count: countAssetsAfterSave(bundle?.assets ?? [], updatedAsset),
+      last_asset_id: updatedAsset.id,
+      last_storyboard_asset_id: input.storyboardAssetId,
+    });
+    await studioApi.saveStage(projectId, stage, stateJson);
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: [
+          updatedAsset,
+          ...prev.assets.filter((asset) => asset.id !== updatedAsset.id),
+        ],
+        stage_state: { ...prev.stage_state, [stage]: stateJson },
+      };
+    });
+    return updatedAsset;
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -336,6 +385,24 @@ export function StudioWorkspaceRoute({
             onSave={handleSaveStoryboard}
             onAdvance={handleAdvance}
           />
+        ) : activeStage === 'prompt-img' ? (
+          <PromptImgStage
+            project={project}
+            storyboardAssets={assets.filter((asset) => asset.type_code === 'STORYBOARD_UNIT')}
+            assets={stageAssets}
+            stateJson={bundle.stage_state['prompt-img'] ?? null}
+            onSave={(input) => handleSavePrompt('prompt-img', 'PROMPT_IMG', input)}
+            onAdvance={handleAdvance}
+          />
+        ) : activeStage === 'prompt-vid' ? (
+          <PromptVidStage
+            project={project}
+            storyboardAssets={assets.filter((asset) => asset.type_code === 'STORYBOARD_UNIT')}
+            assets={stageAssets}
+            stateJson={bundle.stage_state['prompt-vid'] ?? null}
+            onSave={(input) => handleSavePrompt('prompt-vid', 'PROMPT_VID', input)}
+            onAdvance={handleAdvance}
+          />
         ) : (
           <StagePlaceholder stage={activeStage} assets={stageAssets} />
         )}
@@ -394,6 +461,10 @@ function countAssetsAfterSave(assets: StudioAsset[], saved: StudioAsset) {
 
 function padStoryboardNumber(value: number) {
   return String(value).padStart(2, '0');
+}
+
+function promptAssetLabel(typeCode: 'PROMPT_IMG' | 'PROMPT_VID') {
+  return typeCode === 'PROMPT_IMG' ? '图片提示词' : '视频提示词';
 }
 
 /**

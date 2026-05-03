@@ -255,4 +255,116 @@ describe('StudioWorkspaceRoute', () => {
       );
     });
   });
+
+  it('saves image prompts through the studio bridge', async () => {
+    const savedAsset = makeSavedPromptAsset('prompt-img-new', 'PROMPT_IMG', '图片提示词 01');
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'prompt-img' },
+      assets: [makeStoryboardAsset()],
+      stage_state: {},
+    });
+    studio.assetSave.mockResolvedValueOnce(savedAsset);
+    studio.assetWriteFile.mockResolvedValueOnce({ path: 'E:\\studio\\prompt-img-new.md', size_bytes: 58 });
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('图片提示词 01'), {
+      target: { value: 'wide shot, rainy ruined city, cinematic neon reflection' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存图片提示词 01' }));
+
+    await waitFor(() => {
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        project_id: 'studio-1',
+        type_code: 'PROMPT_IMG',
+        name: '图片提示词 01',
+        mime_type: 'text/markdown',
+      }));
+      expect(studio.assetWriteFile).toHaveBeenCalledWith(
+        'prompt-img-new',
+        'wide shot, rainy ruined city, cinematic neon reflection',
+      );
+      expect(studio.stageSave).toHaveBeenCalledWith(
+        'studio-1',
+        'prompt-img',
+        expect.stringContaining('"last_asset_id":"prompt-img-new"'),
+      );
+    });
+  });
+
+  it('saves video prompts through the studio bridge', async () => {
+    const savedAsset = makeSavedPromptAsset('prompt-vid-new', 'PROMPT_VID', '视频提示词 01');
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'prompt-vid' },
+      assets: [makeStoryboardAsset()],
+      stage_state: {},
+    });
+    studio.assetSave.mockResolvedValueOnce(savedAsset);
+    studio.assetWriteFile.mockResolvedValueOnce({ path: 'E:\\studio\\prompt-vid-new.md', size_bytes: 40 });
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('视频提示词 01'), {
+      target: { value: 'slow push-in, rain drops on lens, 8 seconds' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存视频提示词 01' }));
+
+    await waitFor(() => {
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        project_id: 'studio-1',
+        type_code: 'PROMPT_VID',
+        name: '视频提示词 01',
+        mime_type: 'text/markdown',
+      }));
+      expect(studio.assetWriteFile).toHaveBeenCalledWith(
+        'prompt-vid-new',
+        'slow push-in, rain drops on lens, 8 seconds',
+      );
+      expect(studio.stageSave).toHaveBeenCalledWith(
+        'studio-1',
+        'prompt-vid',
+        expect.stringContaining('"last_asset_id":"prompt-vid-new"'),
+      );
+    });
+  });
 });
+
+function makeStoryboardAsset() {
+  return {
+    id: 'storyboard-1',
+    project_id: 'studio-1',
+    type_code: 'STORYBOARD_UNIT',
+    name: '分镜 01',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({ number: 1, summary: '雨夜开场', duration_s: 8 }),
+    content_path: null,
+    size_bytes: null,
+    mime_type: null,
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeSavedPromptAsset(id: string, typeCode: 'PROMPT_IMG' | 'PROMPT_VID', name: string) {
+  return {
+    id,
+    project_id: 'studio-1',
+    type_code: typeCode,
+    name,
+    variant: null,
+    version: 1,
+    meta_json: '{}',
+    content_path: null,
+    size_bytes: null,
+    mime_type: 'text/markdown',
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
