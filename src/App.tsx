@@ -3,7 +3,8 @@ import { useAuth } from './stores/use-auth';
 import { LoginRoute } from './routes/LoginRoute';
 import { HomeRoute } from './routes/HomeRoute';
 import { IdeasRoute } from './routes/IdeasRoute';
-import { SandboxRoute } from './routes/SandboxRoute';
+import { StudioRoute } from './routes/StudioRoute';
+import { StudioWorkspaceRoute } from './routes/StudioWorkspaceRoute';
 import { TreeRoute } from './routes/TreeRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
 import { PushReviewRoute } from './routes/PushReviewRoute';
@@ -13,7 +14,19 @@ import { EpisodeWizard } from './components/wizards/EpisodeWizard';
 import { NewIdeaDialog } from './components/ideas/NewIdeaDialog';
 import type { IdeaSummary } from '../shared/types';
 
-type AppRoute = 'home' | 'studio' | 'sandbox' | 'ideas' | 'settings' | 'push-review';
+// Route key vocab:
+//   'studio' is Codex's existing key for the company project tree (TreeRoute).
+//   The personal creation cockpit (P1.2) introduces two new keys:
+//     'studio-cockpit'    — project list (StudioRoute)
+//     'studio-workspace'  — single-project workspace (StudioWorkspaceRoute)
+type AppRoute =
+  | 'home'
+  | 'studio'
+  | 'studio-cockpit'
+  | 'studio-workspace'
+  | 'ideas'
+  | 'settings'
+  | 'push-review';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -25,6 +38,7 @@ export default function App() {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [treeReloadKey, setTreeReloadKey] = useState(0);
   const [ideasReloadKey, setIdeasReloadKey] = useState(0);
+  const [activeStudioProjectId, setActiveStudioProjectId] = useState<string | null>(null);
 
   const activeRoute = user ? route : 'studio';
 
@@ -104,14 +118,32 @@ export default function App() {
       <HomeRoute
         user={user}
         onOpenTree={() => setRoute('studio')}
-        onOpenSandbox={() => setRoute('sandbox')}
+        onOpenStudio={() => setRoute('studio-cockpit')}
         onOpenIdeas={() => setRoute('ideas')}
         onOpenSettings={() => setRoute('settings')}
         onCreateEpisode={() => setEpisodeWizardOpen(true)}
       />
     );
-  } else if (activeRoute === 'sandbox') {
-    content = <SandboxRoute onBack={() => setRoute('home')} />;
+  } else if (activeRoute === 'studio-cockpit') {
+    content = (
+      <StudioRoute
+        onBack={() => setRoute('home')}
+        onOpenProject={(projectId) => {
+          setActiveStudioProjectId(projectId);
+          setRoute('studio-workspace');
+        }}
+      />
+    );
+  } else if (activeRoute === 'studio-workspace' && activeStudioProjectId) {
+    content = (
+      <StudioWorkspaceRoute
+        projectId={activeStudioProjectId}
+        onBackToList={() => {
+          setRoute('studio-cockpit');
+          setActiveStudioProjectId(null);
+        }}
+      />
+    );
   } else if (activeRoute === 'ideas') {
     content = (
       <IdeasRoute
@@ -171,8 +203,10 @@ function routeSubtitle(route: AppRoute) {
   switch (route) {
     case 'home':
       return '主页';
-    case 'sandbox':
-      return '个人沙盒';
+    case 'studio-cockpit':
+      return '个人创作舱';
+    case 'studio-workspace':
+      return '个人创作舱 · 工作台';
     case 'ideas':
       return '芝兰点子王';
     case 'settings':

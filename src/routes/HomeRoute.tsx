@@ -6,14 +6,14 @@ import { api } from '../lib/api';
 export function HomeRoute({
   user,
   onOpenTree,
-  onOpenSandbox,
+  onOpenStudio,
   onOpenIdeas,
   onOpenSettings,
   onCreateEpisode,
 }: {
   user: User;
   onOpenTree: () => void;
-  onOpenSandbox: () => void;
+  onOpenStudio: () => void;
   onOpenIdeas: () => void;
   onOpenSettings: () => void;
   onCreateEpisode: () => void;
@@ -53,7 +53,7 @@ export function HomeRoute({
             <p className="mb-2 text-sm text-text-3">FableGlitch Studio</p>
             <h1 className="text-3xl font-bold tracking-tight">欢迎回来，{user.display_name}</h1>
             <p className="mt-2 max-w-[620px] text-sm leading-6 text-text-2">
-              从最近剧集继续，或进入个人沙盒写一点只保存在这台电脑上的草稿。
+              从最近剧集继续，或进入个人创作舱开始一个本地项目 —— 想法、剧本、人设、分镜全流程，完成后可一键推送入公司项目。
             </p>
           </div>
           <Button variant="secondary" onClick={onOpenSettings}>
@@ -96,7 +96,7 @@ export function HomeRoute({
             </div>
           ) : (
             <div className="rounded-lg border border-border bg-surface p-6 text-sm text-text-2">
-              这是你第一次使用 FableGlitch。可以先创建公司项目，也可以从个人沙盒写起。
+              这是你第一次使用 FableGlitch。可以先创建公司项目，也可以从个人创作舱开始一个本地项目。
             </div>
           )}
         </section>
@@ -105,9 +105,9 @@ export function HomeRoute({
           <h2 className="mb-4 text-xl font-semibold">创作空间</h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <HomeCard title="公司项目" text="团队资产库和入库流程" action="进入" onClick={onOpenTree} />
-            <HomeCard title="个人沙盒" text="本机草稿，不同步公司资产库" action="打开" onClick={onOpenSandbox} />
+            <HomeCard title="个人创作舱" text="本地创作 · 资产可推送入公司项目" action="打开" onClick={onOpenStudio} />
             <HomeCard title="芝兰点子王" text="团队灵感池，提交、筛选和推进想法" action="进入" onClick={onOpenIdeas} />
-            <HomeCard title="AI 工具" text="P1.2 接入模型和配额" action="敬请期待" disabled />
+            <HomeCard title="AI 工具" text="P1.3 接入模型和配额" action="敬请期待" disabled />
           </div>
           <div className="mt-4">
             <Button variant="gradient" onClick={onCreateEpisode}>
