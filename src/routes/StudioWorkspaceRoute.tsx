@@ -11,6 +11,7 @@ import { PropStage } from '../components/studio/stages/PropStage';
 import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/stages/StoryboardStage';
 import { PromptImgStage, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
 import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
+import { CanvasStage } from '../components/studio/stages/CanvasStage';
 import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
@@ -401,6 +402,12 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             stateJson={bundle.stage_state['prompt-vid'] ?? null}
             onSave={(input) => handleSavePrompt('prompt-vid', 'PROMPT_VID', input)}
+            onAdvance={handleAdvance}
+          />
+        ) : activeStage === 'canvas' ? (
+          <CanvasStage
+            project={project}
+            assets={assets}
             onAdvance={handleAdvance}
           />
         ) : (

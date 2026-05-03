@@ -329,6 +329,30 @@ describe('StudioWorkspaceRoute', () => {
       );
     });
   });
+
+  it('renders the read-only canvas preview and advances to export', async () => {
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'canvas' },
+      assets: [
+        makeSavedPromptAsset('prompt-img-1', 'PROMPT_IMG', '图片提示词 01'),
+        makeSavedPromptAsset('prompt-vid-1', 'PROMPT_VID', '视频提示词 01'),
+      ],
+      stage_state: {},
+    });
+    studio.projectUpdate.mockResolvedValueOnce({ ...bundle.project, current_stage: 'export' });
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    expect(await screen.findByText('图片提示词 01')).toBeTruthy();
+    expect(screen.getByText('视频提示词 01')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '准备入库 →' }));
+
+    await waitFor(() => {
+      expect(studio.projectUpdate).toHaveBeenCalledWith('studio-1', { current_stage: 'export' });
+    });
+  });
 });
 
 function makeStoryboardAsset() {
