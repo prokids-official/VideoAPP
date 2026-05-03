@@ -8,6 +8,7 @@ import { ScriptStage, type SaveScriptInput } from '../components/studio/stages/S
 import { CharacterStage } from '../components/studio/stages/CharacterStage';
 import { SceneStage } from '../components/studio/stages/SceneStage';
 import { PropStage } from '../components/studio/stages/PropStage';
+import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/stages/StoryboardStage';
 import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
@@ -195,6 +196,41 @@ export function StudioWorkspaceRoute({
     return saved;
   }
 
+  async function handleSaveStoryboard(input: SaveStoryboardInput): Promise<StudioAsset> {
+    const meta = {
+      number: input.number,
+      summary: input.summary,
+      duration_s: input.durationS,
+    };
+    const saved = await studioApi.saveAsset({
+      project_id: projectId,
+      type_code: 'STORYBOARD_UNIT',
+      name: `分镜 ${padStoryboardNumber(input.number)}`,
+      variant: null,
+      version: 1,
+      meta_json: JSON.stringify(meta),
+      mime_type: null,
+    });
+    const stateJson = JSON.stringify({
+      unit_count: countAssetsAfterSave(bundle?.assets ?? [], saved),
+      last_asset_id: saved.id,
+      last_number: input.number,
+    });
+    await studioApi.saveStage(projectId, 'storyboard', stateJson);
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: [
+          saved,
+          ...prev.assets.filter((asset) => asset.id !== saved.id),
+        ],
+        stage_state: { ...prev.stage_state, storyboard: stateJson },
+      };
+    });
+    return saved;
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -291,6 +327,15 @@ export function StudioWorkspaceRoute({
             onSave={handleSaveEntity}
             onAdvance={handleAdvance}
           />
+        ) : activeStage === 'storyboard' ? (
+          <StoryboardStage
+            project={project}
+            assets={stageAssets}
+            scriptAssets={assets.filter((asset) => asset.type_code === 'SCRIPT')}
+            stateJson={bundle.stage_state.storyboard ?? null}
+            onSave={handleSaveStoryboard}
+            onAdvance={handleAdvance}
+          />
         ) : (
           <StagePlaceholder stage={activeStage} assets={stageAssets} />
         )}
@@ -345,6 +390,10 @@ function countAssetsAfterSave(assets: StudioAsset[], saved: StudioAsset) {
   const ids = new Set(assets.filter((asset) => asset.type_code === saved.type_code).map((asset) => asset.id));
   ids.add(saved.id);
   return ids.size;
+}
+
+function padStoryboardNumber(value: number) {
+  return String(value).padStart(2, '0');
 }
 
 /**

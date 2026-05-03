@@ -209,4 +209,50 @@ describe('StudioWorkspaceRoute', () => {
       );
     });
   });
+
+  it('saves storyboard units through the studio bridge', async () => {
+    const savedAsset = {
+      id: 'storyboard-unit-new',
+      project_id: 'studio-1',
+      type_code: 'STORYBOARD_UNIT',
+      name: '分镜 01',
+      variant: null,
+      version: 1,
+      meta_json: '{}',
+      content_path: null,
+      size_bytes: null,
+      mime_type: null,
+      pushed_to_episode_id: null,
+      pushed_at: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'storyboard' },
+      assets: [],
+      stage_state: {},
+    });
+    studio.assetSave.mockResolvedValueOnce(savedAsset);
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('分镜编号'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('时长秒数'), { target: { value: '8' } });
+    fireEvent.change(screen.getByLabelText('分镜摘要'), { target: { value: '雨夜开场' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存分镜单元' }));
+
+    await waitFor(() => {
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        project_id: 'studio-1',
+        type_code: 'STORYBOARD_UNIT',
+        name: '分镜 01',
+      }));
+      expect(studio.stageSave).toHaveBeenCalledWith(
+        'studio-1',
+        'storyboard',
+        expect.stringContaining('"last_asset_id":"storyboard-unit-new"'),
+      );
+    });
+  });
 });
