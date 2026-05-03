@@ -5,9 +5,9 @@ import { CanvasStage } from './CanvasStage';
 
 const project: StudioProject = {
   id: 'studio-1',
-  name: '末日机械人',
+  name: 'Rain Machine',
   size_kind: 'short',
-  inspiration_text: '雨夜废城',
+  inspiration_text: 'rainy ruined city',
   current_stage: 'canvas',
   owner_id: 'local',
   created_at: Date.now(),
@@ -22,20 +22,20 @@ describe('CanvasStage', () => {
       <CanvasStage
         project={project}
         assets={[
-          makeAsset('script-1', 'SCRIPT', '主线剧本', 2048),
-          makeAsset('char-1', 'CHAR', '李火旺', null),
-          makeAsset('prompt-img-1', 'PROMPT_IMG', '图片提示词 01', 512),
+          makeAsset('script-1', 'SCRIPT', 'Main script', 2048),
+          makeAsset('char-1', 'CHAR', 'Li Huowang', null),
+          makeAsset('prompt-img-1', 'PROMPT_IMG', 'Image prompt 01', 512),
         ]}
         onAdvance={onAdvance}
       />,
     );
 
-    expect(screen.getByText('主线剧本')).toBeTruthy();
-    expect(screen.getByText('李火旺')).toBeTruthy();
-    expect(screen.getByText('图片提示词 01')).toBeTruthy();
+    expect(screen.getByText('Main script')).toBeTruthy();
+    expect(screen.getByText('Li Huowang')).toBeTruthy();
+    expect(screen.getByText('Image prompt 01')).toBeTruthy();
     expect(screen.getByText('2 KB')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: '准备入库 →' }));
+    fireEvent.click(screen.getByRole('button'));
 
     expect(onAdvance).toHaveBeenCalledOnce();
   });
@@ -45,12 +45,12 @@ describe('CanvasStage', () => {
       <CanvasStage
         project={project}
         assets={[
-          makeAsset('prompt-img-1', 'PROMPT_IMG', '鍥剧墖鎻愮ず璇?01', 512, {
+          makeAsset('prompt-img-1', 'PROMPT_IMG', 'Image prompt 01', 512, {
             storyboard_asset_id: 'storyboard-1',
             storyboard_number: 1,
             prompt_text: 'wide shot',
           }),
-          makeAsset('shot-img-1', 'SHOT_IMG', '鍒嗛暅鍥?01', 4096, {
+          makeAsset('shot-img-1', 'SHOT_IMG', 'Generated image 01', 4096, {
             source_prompt_asset_id: 'prompt-img-1',
             storyboard_asset_id: 'storyboard-1',
             storyboard_number: 1,
@@ -62,7 +62,50 @@ describe('CanvasStage', () => {
 
     expect(screen.getAllByText('Storyboard 01')).toHaveLength(2);
     expect(screen.getByText('1 generated output')).toBeTruthy();
-    expect(screen.getByText('From prompt: 鍥剧墖鎻愮ず璇?01')).toBeTruthy();
+    expect(screen.getByText('From prompt: Image prompt 01')).toBeTruthy();
+  });
+
+  it('threads storyboard prompts and generated outputs into a shot timeline', () => {
+    render(
+      <CanvasStage
+        project={project}
+        assets={[
+          makeAsset('storyboard-1', 'STORYBOARD_UNIT', 'Rain opener', 1024, {
+            number: 1,
+            duration_s: 15,
+            summary: 'Rain falls over the gate',
+          }),
+          makeAsset('prompt-img-1', 'PROMPT_IMG', 'Image prompt 01', 512, {
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+            prompt_text: 'wide shot, rain, gate',
+          }),
+          makeAsset('prompt-vid-1', 'PROMPT_VID', 'Video prompt 01', 768, {
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+            prompt_text: 'slow push in',
+          }),
+          makeAsset('shot-img-1', 'SHOT_IMG', 'Generated image 01', 4096, {
+            source_prompt_asset_id: 'prompt-img-1',
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+          }),
+          makeAsset('shot-vid-1', 'SHOT_VID', 'Generated video 01', 8192, {
+            source_prompt_asset_id: 'prompt-vid-1',
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+          }),
+        ]}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('SHOT 01')).toBeTruthy();
+    expect(screen.getByText('Rain falls over the gate')).toBeTruthy();
+    expect(screen.getByText('Image prompt 01')).toBeTruthy();
+    expect(screen.getByText('Generated image 01')).toBeTruthy();
+    expect(screen.getByText('Video prompt 01')).toBeTruthy();
+    expect(screen.getByText('Generated video 01')).toBeTruthy();
   });
 });
 
