@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { buildStudioAssetLinkIndex, studioAssetLinkLabels } from '../../../lib/studio-asset-links';
 import { Button } from '../../ui/Button';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -36,6 +37,7 @@ export function CanvasStage({
   onAdvance: () => void | Promise<void>;
 }) {
   const groups = useMemo(() => groupAssets(assets), [assets]);
+  const linkIndex = useMemo(() => buildStudioAssetLinkIndex(assets), [assets]);
   const pushedCount = assets.filter((asset) => asset.pushed_at != null).length;
 
   return (
@@ -74,7 +76,7 @@ export function CanvasStage({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {group.assets.map((asset) => (
-                    <AssetCard key={asset.id} asset={asset} />
+                    <AssetCard key={asset.id} asset={asset} linkLabels={studioAssetLinkLabels(asset, linkIndex.get(asset.id))} />
                   ))}
                 </div>
               </section>
@@ -95,7 +97,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AssetCard({ asset }: { asset: StudioAsset }) {
+function AssetCard({ asset, linkLabels }: { asset: StudioAsset; linkLabels: string[] }) {
   return (
     <article className="overflow-hidden rounded-lg border border-border bg-surface-2">
       <div className="flex h-24 items-center justify-center border-b border-border bg-surface">
@@ -110,6 +112,18 @@ function AssetCard({ asset }: { asset: StudioAsset }) {
           <span>{formatSize(asset.size_bytes)}</span>
         </div>
         {asset.variant && <div className="mt-2 text-xs text-text-3">{asset.variant}</div>}
+        {linkLabels.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {linkLabels.map((label) => (
+              <span
+                key={label}
+                className="rounded border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] leading-none text-accent"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </article>
   );

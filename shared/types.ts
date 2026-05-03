@@ -268,6 +268,25 @@ export interface StudioAsset {
   updated_at: number;
 }
 
+export type StudioGeneratedKind = 'image' | 'video';
+
+export interface StudioPromptAssetMeta {
+  storyboard_asset_id: string;
+  storyboard_number: number;
+  storyboard_summary: string;
+  prompt_text: string;
+}
+
+export interface StudioGeneratedAssetMeta {
+  source_prompt_asset_id?: string;
+  storyboard_asset_id?: string;
+  storyboard_number?: number;
+  prompt_text?: string;
+  generation_kind?: StudioGeneratedKind;
+  provider?: string;
+  model?: string;
+}
+
 export interface StudioProjectBundle {
   project: StudioProject;
   assets: StudioAsset[];

@@ -39,9 +39,40 @@ describe('CanvasStage', () => {
 
     expect(onAdvance).toHaveBeenCalledOnce();
   });
+
+  it('shows prompt to generated asset links', () => {
+    render(
+      <CanvasStage
+        project={project}
+        assets={[
+          makeAsset('prompt-img-1', 'PROMPT_IMG', '鍥剧墖鎻愮ず璇?01', 512, {
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+            prompt_text: 'wide shot',
+          }),
+          makeAsset('shot-img-1', 'SHOT_IMG', '鍒嗛暅鍥?01', 4096, {
+            source_prompt_asset_id: 'prompt-img-1',
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+          }),
+        ]}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Storyboard 01')).toHaveLength(2);
+    expect(screen.getByText('1 generated output')).toBeTruthy();
+    expect(screen.getByText('From prompt: 鍥剧墖鎻愮ず璇?01')).toBeTruthy();
+  });
 });
 
-function makeAsset(id: string, typeCode: string, name: string, sizeBytes: number | null): StudioAsset {
+function makeAsset(
+  id: string,
+  typeCode: string,
+  name: string,
+  sizeBytes: number | null,
+  meta: Record<string, unknown> = {},
+): StudioAsset {
   return {
     id,
     project_id: 'studio-1',
@@ -49,7 +80,7 @@ function makeAsset(id: string, typeCode: string, name: string, sizeBytes: number
     name,
     variant: null,
     version: 1,
-    meta_json: '{}',
+    meta_json: JSON.stringify(meta),
     content_path: null,
     size_bytes: sizeBytes,
     mime_type: typeCode === 'PROMPT_IMG' ? 'text/markdown' : null,
