@@ -3,6 +3,7 @@ import type { StudioAsset, StudioProjectBundle, StudioStage } from '../../shared
 import { Button } from '../components/ui/Button';
 import { StageProgressBar } from '../components/studio/StageProgressBar';
 import { StudioThreeColumn } from '../components/studio/StudioThreeColumn';
+import { InspirationStage } from '../components/studio/stages/InspirationStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
 /**
@@ -89,6 +90,27 @@ export function StudioWorkspaceRoute({
     if (next) await gotoStage(next);
   }
 
+  async function handleSaveInspiration(input: { inspirationText: string; tags: string[] }) {
+    const stateJson = JSON.stringify({
+      inspiration_text: input.inspirationText,
+      tags: input.tags,
+    });
+    const updated = await studioApi.updateProject(projectId, {
+      inspiration_text: input.inspirationText,
+      current_stage: 'inspiration',
+    });
+    await studioApi.saveStage(projectId, 'inspiration', stateJson);
+    setBundle((prev) => (
+      prev
+        ? {
+            ...prev,
+            project: updated,
+            stage_state: { ...prev.stage_state, inspiration: stateJson },
+          }
+        : prev
+    ));
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -142,7 +164,16 @@ export function StudioWorkspaceRoute({
 
       {/* stage editor area */}
       <div className="min-h-0 flex-1 overflow-hidden p-4">
-        <StagePlaceholder stage={activeStage} assets={stageAssets} />
+        {activeStage === 'inspiration' ? (
+          <InspirationStage
+            project={project}
+            stateJson={bundle.stage_state.inspiration ?? null}
+            onSave={handleSaveInspiration}
+            onAdvance={handleAdvance}
+          />
+        ) : (
+          <StagePlaceholder stage={activeStage} assets={stageAssets} />
+        )}
       </div>
     </div>
   );

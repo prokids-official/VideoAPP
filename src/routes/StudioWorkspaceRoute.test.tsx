@@ -75,4 +75,37 @@ describe('StudioWorkspaceRoute', () => {
       expect(studio.projectUpdate).toHaveBeenCalledWith('studio-1', { current_stage: 'character' });
     });
   });
+
+  it('saves inspiration stage through the studio bridge', async () => {
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'inspiration', inspiration_text: '' },
+      stage_state: {},
+    });
+    studio.projectUpdate.mockResolvedValueOnce({
+      ...bundle.project,
+      current_stage: 'inspiration',
+      inspiration_text: '雨夜废城里的机械少女',
+    });
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('灵感梗概'), {
+      target: { value: '雨夜废城里的机械少女' },
+    });
+    fireEvent.change(screen.getByLabelText('题材标签'), { target: { value: '赛博, 雨夜' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+
+    await waitFor(() => {
+      expect(studio.projectUpdate).toHaveBeenCalledWith('studio-1', {
+        inspiration_text: '雨夜废城里的机械少女',
+        current_stage: 'inspiration',
+      });
+      expect(studio.stageSave).toHaveBeenCalledWith(
+        'studio-1',
+        'inspiration',
+        JSON.stringify({ inspiration_text: '雨夜废城里的机械少女', tags: ['赛博', '雨夜'] }),
+      );
+    });
+  });
 });
