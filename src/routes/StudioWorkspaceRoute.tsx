@@ -12,6 +12,7 @@ import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/
 import { PromptImgStage, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
 import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
 import { CanvasStage } from '../components/studio/stages/CanvasStage';
+import { ExportStage } from '../components/studio/stages/ExportStage';
 import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
@@ -409,6 +410,11 @@ export function StudioWorkspaceRoute({
             project={project}
             assets={assets}
             onAdvance={handleAdvance}
+          />
+        ) : activeStage === 'export' ? (
+          <ExportStage
+            project={project}
+            assets={assets}
           />
         ) : (
           <StagePlaceholder stage={activeStage} assets={stageAssets} />
