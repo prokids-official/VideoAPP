@@ -408,6 +408,27 @@ describe('POST /api/assets/push', () => {
     ]);
   });
 
+  it('201 accepts studio-export source for personal creation cockpit pushes', async () => {
+    const res = await POST(
+      makeMultipart(
+        {
+          idempotency_key: 'k-studio-export',
+          commit_message: 'push studio assets',
+          items: [scriptItem({ source: 'studio-export' })],
+        },
+        { 'file__draft-script': { content: '# studio script', type: 'text/markdown' } },
+      ),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mocks.insertAssets).toHaveBeenCalledWith([
+      expect.objectContaining({
+        source: 'studio-export',
+        idempotency_key: 'k-studio-export',
+      }),
+    ]);
+  });
+
   it('502 GITHUB_CONFLICT after retry exhausted', async () => {
     mocks.createCommit.mockRejectedValueOnce(new GithubConflictError());
 

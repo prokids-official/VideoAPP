@@ -31,12 +31,14 @@ const SOURCE_STYLES: Record<AssetSource, string> = {
   imported: 'border-accent/35 bg-accent/10 text-accent-hi',
   pasted: 'border-good/30 bg-good/10 text-good',
   'ai-generated': 'border-warn/35 bg-warn/10 text-warn',
+  'studio-export': 'border-border-hi bg-surface-2 text-text-2',
 };
 
 const SOURCE_LABELS: Record<AssetSource, string> = {
   imported: 'imported',
   pasted: 'pasted',
   'ai-generated': 'ai-generated',
+  'studio-export': 'studio export',
 };
 
 interface ToastState {

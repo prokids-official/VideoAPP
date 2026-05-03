@@ -192,7 +192,7 @@ export interface IdeaUpdateResult {
 }
 
 export type AssetStage = 'ROUGH' | 'REVIEW' | 'FINAL';
-export type AssetSource = 'imported' | 'pasted' | 'ai-generated';
+export type AssetSource = 'imported' | 'pasted' | 'ai-generated' | 'studio-export';
 
 export interface LocalDraft {
   id: string;

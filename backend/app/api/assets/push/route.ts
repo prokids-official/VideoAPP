@@ -25,7 +25,7 @@ const TOTAL_BATCH_MAX = 200 * 1024 * 1024;
 const ITEM_COUNT_MAX = 20;
 
 type Stage = 'ROUGH' | 'REVIEW' | 'FINAL';
-type Source = 'imported' | 'pasted' | 'ai-generated';
+type Source = 'imported' | 'pasted' | 'ai-generated' | 'studio-export';
 type StorageBackend = 'github' | 'r2';
 
 interface PushItem {
@@ -114,7 +114,7 @@ function isStage(value: unknown): value is Stage {
 }
 
 function isSource(value: unknown): value is Source {
-  return value === 'imported' || value === 'pasted' || value === 'ai-generated';
+  return value === 'imported' || value === 'pasted' || value === 'ai-generated' || value === 'studio-export';
 }
 
 function parseItem(value: unknown): PushItem | null {
