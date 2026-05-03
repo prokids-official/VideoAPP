@@ -9,6 +9,7 @@ export function PromptVidStage({
   stateJson,
   onSave,
   onAttachGenerated,
+  onDeleteGenerated,
   onAdvance,
 }: {
   project: StudioProject;
@@ -18,6 +19,7 @@ export function PromptVidStage({
   stateJson: string | null | undefined;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
   onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
+  onDeleteGenerated?: (asset: StudioAsset) => Promise<void>;
   onAdvance: () => void | Promise<void>;
 }) {
   return (
@@ -39,6 +41,7 @@ export function PromptVidStage({
       }}
       onSave={onSave}
       onAttachGenerated={onAttachGenerated}
+      onDeleteGenerated={onDeleteGenerated}
       onAdvance={onAdvance}
     />
   );

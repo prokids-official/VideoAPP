@@ -324,6 +324,17 @@ export function StudioWorkspaceRoute({
     return updatedAsset;
   }
 
+  async function handleDeleteGeneratedOutput(asset: StudioAsset): Promise<void> {
+    await studioApi.deleteAsset(asset.id);
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: prev.assets.filter((item) => item.id !== asset.id),
+      };
+    });
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -438,6 +449,7 @@ export function StudioWorkspaceRoute({
             stateJson={bundle.stage_state['prompt-img'] ?? null}
             onSave={(input) => handleSavePrompt('prompt-img', 'PROMPT_IMG', input)}
             onAttachGenerated={(input) => handleAttachGeneratedOutput('SHOT_IMG', input)}
+            onDeleteGenerated={handleDeleteGeneratedOutput}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'prompt-vid' ? (
@@ -449,6 +461,7 @@ export function StudioWorkspaceRoute({
             stateJson={bundle.stage_state['prompt-vid'] ?? null}
             onSave={(input) => handleSavePrompt('prompt-vid', 'PROMPT_VID', input)}
             onAttachGenerated={(input) => handleAttachGeneratedOutput('SHOT_VID', input)}
+            onDeleteGenerated={handleDeleteGeneratedOutput}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'canvas' ? (

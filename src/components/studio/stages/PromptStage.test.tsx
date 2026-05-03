@@ -112,6 +112,50 @@ describe('PromptStage', () => {
       }));
     });
   });
+
+  it('previews and deletes an attached generated image output', async () => {
+    const onDeleteGenerated = vi.fn(async () => {});
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:shot-img-1'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: {
+        studio: {
+          assetReadFile: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
+        },
+      },
+    });
+
+    render(
+      <PromptImgStage
+        project={project}
+        storyboardAssets={[makeStoryboardAsset()]}
+        assets={[makePromptAsset('PROMPT_IMG')]}
+        generatedAssets={[makeGeneratedAsset('SHOT_IMG')]}
+        stateJson={null}
+        onSave={vi.fn()}
+        onDeleteGenerated={onDeleteGenerated}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('分镜图 01')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview 分镜图 01' }));
+
+    expect(await screen.findByAltText('分镜图 01')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete 分镜图 01' }));
+
+    await waitFor(() => {
+      expect(onDeleteGenerated).toHaveBeenCalledWith(expect.objectContaining({ id: 'shot_img-1' }));
+    });
+  });
 });
 
 function makeStoryboardAsset(): StudioAsset {

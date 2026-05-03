@@ -67,6 +67,7 @@ export function PromptStageBase({
   copy,
   onSave,
   onAttachGenerated,
+  onDeleteGenerated,
   onAdvance,
 }: {
   project: StudioProject;
@@ -77,11 +78,12 @@ export function PromptStageBase({
   copy: PromptStageCopy;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
   onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
+  onDeleteGenerated?: (asset: StudioAsset) => Promise<void>;
   onAdvance: () => void | Promise<void>;
 }) {
   const units = useMemo(() => parseStoryboardUnits(storyboardAssets), [storyboardAssets]);
   const promptMap = useMemo(() => parsePromptMap(assets), [assets]);
-  const generatedCountMap = useMemo(() => parseGeneratedCountMap(generatedAssets), [generatedAssets]);
+  const generatedAssetMap = useMemo(() => parseGeneratedAssetMap(generatedAssets), [generatedAssets]);
   const stageState = useMemo(() => parseStageState(stateJson), [stateJson]);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -92,6 +94,7 @@ export function PromptStageBase({
   });
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
   const [attachingUnitId, setAttachingUnitId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ asset: StudioAsset; url: string } | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,9 +153,44 @@ export function PromptStageBase({
     }
   }
 
+  async function previewGeneratedOutput(asset: StudioAsset) {
+    closePreview();
+    setError(null);
+    try {
+      const content = await window.fableglitch.studio.assetReadFile(asset.id);
+      const blob = new Blob([toArrayBuffer(content)], { type: asset.mime_type ?? defaultMimeType(copy.outputKind) });
+      setPreview({ asset, url: URL.createObjectURL(blob) });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '预览生成结果失败');
+    }
+  }
+
+  function closePreview() {
+    setPreview((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  async function deleteGeneratedOutput(asset: StudioAsset) {
+    if (!onDeleteGenerated) return;
+    setError(null);
+    try {
+      await onDeleteGenerated(asset);
+      setStatus(`${asset.name} 已删除`);
+      if (preview?.asset.id === asset.id) {
+        closePreview();
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '删除生成结果失败');
+      throw cause;
+    }
+  }
+
   return (
-    <StudioThreeColumn
-      left={
+    <>
+      <StudioThreeColumn
+        left={
         <div className="flex min-h-full flex-col gap-5">
           <div>
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">{copy.shortLabel}</div>
@@ -178,7 +216,7 @@ export function PromptStageBase({
           </section>
         </div>
       }
-      center={
+        center={
         <div className="flex min-h-full flex-col gap-4">
           <div>
             <div className="text-xs uppercase tracking-widest text-text-4">{copy.stageLabel}</div>
@@ -195,7 +233,8 @@ export function PromptStageBase({
                 const label = `${copy.stageLabel} ${pad(unit.number)}`;
                 const value = drafts[unit.id] ?? '';
                 const prompt = promptMap.get(unit.id);
-                const generatedCount = prompt ? generatedCountMap.get(prompt.assetId) ?? 0 : 0;
+                const generatedForPrompt = prompt ? generatedAssetMap.get(prompt.assetId) ?? [] : [];
+                const generatedCount = generatedForPrompt.length;
                 const disabled = savingUnitId === unit.id || !value.trim();
                 return (
                   <article key={unit.id} className="rounded-lg border border-border bg-surface-2 p-4">
@@ -248,6 +287,28 @@ export function PromptStageBase({
                         </Button>
                       </div>
                     )}
+                    {generatedForPrompt.length > 0 && (
+                      <div className="mt-3 space-y-2 rounded-lg border border-border bg-surface p-3">
+                        {generatedForPrompt.map((asset) => (
+                          <div key={asset.id} className="flex items-center justify-between gap-3 rounded border border-border bg-surface-2 px-3 py-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-text">{asset.name}</div>
+                              <div className="mt-1 font-mono text-[11px] text-text-4">{asset.type_code} · {formatSize(asset.size_bytes)}</div>
+                            </div>
+                            <div className="flex shrink-0 gap-2">
+                              <Button type="button" variant="secondary" onClick={() => void previewGeneratedOutput(asset)}>
+                                Preview {asset.name}
+                              </Button>
+                              {onDeleteGenerated && (
+                                <Button type="button" variant="secondary" onClick={() => void deleteGeneratedOutput(asset)}>
+                                  Delete {asset.name}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </article>
                 );
               })}
@@ -263,7 +324,7 @@ export function PromptStageBase({
           </div>
         </div>
       }
-      right={
+        right={
         <div className="space-y-4">
           <section className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">资产篮子</div>
@@ -285,7 +346,16 @@ export function PromptStageBase({
           </section>
         </div>
       }
-    />
+      />
+      {preview && (
+        <GeneratedPreviewModal
+          asset={preview.asset}
+          url={preview.url}
+          kind={copy.outputKind}
+          onClose={closePreview}
+        />
+      )}
+    </>
   );
 }
 
@@ -321,12 +391,14 @@ function parsePromptMap(assets: StudioAsset[]): Map<string, { assetId: string; t
   return map;
 }
 
-function parseGeneratedCountMap(assets: StudioAsset[]): Map<string, number> {
-  const map = new Map<string, number>();
+function parseGeneratedAssetMap(assets: StudioAsset[]): Map<string, StudioAsset[]> {
+  const map = new Map<string, StudioAsset[]>();
   for (const asset of assets) {
     const meta = parseJson<GeneratedMeta>(asset.meta_json);
     if (typeof meta.source_prompt_asset_id === 'string') {
-      map.set(meta.source_prompt_asset_id, (map.get(meta.source_prompt_asset_id) ?? 0) + 1);
+      const current = map.get(meta.source_prompt_asset_id) ?? [];
+      current.push(asset);
+      map.set(meta.source_prompt_asset_id, current);
     }
   }
   return map;
@@ -382,4 +454,54 @@ function inferMimeType(filename: string, kind: OutputKind) {
     default:
       return kind === 'image' ? 'image/png' : 'video/mp4';
   }
+}
+
+function defaultMimeType(kind: OutputKind) {
+  return kind === 'image' ? 'image/png' : 'video/mp4';
+}
+
+function toArrayBuffer(value: Uint8Array): ArrayBuffer {
+  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
+}
+
+function formatSize(value: number | null) {
+  if (value == null) return 'meta';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function GeneratedPreviewModal({
+  asset,
+  url,
+  kind,
+  onClose,
+}: {
+  asset: StudioAsset;
+  url: string;
+  kind: OutputKind;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 px-6 backdrop-blur-xl">
+      <div role="dialog" aria-modal="true" className="flex max-h-[90vh] w-full max-w-[960px] flex-col rounded-lg border border-border bg-surface p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="font-mono text-xs text-text-4">{asset.type_code}</div>
+            <h3 className="truncate text-lg font-semibold text-text">{asset.name}</h3>
+          </div>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Close preview
+          </Button>
+        </div>
+        <div className="min-h-0 overflow-auto rounded-lg border border-border bg-surface-2 p-3">
+          {kind === 'image' ? (
+            <img src={url} alt={asset.name} className="mx-auto max-h-[70vh] max-w-full rounded object-contain" />
+          ) : (
+            <video src={url} controls className="mx-auto max-h-[70vh] max-w-full rounded" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
