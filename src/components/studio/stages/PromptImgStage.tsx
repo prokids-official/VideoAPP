@@ -1,21 +1,25 @@
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
-import { PromptStageBase, type SavePromptInput } from './PromptStageBase';
+import { PromptStageBase, type AttachGeneratedInput, type SavePromptInput } from './PromptStageBase';
 
-export type { SavePromptInput };
+export type { AttachGeneratedInput, SavePromptInput };
 
 export function PromptImgStage({
   project,
   storyboardAssets,
   assets,
+  generatedAssets,
   stateJson,
   onSave,
+  onAttachGenerated,
   onAdvance,
 }: {
   project: StudioProject;
   storyboardAssets: StudioAsset[];
   assets: StudioAsset[];
+  generatedAssets?: StudioAsset[];
   stateJson: string | null | undefined;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
+  onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
   onAdvance: () => void | Promise<void>;
 }) {
   return (
@@ -23,6 +27,7 @@ export function PromptImgStage({
       project={project}
       storyboardAssets={storyboardAssets}
       assets={assets}
+      generatedAssets={generatedAssets}
       stateJson={stateJson}
       copy={{
         stageLabel: '图片提示词',
@@ -31,8 +36,11 @@ export function PromptImgStage({
         savePrefix: '图片提示词',
         nextLabel: '下一阶段：视频提示词',
         typeCode: 'PROMPT_IMG',
+        outputTypeCode: 'SHOT_IMG',
+        outputKind: 'image',
       }}
       onSave={onSave}
+      onAttachGenerated={onAttachGenerated}
       onAdvance={onAdvance}
     />
   );

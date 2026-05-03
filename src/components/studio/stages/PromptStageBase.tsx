@@ -4,6 +4,8 @@ import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 
 type PromptTypeCode = 'PROMPT_IMG' | 'PROMPT_VID';
+type OutputTypeCode = 'SHOT_IMG' | 'SHOT_VID';
+type OutputKind = 'image' | 'video';
 
 interface StoryboardMeta {
   number?: unknown;
@@ -14,6 +16,10 @@ interface StoryboardMeta {
 interface PromptMeta {
   storyboard_asset_id?: unknown;
   prompt_text?: unknown;
+}
+
+interface GeneratedMeta {
+  source_prompt_asset_id?: unknown;
 }
 
 interface PromptStageState {
@@ -27,6 +33,8 @@ interface PromptStageCopy {
   savePrefix: string;
   nextLabel: string;
   typeCode: PromptTypeCode;
+  outputTypeCode: OutputTypeCode;
+  outputKind: OutputKind;
 }
 
 export interface SavePromptInput {
@@ -36,34 +44,54 @@ export interface SavePromptInput {
   promptText: string;
 }
 
+export interface AttachGeneratedInput {
+  promptAssetId: string;
+  storyboardAssetId: string;
+  storyboardNumber: number;
+  storyboardSummary: string;
+  promptText: string;
+  file: {
+    name: string;
+    content: Uint8Array;
+    mimeType: string;
+    sizeBytes: number;
+  };
+}
+
 export function PromptStageBase({
   project,
   storyboardAssets,
   assets,
+  generatedAssets = [],
   stateJson,
   copy,
   onSave,
+  onAttachGenerated,
   onAdvance,
 }: {
   project: StudioProject;
   storyboardAssets: StudioAsset[];
   assets: StudioAsset[];
+  generatedAssets?: StudioAsset[];
   stateJson: string | null | undefined;
   copy: PromptStageCopy;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
+  onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
   onAdvance: () => void | Promise<void>;
 }) {
   const units = useMemo(() => parseStoryboardUnits(storyboardAssets), [storyboardAssets]);
   const promptMap = useMemo(() => parsePromptMap(assets), [assets]);
+  const generatedCountMap = useMemo(() => parseGeneratedCountMap(generatedAssets), [generatedAssets]);
   const stageState = useMemo(() => parseStageState(stateJson), [stateJson]);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const unit of units) {
-      initial[unit.id] = promptMap.get(unit.id) ?? '';
+      initial[unit.id] = promptMap.get(unit.id)?.text ?? '';
     }
     return initial;
   });
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
+  const [attachingUnitId, setAttachingUnitId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +117,39 @@ export function PromptStageBase({
     }
   }
 
+  async function attachGeneratedOutput(unit: StoryboardUnit) {
+    const prompt = promptMap.get(unit.id);
+    if (!prompt || !onAttachGenerated) return;
+
+    setAttachingUnitId(unit.id);
+    setStatus(null);
+    setError(null);
+    try {
+      const selected = await window.fableglitch.fs.openFileDialog(fileDialogFilters(copy.outputKind));
+      if (!selected) return;
+
+      await onAttachGenerated({
+        promptAssetId: prompt.assetId,
+        storyboardAssetId: unit.id,
+        storyboardNumber: unit.number,
+        storyboardSummary: unit.summary,
+        promptText: prompt.text,
+        file: {
+          name: selected.name,
+          content: selected.content,
+          mimeType: inferMimeType(selected.name, copy.outputKind),
+          sizeBytes: selected.size_bytes,
+        },
+      });
+      setStatus(`${copy.outputKind === 'image' ? '图片' : '视频'}输出 ${pad(unit.number)} 已挂载`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '挂载生成结果失败');
+      throw cause;
+    } finally {
+      setAttachingUnitId(null);
+    }
+  }
+
   return (
     <StudioThreeColumn
       left={
@@ -97,7 +158,7 @@ export function PromptStageBase({
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">{copy.shortLabel}</div>
             <h2 className="text-lg font-semibold tracking-tight">{project.name}</h2>
             <p className="mt-2 text-sm leading-6 text-text-3">
-              每个分镜单元对应一条{copy.stageLabel}。P1.2 只做手填，P1.3 再接入 Agent 自动生成和风格模板。
+              每个分镜单元对应一条{copy.stageLabel}。P1.2 支持手填和挂载外部生成结果，P1.3 再接入 Agent 自动生成。
             </p>
           </div>
 
@@ -133,6 +194,8 @@ export function PromptStageBase({
               {units.map((unit) => {
                 const label = `${copy.stageLabel} ${pad(unit.number)}`;
                 const value = drafts[unit.id] ?? '';
+                const prompt = promptMap.get(unit.id);
+                const generatedCount = prompt ? generatedCountMap.get(prompt.assetId) ?? 0 : 0;
                 const disabled = savingUnitId === unit.id || !value.trim();
                 return (
                   <article key={unit.id} className="rounded-lg border border-border bg-surface-2 p-4">
@@ -156,7 +219,12 @@ export function PromptStageBase({
                         : '镜头运动、动作节奏、时长、转场、画面变化...'}
                       className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60 focus:bg-surface-3"
                     />
-                    <div className="mt-3 flex justify-end">
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-xs text-text-3">
+                        {prompt
+                          ? `${generatedCount} attached ${copy.outputKind} output${generatedCount === 1 ? '' : 's'}`
+                          : 'Save prompt before attaching output'}
+                      </div>
                       <Button
                         type="button"
                         variant="secondary"
@@ -166,6 +234,20 @@ export function PromptStageBase({
                         {savingUnitId === unit.id ? '保存中...' : `保存${copy.stageLabel} ${pad(unit.number)}`}
                       </Button>
                     </div>
+                    {prompt && onAttachGenerated && (
+                      <div className="mt-2 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={attachingUnitId === unit.id}
+                          onClick={() => void attachGeneratedOutput(unit)}
+                        >
+                          {attachingUnitId === unit.id
+                            ? 'Attaching...'
+                            : `Attach ${copy.outputKind} output ${pad(unit.number)}`}
+                        </Button>
+                      </div>
+                    )}
                   </article>
                 );
               })}
@@ -197,7 +279,8 @@ export function PromptStageBase({
           <section className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">入库映射</div>
             <p className="text-xs leading-5 text-text-3">
-              保存后会成为本地 <span className="font-mono">{copy.typeCode}</span> 资产，后续入库阶段可直接推送到公司项目库。
+              保存后会成为本地 <span className="font-mono">{copy.typeCode}</span> 资产；挂载结果会成为{' '}
+              <span className="font-mono">{copy.outputTypeCode}</span> 资产，并保留来源关系。
             </p>
           </section>
         </div>
@@ -227,12 +310,23 @@ function parseStoryboardUnits(assets: StudioAsset[]): StoryboardUnit[] {
     .sort((a, b) => a.number - b.number);
 }
 
-function parsePromptMap(assets: StudioAsset[]): Map<string, string> {
-  const map = new Map<string, string>();
+function parsePromptMap(assets: StudioAsset[]): Map<string, { assetId: string; text: string }> {
+  const map = new Map<string, { assetId: string; text: string }>();
   for (const asset of assets) {
     const meta = parseJson<PromptMeta>(asset.meta_json);
     if (typeof meta.storyboard_asset_id === 'string' && typeof meta.prompt_text === 'string') {
-      map.set(meta.storyboard_asset_id, meta.prompt_text);
+      map.set(meta.storyboard_asset_id, { assetId: asset.id, text: meta.prompt_text });
+    }
+  }
+  return map;
+}
+
+function parseGeneratedCountMap(assets: StudioAsset[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const asset of assets) {
+    const meta = parseJson<GeneratedMeta>(asset.meta_json);
+    if (typeof meta.source_prompt_asset_id === 'string') {
+      map.set(meta.source_prompt_asset_id, (map.get(meta.source_prompt_asset_id) ?? 0) + 1);
     }
   }
   return map;
@@ -261,4 +355,31 @@ function normalizePositiveNumber(value: unknown, fallback: number) {
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
+}
+
+function fileDialogFilters(kind: OutputKind) {
+  return kind === 'image'
+    ? [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+    : [{ name: 'Videos', extensions: ['mp4', 'mov', 'webm'] }];
+}
+
+function inferMimeType(filename: string, kind: OutputKind) {
+  const ext = filename.toLowerCase().split('.').pop() ?? '';
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'mov':
+      return 'video/quicktime';
+    case 'webm':
+      return 'video/webm';
+    case 'mp4':
+      return 'video/mp4';
+    default:
+      return kind === 'image' ? 'image/png' : 'video/mp4';
+  }
 }

@@ -64,6 +64,54 @@ describe('PromptStage', () => {
     expect(screen.getByDisplayValue('slow push-in, rain drops on lens, 8 seconds')).toBeTruthy();
     expect(screen.getByRole('button', { name: '保存视频提示词 01' })).toBeTruthy();
   });
+
+  it('attaches a generated image output to an existing image prompt', async () => {
+    const onAttachGenerated = vi.fn(async () => makeGeneratedAsset('SHOT_IMG'));
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: {
+        fs: {
+          openFileDialog: vi.fn(async () => ({
+            path: 'E:\\outputs\\shot-01.png',
+            name: 'shot-01.png',
+            size_bytes: 4,
+            content: new Uint8Array([1, 2, 3, 4]),
+          })),
+        },
+      },
+    });
+
+    render(
+      <PromptImgStage
+        project={project}
+        storyboardAssets={[makeStoryboardAsset()]}
+        assets={[makePromptAsset('PROMPT_IMG')]}
+        generatedAssets={[]}
+        stateJson={null}
+        onSave={vi.fn()}
+        onAttachGenerated={onAttachGenerated}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach image output 01' }));
+
+    await waitFor(() => {
+      expect(onAttachGenerated).toHaveBeenCalledWith(expect.objectContaining({
+        promptAssetId: 'prompt_img-1',
+        storyboardAssetId: 'storyboard-1',
+        storyboardNumber: 1,
+        storyboardSummary: '雨夜开场',
+        promptText: 'wide shot, rainy ruined city, cinematic neon reflection',
+        file: {
+          content: new Uint8Array([1, 2, 3, 4]),
+          mimeType: 'image/png',
+          name: 'shot-01.png',
+          sizeBytes: 4,
+        },
+      }));
+    });
+  });
 });
 
 function makeStoryboardAsset(): StudioAsset {
@@ -104,6 +152,28 @@ function makePromptAsset(typeCode: 'PROMPT_IMG' | 'PROMPT_VID'): StudioAsset {
     content_path: null,
     size_bytes: null,
     mime_type: 'text/markdown',
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeGeneratedAsset(typeCode: 'SHOT_IMG' | 'SHOT_VID'): StudioAsset {
+  return {
+    id: `${typeCode.toLowerCase()}-1`,
+    project_id: 'studio-1',
+    type_code: typeCode,
+    name: typeCode === 'SHOT_IMG' ? '分镜图 01' : '分镜视频 01',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({
+      source_prompt_asset_id: 'prompt_img-1',
+      storyboard_number: 1,
+    }),
+    content_path: 'E:\\studio\\output',
+    size_bytes: 4,
+    mime_type: typeCode === 'SHOT_IMG' ? 'image/png' : 'video/mp4',
     pushed_to_episode_id: null,
     pushed_at: null,
     created_at: Date.now(),

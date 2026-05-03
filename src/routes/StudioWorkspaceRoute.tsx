@@ -9,7 +9,7 @@ import { CharacterStage } from '../components/studio/stages/CharacterStage';
 import { SceneStage } from '../components/studio/stages/SceneStage';
 import { PropStage } from '../components/studio/stages/PropStage';
 import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/stages/StoryboardStage';
-import { PromptImgStage, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
+import { PromptImgStage, type AttachGeneratedInput, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
 import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
 import { CanvasStage } from '../components/studio/stages/CanvasStage';
 import { ExportStage } from '../components/studio/stages/ExportStage';
@@ -282,6 +282,48 @@ export function StudioWorkspaceRoute({
     return updatedAsset;
   }
 
+  async function handleAttachGeneratedOutput(
+    typeCode: 'SHOT_IMG' | 'SHOT_VID',
+    input: AttachGeneratedInput,
+  ): Promise<StudioAsset> {
+    const meta = {
+      source_prompt_asset_id: input.promptAssetId,
+      storyboard_asset_id: input.storyboardAssetId,
+      storyboard_number: input.storyboardNumber,
+      storyboard_summary: input.storyboardSummary,
+      prompt_text: input.promptText,
+      generation_kind: typeCode === 'SHOT_IMG' ? 'image' : 'video',
+      original_filename: input.file.name,
+    };
+    const saved = await studioApi.saveAsset({
+      project_id: projectId,
+      type_code: typeCode,
+      name: `${generatedAssetLabel(typeCode)} ${padStoryboardNumber(input.storyboardNumber)}`,
+      variant: null,
+      version: 1,
+      meta_json: JSON.stringify(meta),
+      mime_type: input.file.mimeType,
+    });
+    const file = await studioApi.writeAssetFile(saved.id, input.file.content);
+    const updatedAsset: StudioAsset = {
+      ...saved,
+      content_path: file.path,
+      size_bytes: file.size_bytes || input.file.sizeBytes,
+      updated_at: Date.now(),
+    };
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: [
+          updatedAsset,
+          ...prev.assets.filter((asset) => asset.id !== updatedAsset.id),
+        ],
+      };
+    });
+    return updatedAsset;
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -392,8 +434,10 @@ export function StudioWorkspaceRoute({
             project={project}
             storyboardAssets={assets.filter((asset) => asset.type_code === 'STORYBOARD_UNIT')}
             assets={stageAssets}
+            generatedAssets={assets.filter((asset) => asset.type_code === 'SHOT_IMG')}
             stateJson={bundle.stage_state['prompt-img'] ?? null}
             onSave={(input) => handleSavePrompt('prompt-img', 'PROMPT_IMG', input)}
+            onAttachGenerated={(input) => handleAttachGeneratedOutput('SHOT_IMG', input)}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'prompt-vid' ? (
@@ -401,8 +445,10 @@ export function StudioWorkspaceRoute({
             project={project}
             storyboardAssets={assets.filter((asset) => asset.type_code === 'STORYBOARD_UNIT')}
             assets={stageAssets}
+            generatedAssets={assets.filter((asset) => asset.type_code === 'SHOT_VID')}
             stateJson={bundle.stage_state['prompt-vid'] ?? null}
             onSave={(input) => handleSavePrompt('prompt-vid', 'PROMPT_VID', input)}
+            onAttachGenerated={(input) => handleAttachGeneratedOutput('SHOT_VID', input)}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'canvas' ? (
@@ -474,6 +520,10 @@ function countAssetsAfterSave(assets: StudioAsset[], saved: StudioAsset) {
 
 function padStoryboardNumber(value: number) {
   return String(value).padStart(2, '0');
+}
+
+function generatedAssetLabel(typeCode: 'SHOT_IMG' | 'SHOT_VID') {
+  return typeCode === 'SHOT_IMG' ? '分镜图' : '分镜视频';
 }
 
 function promptAssetLabel(typeCode: 'PROMPT_IMG' | 'PROMPT_VID') {
