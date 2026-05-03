@@ -33,6 +33,7 @@ describe('AssetPreviewModal', () => {
         actionStatus={null}
         onClose={() => {}}
         onCopyText={() => {}}
+        onCopyImage={() => {}}
         onDownloadAsset={() => {}}
       />,
     );
@@ -55,6 +56,7 @@ describe('AssetPreviewModal', () => {
         actionStatus={null}
         onClose={() => {}}
         onCopyText={onCopyText}
+        onCopyImage={() => {}}
         onDownloadAsset={onDownloadAsset}
       />,
     );
@@ -66,7 +68,8 @@ describe('AssetPreviewModal', () => {
     expect(onDownloadAsset).toHaveBeenCalledTimes(1);
   });
 
-  it('lets users download url-backed binary content without showing text copy', async () => {
+  it('lets users copy and download url-backed image content without showing text copy', async () => {
+    const onCopyImage = vi.fn();
     const onDownloadAsset = vi.fn();
 
     render(
@@ -79,13 +82,16 @@ describe('AssetPreviewModal', () => {
         actionStatus={null}
         onClose={() => {}}
         onCopyText={vi.fn()}
+        onCopyImage={onCopyImage}
         onDownloadAsset={onDownloadAsset}
       />,
     );
 
     expect(screen.queryByRole('button', { name: '复制文本' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: '复制图片' }));
     await userEvent.click(screen.getByRole('button', { name: '下载到本地' }));
 
+    expect(onCopyImage).toHaveBeenCalledTimes(1);
     expect(onDownloadAsset).toHaveBeenCalledTimes(1);
   });
 });

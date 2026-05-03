@@ -340,6 +340,40 @@ export function TreeRoute({
     }
   }
 
+  async function handleCopyPreviewImage() {
+    if (!previewAsset || previewContent?.kind !== 'url' || !previewAsset.mime_type?.startsWith('image/')) {
+      return;
+    }
+
+    try {
+      if (window.fableglitch?.clipboard?.copyImageFromUrl) {
+        await window.fableglitch.clipboard.copyImageFromUrl({ url: previewContent.url });
+      } else {
+        const clipboardApi = navigator.clipboard as Clipboard & {
+          write?: (items: ClipboardItem[]) => Promise<void>;
+        };
+
+        if (!clipboardApi?.write || typeof ClipboardItem === 'undefined') {
+          throw new Error('桌面图片复制桥接未加载，请重启桌面端');
+        }
+
+        const response = await fetch(previewContent.url);
+        if (!response.ok) {
+          throw new Error(`图片读取失败：HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        await clipboardApi.write([
+          new ClipboardItem({ [blob.type || previewAsset.mime_type || 'image/png']: blob }),
+        ]);
+      }
+
+      setPreviewActionStatus('图片已复制到剪贴板');
+    } catch (cause) {
+      setPreviewActionStatus(cause instanceof Error ? cause.message : '复制图片失败');
+    }
+  }
+
   async function handleDownloadPreviewAsset() {
     if (!previewAsset || !previewContent) {
       return;
@@ -441,6 +475,7 @@ export function TreeRoute({
         error={previewError}
         actionStatus={previewActionStatus}
         onCopyText={handleCopyPreviewText}
+        onCopyImage={handleCopyPreviewImage}
         onDownloadAsset={handleDownloadPreviewAsset}
         onClose={() => {
           setPreviewAsset(null);

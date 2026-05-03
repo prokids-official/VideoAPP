@@ -61,6 +61,10 @@ interface FableglitchFs {
   }) => Promise<{ path: string; size_bytes: number }>;
 }
 
+interface FableglitchClipboard {
+  copyImageFromUrl: (payload: { url: string }) => Promise<{ ok: true }>;
+}
+
 interface FableglitchNet {
   request: (payload: {
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -94,6 +98,7 @@ interface FableglitchWindow {
 interface FableglitchBridge {
   db: FableglitchDb;
   fs: FableglitchFs;
+  clipboard: FableglitchClipboard;
   net: FableglitchNet;
   session: FableglitchSession;
   window: FableglitchWindow;

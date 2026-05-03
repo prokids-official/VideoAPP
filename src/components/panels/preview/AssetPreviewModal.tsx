@@ -14,6 +14,7 @@ export function AssetPreviewModal({
   actionStatus,
   onClose,
   onCopyText,
+  onCopyImage,
   onDownloadAsset,
 }: {
   open: boolean;
@@ -24,9 +25,11 @@ export function AssetPreviewModal({
   actionStatus: string | null;
   onClose: () => void;
   onCopyText: () => void;
+  onCopyImage: () => void;
   onDownloadAsset: () => void;
 }) {
   const canCopy = content?.kind === 'markdown';
+  const canCopyImage = content?.kind === 'url' && isImage(asset?.mime_type ?? null);
   const canDownload = Boolean(content);
 
   return (
@@ -60,6 +63,11 @@ export function AssetPreviewModal({
                     复制文本
                   </Button>
                 )}
+                {canCopyImage && (
+                  <Button variant="secondary" onClick={onCopyImage}>
+                    复制图片
+                  </Button>
+                )}
                 {canDownload && (
                   <Button variant="secondary" onClick={onDownloadAsset}>
                     下载到本地
@@ -84,7 +92,7 @@ export function AssetPreviewModal({
             ) : error ? (
               <div className="flex min-h-[320px] items-center justify-center font-mono text-xs text-bad">{error}</div>
             ) : content ? (
-              <PreviewContent asset={asset} content={content} />
+              <PreviewContent asset={asset} content={content} onCopyImage={onCopyImage} />
             ) : null}
           </motion.div>
         </motion.div>
@@ -93,13 +101,21 @@ export function AssetPreviewModal({
   );
 }
 
-function PreviewContent({ asset, content }: { asset: AssetRow; content: AssetContentResult }) {
+function PreviewContent({
+  asset,
+  content,
+  onCopyImage,
+}: {
+  asset: AssetRow;
+  content: AssetContentResult;
+  onCopyImage: () => void;
+}) {
   if (content.kind === 'markdown') {
     return <MdPreview markdown={content.content} />;
   }
 
   if (isImage(asset.mime_type)) {
-    return <ImagePreview src={content.url} alt={asset.name} />;
+    return <ImagePreview src={content.url} alt={asset.name} onCopyImage={onCopyImage} />;
   }
 
   if (isVideo(asset.mime_type)) {

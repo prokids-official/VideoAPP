@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('fableglitch', {
     saveAssetFile: (payload) => ipcRenderer.invoke('fs:asset:save', payload),
     saveViewCacheFile: (payload) => ipcRenderer.invoke('fs:view-cache:save', payload),
   },
+  clipboard: {
+    copyImageFromUrl: (payload) => ipcRenderer.invoke('clipboard:image:copy-from-url', payload),
+  },
   net: {
     request: (payload) => ipcRenderer.invoke('net:request', payload),
     assetContent: (payload) => ipcRenderer.invoke('net:asset-content', payload),

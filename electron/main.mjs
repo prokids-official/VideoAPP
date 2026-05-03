@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, ipcMain, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -66,6 +66,7 @@ ipcMain.handle('fs:draft:delete', (_event, localDraftId) => deleteDraftFile(loca
 ipcMain.handle('fs:file:open', (_event, filters) => openFileDialog(filters));
 ipcMain.handle('fs:asset:save', (_event, payload) => saveAssetFile(payload));
 ipcMain.handle('fs:view-cache:save', (_event, payload) => saveViewCacheFile(payload));
+ipcMain.handle('clipboard:image:copy-from-url', (_event, payload) => copyImageFromUrl(payload));
 
 ipcMain.handle('net:request', (_event, payload) => apiRequest(payload));
 ipcMain.handle('net:asset-content', (_event, payload) => assetContentRequest(payload));
@@ -99,6 +100,27 @@ ipcMain.handle('window:close', (event) => {
 });
 
 ipcMain.handle('window:is-maximized', (event) => Boolean(getSenderWindow(event)?.isMaximized()));
+
+async function copyImageFromUrl(payload) {
+  const url = typeof payload?.url === 'string' ? payload.url : '';
+  if (!url) {
+    throw new Error('图片地址为空');
+  }
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`图片读取失败：HTTP ${response.status}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const image = nativeImage.createFromBuffer(buffer);
+  if (image.isEmpty()) {
+    throw new Error('图片格式无法复制');
+  }
+
+  clipboard.writeImage(image);
+  return { ok: true };
+}
 
 // Resolve icon path; fall back gracefully if file missing (dev convenience)
 function resolveIconPath() {
