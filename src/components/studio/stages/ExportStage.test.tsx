@@ -194,6 +194,32 @@ describe('ExportStage', () => {
     expect(screen.getByText('Missing video prompt')).toBeTruthy();
     expect(screen.getByText('Missing generated video')).toBeTruthy();
   });
+
+  it('updates preflight warnings when selected assets change', async () => {
+    render(
+      <ExportStage
+        project={project}
+        assets={[
+          makeScriptAsset(),
+          makeCharacterAsset(),
+          makeSceneAsset(),
+          makeStoryboardAsset(),
+          makePromptAsset(),
+          makeVideoPromptAsset(),
+          makeGeneratedImageAsset(),
+          makeGeneratedVideoAsset(),
+        ]}
+      />,
+    );
+
+    expect(await screen.findByText('Preflight review')).toBeTruthy();
+    expect(screen.getByText('1 / 1')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText(/Generated image 01/));
+
+    expect(screen.getByText('0 / 1')).toBeTruthy();
+    expect(screen.getByText('Missing generated image')).toBeTruthy();
+  });
 });
 
 function makeScriptAsset(): StudioAsset {
@@ -296,7 +322,7 @@ function makeGeneratedImageAsset(): StudioAsset {
     id: 'shot-img-1',
     project_id: 'studio-1',
     type_code: 'SHOT_IMG',
-    name: '鍒嗛暅鍥?01',
+    name: 'Generated image 01',
     variant: null,
     version: 1,
     meta_json: JSON.stringify({
@@ -306,6 +332,47 @@ function makeGeneratedImageAsset(): StudioAsset {
     content_path: 'E:\\studio\\shot-img-1.png',
     size_bytes: 21,
     mime_type: 'image/png',
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeVideoPromptAsset(): StudioAsset {
+  return {
+    id: 'prompt-vid-1',
+    project_id: 'studio-1',
+    type_code: 'PROMPT_VID',
+    name: 'Video prompt 01',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({ storyboard_number: 1, prompt_text: 'slow push in' }),
+    content_path: 'E:\\studio\\prompt-vid-1.md',
+    size_bytes: 18,
+    mime_type: 'text/markdown',
+    pushed_to_episode_id: null,
+    pushed_at: null,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+}
+
+function makeGeneratedVideoAsset(): StudioAsset {
+  return {
+    id: 'shot-vid-1',
+    project_id: 'studio-1',
+    type_code: 'SHOT_VID',
+    name: 'Generated video 01',
+    variant: null,
+    version: 1,
+    meta_json: JSON.stringify({
+      source_prompt_asset_id: 'prompt-vid-1',
+      storyboard_number: 1,
+    }),
+    content_path: 'E:\\studio\\shot-vid-1.mp4',
+    size_bytes: 2048,
+    mime_type: 'video/mp4',
     pushed_to_episode_id: null,
     pushed_at: null,
     created_at: Date.now(),

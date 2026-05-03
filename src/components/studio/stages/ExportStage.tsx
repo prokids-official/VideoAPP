@@ -70,7 +70,7 @@ export function ExportStage({
     () => pushable.filter((asset) => selectedIds.has(asset.id)),
     [pushable, selectedIds],
   );
-  const preflight = useMemo(() => buildPreflightReport(assets), [assets]);
+  const preflight = useMemo(() => buildPreflightReport(assets, selectedIds), [assets, selectedIds]);
   const defaultCommitMessage = target ? `feat(${target.episode.name_cn}): 来自创作舱「${project.name}」推送` : '';
   const commitMessage = commitMessageOverride ?? defaultCommitMessage;
 
@@ -384,9 +384,10 @@ function pushableAssets(assets: StudioAsset[]) {
   return assets.filter((asset) => !NON_PUSHABLE_TYPES.has(asset.type_code));
 }
 
-function buildPreflightReport(assets: StudioAsset[]): PreflightReport {
+function buildPreflightReport(assets: StudioAsset[], selectedIds: ReadonlySet<string>): PreflightReport {
+  const selectedAsset = (asset: StudioAsset) => selectedIds.has(asset.id);
   const globalMissing = requiredGlobalTypes()
-    .filter((item) => !assets.some((asset) => asset.type_code === item.typeCode))
+    .filter((item) => !assets.some((asset) => selectedAsset(asset) && asset.type_code === item.typeCode))
     .map((item) => item.label);
   const storyboards = assets
     .filter((asset) => asset.type_code === 'STORYBOARD_UNIT')
@@ -405,8 +406,8 @@ function buildPreflightReport(assets: StudioAsset[]): PreflightReport {
     globalMissing.push('Missing storyboard units');
   }
 
-  const prompts = assets.filter((asset) => asset.type_code === 'PROMPT_IMG' || asset.type_code === 'PROMPT_VID');
-  const generated = assets.filter((asset) => asset.type_code === 'SHOT_IMG' || asset.type_code === 'SHOT_VID');
+  const prompts = assets.filter((asset) => selectedAsset(asset) && (asset.type_code === 'PROMPT_IMG' || asset.type_code === 'PROMPT_VID'));
+  const generated = assets.filter((asset) => selectedAsset(asset) && (asset.type_code === 'SHOT_IMG' || asset.type_code === 'SHOT_VID'));
 
   const shots = storyboards.map((storyboard): PreflightShot => {
     const promptImg = prompts.some((asset) => asset.type_code === 'PROMPT_IMG' && belongsToStoryboard(asset, storyboard.asset.id, storyboard.number));
