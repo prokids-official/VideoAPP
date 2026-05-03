@@ -94,9 +94,18 @@ export function InspirationStage({
             <p className="mt-2 text-xs leading-5 text-text-3">用逗号分隔，后续会用于筛选风格、模板和 AI 生成上下文。</p>
           </div>
 
-          <Button type="button" variant="secondary" disabled>
-            从想法墙引用
-          </Button>
+          <div className="rounded-lg border border-border bg-surface-2 p-3">
+            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">AI 协助</div>
+            <div className="flex flex-col gap-2">
+              <Button type="button" variant="secondary" disabled>
+                从点子王导入
+              </Button>
+              <Button type="button" variant="secondary" disabled>
+                Agent 扩写灵感
+              </Button>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-text-3">P1.3 接入 Agent 后启用；P1.4 支持 accepted idea 一键转项目。</p>
+          </div>
 
           <div className="mt-auto flex flex-col gap-2 border-t border-border pt-4">
             {status && <div className="text-xs text-good">{status}</div>}
@@ -141,7 +150,7 @@ export function InspirationStage({
       right={
         <div className="text-sm text-text-3">
           <div className="mb-2 text-xs uppercase tracking-widest text-text-4">版本</div>
-          <p className="leading-6 text-text-2">P1.2 先保存当前草稿。版本对比、从想法墙一键转项目留到 P1.4。</p>
+          <p className="leading-6 text-text-2">P1.2 先保存当前草稿。版本对比、从点子王一键转项目留到 P1.4。</p>
         </div>
       }
     />

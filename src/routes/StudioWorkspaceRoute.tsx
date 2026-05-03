@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { StageProgressBar } from '../components/studio/StageProgressBar';
 import { StudioThreeColumn } from '../components/studio/StudioThreeColumn';
 import { InspirationStage } from '../components/studio/stages/InspirationStage';
+import { ScriptStage, type SaveScriptInput } from '../components/studio/stages/ScriptStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
 /**
@@ -111,6 +112,53 @@ export function StudioWorkspaceRoute({
     ));
   }
 
+  async function handleSaveScript(input: SaveScriptInput): Promise<StudioAsset> {
+    const meta = {
+      mode: input.mode,
+      style_hint: input.styleHint,
+      duration_sec: input.durationSec,
+      skill_id: input.skillId,
+      provider: input.provider,
+      view_mode: input.viewMode,
+      score: null,
+      ai_feedback: null,
+    };
+    const saved = await studioApi.saveAsset({
+      project_id: projectId,
+      type_code: 'SCRIPT',
+      name: input.name,
+      variant: null,
+      version: 1,
+      meta_json: JSON.stringify(meta),
+      mime_type: 'text/markdown',
+    });
+    const file = await studioApi.writeAssetFile(saved.id, input.body);
+    const updatedAsset: StudioAsset = {
+      ...saved,
+      content_path: file.path,
+      size_bytes: file.size_bytes,
+      updated_at: Date.now(),
+    };
+    const stateJson = JSON.stringify({
+      ...meta,
+      name: input.name,
+      asset_id: saved.id,
+    });
+    await studioApi.saveStage(projectId, 'script', stateJson);
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: [
+          updatedAsset,
+          ...prev.assets.filter((asset) => asset.id !== updatedAsset.id),
+        ],
+        stage_state: { ...prev.stage_state, script: stateJson },
+      };
+    });
+    return updatedAsset;
+  }
+
   if (loading) {
     return <CenteredStatus text="loading project…" />;
   }
@@ -147,6 +195,10 @@ export function StudioWorkspaceRoute({
         <span className="text-text-4">·</span>
         <span className="text-xs text-text-3">{STAGE_LABELS[activeStage]}</span>
         <div className="ml-auto flex items-center gap-2">
+          <span className="hidden text-xs text-text-3 md:inline">本地工作区 · 协作 P2</span>
+          <Button variant="secondary" disabled>
+            邀请成员
+          </Button>
           <Button variant="secondary" onClick={handleAdvance} disabled={!nextStage(activeStage)}>
             下一阶段 →
           </Button>
@@ -169,6 +221,14 @@ export function StudioWorkspaceRoute({
             project={project}
             stateJson={bundle.stage_state.inspiration ?? null}
             onSave={handleSaveInspiration}
+            onAdvance={handleAdvance}
+          />
+        ) : activeStage === 'script' ? (
+          <ScriptStage
+            project={project}
+            assets={stageAssets}
+            stateJson={bundle.stage_state.script ?? null}
+            onSave={handleSaveScript}
             onAdvance={handleAdvance}
           />
         ) : (

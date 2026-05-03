@@ -68,8 +68,9 @@ describe('StudioWorkspaceRoute', () => {
 
     expect(await screen.findByText('末日机械人')).toBeTruthy();
     expect(screen.getByText('主线剧本')).toBeTruthy();
+    expect((screen.getByRole('button', { name: '邀请成员' }) as HTMLButtonElement).disabled).toBe(true);
 
-    fireEvent.click(screen.getByRole('button', { name: /下一阶段/ }));
+    fireEvent.click(screen.getByRole('button', { name: '下一阶段 →' }));
 
     await waitFor(() => {
       expect(studio.projectUpdate).toHaveBeenCalledWith('studio-1', { current_stage: 'character' });
@@ -105,6 +106,59 @@ describe('StudioWorkspaceRoute', () => {
         'studio-1',
         'inspiration',
         JSON.stringify({ inspiration_text: '雨夜废城里的机械少女', tags: ['赛博', '雨夜'] }),
+      );
+    });
+  });
+
+  it('saves script markdown as a local SCRIPT asset through the studio bridge', async () => {
+    const savedAsset = {
+      id: 'script-asset-new',
+      project_id: 'studio-1',
+      type_code: 'SCRIPT',
+      name: '主线剧本',
+      variant: null,
+      version: 1,
+      meta_json: '{}',
+      content_path: null,
+      size_bytes: null,
+      mime_type: 'text/markdown',
+      pushed_to_episode_id: null,
+      pushed_at: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'script' },
+      assets: [],
+      stage_state: {},
+    });
+    studio.assetSave.mockResolvedValueOnce(savedAsset);
+    studio.assetWriteFile.mockResolvedValueOnce({ path: 'E:\\studio\\script-asset-new.md', size_bytes: 42 });
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('剧本标题'), { target: { value: '主线剧本' } });
+    fireEvent.change(screen.getByLabelText('剧本正文'), {
+      target: { value: '雨水从破败霓虹灯上滴落，机械少女第一次睁眼。' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存为 SCRIPT 资产' }));
+
+    await waitFor(() => {
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        project_id: 'studio-1',
+        type_code: 'SCRIPT',
+        name: '主线剧本',
+        mime_type: 'text/markdown',
+      }));
+      expect(studio.assetWriteFile).toHaveBeenCalledWith(
+        'script-asset-new',
+        '雨水从破败霓虹灯上滴落，机械少女第一次睁眼。',
+      );
+      expect(studio.stageSave).toHaveBeenCalledWith(
+        'studio-1',
+        'script',
+        expect.stringContaining('"asset_id":"script-asset-new"'),
       );
     });
   });

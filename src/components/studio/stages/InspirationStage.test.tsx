@@ -52,4 +52,12 @@ describe('InspirationStage', () => {
       expect(onAdvance).toHaveBeenCalled();
     });
   });
+
+  it('shows future AI and idea-board entry points as disabled placeholders', () => {
+    render(<InspirationStage project={project} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />);
+
+    expect((screen.getByRole('button', { name: '从点子王导入' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Agent 扩写灵感' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/P1\.3 接入 Agent 后启用/)).toBeTruthy();
+  });
 });
