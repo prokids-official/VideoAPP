@@ -7,6 +7,7 @@ import type {
   PreviewFilenameResult,
   StudioAsset,
   StudioProject,
+  StudioStage,
   TreeResponse,
 } from '../../../../shared/types';
 import { PushTargetSelector, type PushTarget } from '../PushTargetSelector';
@@ -33,6 +34,7 @@ interface PreviewRow {
 
 interface PreflightShot {
   key: string;
+  storyboardAssetId: string;
   number: number;
   title: string;
   missing: string[];
@@ -45,14 +47,23 @@ interface PreflightReport {
   shots: PreflightShot[];
 }
 
+export interface PreflightLocateTarget {
+  stage: StudioStage;
+  storyboardAssetId?: string;
+  storyboardNumber?: number;
+  reason: string;
+}
+
 const NON_PUSHABLE_TYPES = new Set(['STORYBOARD_UNIT']);
 
 export function ExportStage({
   project,
   assets,
+  onLocateMissing,
 }: {
   project: StudioProject;
   assets: StudioAsset[];
+  onLocateMissing?: (target: PreflightLocateTarget) => void | Promise<void>;
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null);
   const [target, setTarget] = useState<PushTarget | null>(null);
@@ -195,7 +206,7 @@ export function ExportStage({
       {error && <div className="rounded border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">{error}</div>}
       {status && <div role="status" className="rounded border border-good/40 bg-good/10 px-3 py-2 text-sm text-good">{status}</div>}
 
-      <PreflightPanel report={preflight} />
+      <PreflightPanel report={preflight} onLocateMissing={onLocateMissing} />
 
       <section className="rounded-lg border border-border bg-surface-2 p-4">
         <div className="mb-3 text-xs uppercase tracking-widest text-text-4">目标公司项目</div>
@@ -245,7 +256,13 @@ export function ExportStage({
   );
 }
 
-function PreflightPanel({ report }: { report: PreflightReport }) {
+function PreflightPanel({
+  report,
+  onLocateMissing,
+}: {
+  report: PreflightReport;
+  onLocateMissing?: (target: PreflightLocateTarget) => void | Promise<void>;
+}) {
   const hasWarnings = report.globalMissing.length > 0 || report.shots.some((shot) => shot.missing.length > 0);
   return (
     <section className="rounded-lg border border-border bg-surface-2 p-4">
@@ -271,7 +288,13 @@ function PreflightPanel({ report }: { report: PreflightReport }) {
           ) : (
             <div className="flex flex-wrap gap-2">
               {report.globalMissing.map((label) => (
-                <PreflightChip key={label} tone="warn">{label}</PreflightChip>
+                <PreflightChip
+                  key={label}
+                  tone="warn"
+                  onClick={clickTarget(onLocateMissing, globalLocateTarget(label))}
+                >
+                  {label}
+                </PreflightChip>
               ))}
             </div>
           )}
@@ -293,9 +316,13 @@ function PreflightPanel({ report }: { report: PreflightReport }) {
               {report.shots.map((shot) => (
                 <div key={shot.key} className="rounded-md border border-border bg-surface-2 p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="rounded border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-xs text-accent">
+                    <button
+                      type="button"
+                      onClick={clickTarget(onLocateMissing, storyboardLocateTarget(shot))}
+                      className="rounded border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-xs text-accent transition hover:border-accent/60 hover:bg-accent/15"
+                    >
                       SHOT {padNumber(shot.number)}
-                    </span>
+                    </button>
                     <span className={shot.missing.length === 0 ? 'text-xs text-good' : 'text-xs text-warn'}>
                       {shot.missing.length === 0 ? 'Complete' : `${shot.missing.length} missing`}
                     </span>
@@ -306,7 +333,13 @@ function PreflightPanel({ report }: { report: PreflightReport }) {
                       <PreflightChip tone="good">Ready</PreflightChip>
                     ) : (
                       shot.missing.map((label) => (
-                        <PreflightChip key={label} tone="warn">{label}</PreflightChip>
+                        <PreflightChip
+                          key={label}
+                          tone="warn"
+                          onClick={clickTarget(onLocateMissing, shotLocateTarget(label, shot))}
+                        >
+                          {label}
+                        </PreflightChip>
                       ))
                     )}
                   </div>
@@ -329,10 +362,29 @@ function PreflightMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PreflightChip({ children, tone }: { children: string; tone: 'good' | 'warn' }) {
+function PreflightChip({
+  children,
+  tone,
+  onClick,
+}: {
+  children: string;
+  tone: 'good' | 'warn';
+  onClick?: () => void;
+}) {
   const className = tone === 'good'
     ? 'border-good/30 bg-good/10 text-good'
     : 'border-warn/30 bg-warn/10 text-warn';
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`rounded border px-2 py-1 text-xs transition hover:border-border-hi hover:bg-surface-3 ${className}`}
+      >
+        {children}
+      </button>
+    );
+  }
   return (
     <span className={`rounded border px-2 py-1 text-xs ${className}`}>
       {children}
@@ -422,6 +474,7 @@ function buildPreflightReport(assets: StudioAsset[], selectedIds: ReadonlySet<st
     ];
     return {
       key: storyboard.asset.id,
+      storyboardAssetId: storyboard.asset.id,
       number: storyboard.number,
       title: storyboard.title,
       missing,
@@ -434,6 +487,58 @@ function buildPreflightReport(assets: StudioAsset[], selectedIds: ReadonlySet<st
     globalMissing,
     shots,
   };
+}
+
+function clickTarget(
+  onLocateMissing: ((target: PreflightLocateTarget) => void | Promise<void>) | undefined,
+  target: PreflightLocateTarget | null,
+) {
+  if (!onLocateMissing || !target) return undefined;
+  return () => {
+    void onLocateMissing(target);
+  };
+}
+
+function globalLocateTarget(label: string): PreflightLocateTarget | null {
+  switch (label) {
+    case 'Missing script':
+      return { stage: 'script', reason: label };
+    case 'Missing character assets':
+      return { stage: 'character', reason: label };
+    case 'Missing scene assets':
+      return { stage: 'scene', reason: label };
+    case 'Missing storyboard units':
+      return { stage: 'storyboard', reason: label };
+    default:
+      return null;
+  }
+}
+
+function storyboardLocateTarget(shot: PreflightShot): PreflightLocateTarget {
+  return {
+    stage: 'storyboard',
+    storyboardAssetId: shot.storyboardAssetId,
+    storyboardNumber: shot.number,
+    reason: `SHOT ${padNumber(shot.number)}`,
+  };
+}
+
+function shotLocateTarget(label: string, shot: PreflightShot): PreflightLocateTarget {
+  const base = {
+    storyboardAssetId: shot.storyboardAssetId,
+    storyboardNumber: shot.number,
+    reason: label,
+  };
+  switch (label) {
+    case 'Missing image prompt':
+    case 'Missing generated image':
+      return { ...base, stage: 'prompt-img' };
+    case 'Missing video prompt':
+    case 'Missing generated video':
+      return { ...base, stage: 'prompt-vid' };
+    default:
+      return { ...base, stage: 'storyboard' };
+  }
 }
 
 function requiredGlobalTypes() {

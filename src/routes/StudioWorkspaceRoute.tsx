@@ -12,7 +12,7 @@ import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/
 import { PromptImgStage, type AttachGeneratedInput, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
 import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
 import { CanvasStage } from '../components/studio/stages/CanvasStage';
-import { ExportStage } from '../components/studio/stages/ExportStage';
+import { ExportStage, type PreflightLocateTarget } from '../components/studio/stages/ExportStage';
 import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
@@ -98,6 +98,10 @@ export function StudioWorkspaceRoute({
   async function handleAdvance() {
     const next = nextStage(activeStage);
     if (next) await gotoStage(next);
+  }
+
+  async function handleLocateMissing(target: PreflightLocateTarget) {
+    await gotoStage(target.stage);
   }
 
   async function handleSaveInspiration(input: { inspirationText: string; tags: string[] }) {
@@ -474,6 +478,7 @@ export function StudioWorkspaceRoute({
           <ExportStage
             project={project}
             assets={assets}
+            onLocateMissing={(target) => void handleLocateMissing(target)}
           />
         ) : (
           <StagePlaceholder stage={activeStage} assets={stageAssets} />

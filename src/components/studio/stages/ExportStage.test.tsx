@@ -195,6 +195,33 @@ describe('ExportStage', () => {
     expect(screen.getByText('Missing generated video')).toBeTruthy();
   });
 
+  it('locates the stage that can fix a preflight gap', async () => {
+    const onLocateMissing = vi.fn();
+    render(
+      <ExportStage
+        project={project}
+        assets={[
+          makeScriptAsset(),
+          makeCharacterAsset(),
+          makeSceneAsset(),
+          makeStoryboardAsset(),
+          makePromptAsset(),
+          makeGeneratedImageAsset(),
+        ]}
+        onLocateMissing={onLocateMissing}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Missing video prompt' }));
+
+    expect(onLocateMissing).toHaveBeenCalledWith({
+      stage: 'prompt-vid',
+      storyboardAssetId: 'storyboard-1',
+      storyboardNumber: 1,
+      reason: 'Missing video prompt',
+    });
+  });
+
   it('updates preflight warnings when selected assets change', async () => {
     render(
       <ExportStage
