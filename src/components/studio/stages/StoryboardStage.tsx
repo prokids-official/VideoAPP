@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
+import type { PreflightLocateTarget } from './ExportStage';
 
 interface StoryboardState {
   number?: number;
@@ -26,6 +27,7 @@ export function StoryboardStage({
   assets,
   scriptAssets,
   stateJson,
+  locateTarget,
   onSave,
   onAdvance,
 }: {
@@ -33,10 +35,17 @@ export function StoryboardStage({
   assets: StudioAsset[];
   scriptAssets: StudioAsset[];
   stateJson: string | null | undefined;
+  locateTarget?: PreflightLocateTarget | null;
   onSave: (input: SaveStoryboardInput) => Promise<StudioAsset>;
   onAdvance: () => void | Promise<void>;
 }) {
   const units = useMemo(() => parseStoryboardUnits(assets), [assets]);
+  const locatedUnit = useMemo(
+    () => locateTarget?.stage === 'storyboard'
+      ? units.find((unit) => matchesLocateTarget(locateTarget, unit)) ?? null
+      : null,
+    [locateTarget, units],
+  );
   const initialState = useMemo(() => parseStoryboardState(stateJson), [stateJson]);
   const [number, setNumber] = useState(String(initialState.number ?? nextNumber(units)));
   const [duration, setDuration] = useState(String(initialState.duration_s ?? 8));
@@ -164,19 +173,35 @@ export function StoryboardStage({
 
           <section className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-3 text-xs uppercase tracking-widest text-text-4">分镜单元</div>
+            {locatedUnit && (
+              <div role="status" className="mb-3 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">
+                已定位到 SHOT {pad(locatedUnit.number)}
+                <span className="ml-2 text-xs text-text-3">{locateTarget?.reason}</span>
+              </div>
+            )}
             {units.length === 0 ? (
               <p className="text-sm leading-6 text-text-3">还没有分镜单元。先保存第一条，后续提示词阶段会按这里逐条展开。</p>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {units.map((unit) => (
-                  <article key={unit.id} className="rounded-lg border border-border bg-surface p-3">
+                {units.map((unit) => {
+                  const located = locatedUnit?.id === unit.id;
+                  return (
+                  <article
+                    key={unit.id}
+                    data-testid={`storyboard-unit-${unit.id}`}
+                    data-located={located ? 'true' : 'false'}
+                    className={`rounded-lg border p-3 transition ${located
+                      ? 'border-accent/70 bg-accent/10 ring-2 ring-accent/25'
+                      : 'border-border bg-surface'}`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-mono text-sm font-semibold text-accent">{pad(unit.number)}</span>
                       <span className="font-mono text-xs text-text-3">{unit.durationS}s</span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-text-2">{unit.summary}</p>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -222,6 +247,10 @@ function parseStoryboardState(stateJson: string | null | undefined): StoryboardS
   } catch {
     return {};
   }
+}
+
+function matchesLocateTarget(target: PreflightLocateTarget, unit: { id: string; number: number }) {
+  return target.storyboardAssetId === unit.id || target.storyboardNumber === unit.number;
 }
 
 function parseStoryboardUnits(assets: StudioAsset[]) {

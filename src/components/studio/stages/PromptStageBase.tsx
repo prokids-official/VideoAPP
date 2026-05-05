@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
+import type { PreflightLocateTarget } from './ExportStage';
 
 type PromptTypeCode = 'PROMPT_IMG' | 'PROMPT_VID';
 type OutputTypeCode = 'SHOT_IMG' | 'SHOT_VID';
@@ -64,6 +65,7 @@ export function PromptStageBase({
   assets,
   generatedAssets = [],
   stateJson,
+  locateTarget,
   copy,
   onSave,
   onAttachGenerated,
@@ -75,6 +77,7 @@ export function PromptStageBase({
   assets: StudioAsset[];
   generatedAssets?: StudioAsset[];
   stateJson: string | null | undefined;
+  locateTarget?: PreflightLocateTarget | null;
   copy: PromptStageCopy;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
   onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
@@ -85,6 +88,13 @@ export function PromptStageBase({
   const promptMap = useMemo(() => parsePromptMap(assets), [assets]);
   const generatedAssetMap = useMemo(() => parseGeneratedAssetMap(generatedAssets), [generatedAssets]);
   const stageState = useMemo(() => parseStageState(stateJson), [stateJson]);
+  const promptStage = copy.typeCode === 'PROMPT_IMG' ? 'prompt-img' : 'prompt-vid';
+  const locatedUnit = useMemo(
+    () => locateTarget?.stage === promptStage
+      ? units.find((unit) => matchesLocateTarget(locateTarget, unit)) ?? null
+      : null,
+    [locateTarget, promptStage, units],
+  );
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const unit of units) {
@@ -223,6 +233,13 @@ export function PromptStageBase({
             <h3 className="mt-2 text-xl font-semibold tracking-tight">按分镜填写提示词</h3>
           </div>
 
+          {locatedUnit && (
+            <div role="status" className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">
+              已定位到 SHOT {pad(locatedUnit.number)}
+              <span className="ml-2 text-xs text-text-3">{locateTarget?.reason}</span>
+            </div>
+          )}
+
           {units.length === 0 ? (
             <div className="rounded-lg border border-border bg-surface-2 p-4 text-sm leading-6 text-text-3">
               还没有分镜单元。先到「分镜」阶段保存至少一条，再回来填写{copy.stageLabel}。
@@ -230,6 +247,7 @@ export function PromptStageBase({
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto space-y-3">
               {units.map((unit) => {
+                const located = locatedUnit?.id === unit.id;
                 const label = `${copy.stageLabel} ${pad(unit.number)}`;
                 const value = drafts[unit.id] ?? '';
                 const prompt = promptMap.get(unit.id);
@@ -237,7 +255,14 @@ export function PromptStageBase({
                 const generatedCount = generatedForPrompt.length;
                 const disabled = savingUnitId === unit.id || !value.trim();
                 return (
-                  <article key={unit.id} className="rounded-lg border border-border bg-surface-2 p-4">
+                  <article
+                    key={unit.id}
+                    data-testid={`prompt-unit-${unit.id}`}
+                    data-located={located ? 'true' : 'false'}
+                    className={`rounded-lg border p-4 transition ${located
+                      ? 'border-accent/70 bg-accent/10 ring-2 ring-accent/25'
+                      : 'border-border bg-surface-2'}`}
+                  >
                     <div className="mb-3 flex items-start justify-between gap-4">
                       <div>
                         <div className="font-mono text-sm font-semibold text-accent">{pad(unit.number)}</div>
@@ -364,6 +389,10 @@ interface StoryboardUnit {
   number: number;
   summary: string;
   durationS: number;
+}
+
+function matchesLocateTarget(target: PreflightLocateTarget, unit: StoryboardUnit) {
+  return target.storyboardAssetId === unit.id || target.storyboardNumber === unit.number;
 }
 
 function parseStoryboardUnits(assets: StudioAsset[]): StoryboardUnit[] {

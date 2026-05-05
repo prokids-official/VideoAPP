@@ -44,6 +44,7 @@ export function StudioWorkspaceRoute({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<StudioStage>('inspiration');
+  const [locateTarget, setLocateTarget] = useState<PreflightLocateTarget | null>(null);
 
   // Load project bundle on mount / projectId change.
   useEffect(() => {
@@ -101,6 +102,7 @@ export function StudioWorkspaceRoute({
   }
 
   async function handleLocateMissing(target: PreflightLocateTarget) {
+    setLocateTarget(target);
     await gotoStage(target.stage);
   }
 
@@ -441,6 +443,7 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             scriptAssets={assets.filter((asset) => asset.type_code === 'SCRIPT')}
             stateJson={bundle.stage_state.storyboard ?? null}
+            locateTarget={locateTarget?.stage === 'storyboard' ? locateTarget : null}
             onSave={handleSaveStoryboard}
             onAdvance={handleAdvance}
           />
@@ -451,6 +454,7 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             generatedAssets={assets.filter((asset) => asset.type_code === 'SHOT_IMG')}
             stateJson={bundle.stage_state['prompt-img'] ?? null}
+            locateTarget={locateTarget?.stage === 'prompt-img' ? locateTarget : null}
             onSave={(input) => handleSavePrompt('prompt-img', 'PROMPT_IMG', input)}
             onAttachGenerated={(input) => handleAttachGeneratedOutput('SHOT_IMG', input)}
             onDeleteGenerated={handleDeleteGeneratedOutput}
@@ -463,6 +467,7 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             generatedAssets={assets.filter((asset) => asset.type_code === 'SHOT_VID')}
             stateJson={bundle.stage_state['prompt-vid'] ?? null}
+            locateTarget={locateTarget?.stage === 'prompt-vid' ? locateTarget : null}
             onSave={(input) => handleSavePrompt('prompt-vid', 'PROMPT_VID', input)}
             onAttachGenerated={(input) => handleAttachGeneratedOutput('SHOT_VID', input)}
             onDeleteGenerated={handleDeleteGeneratedOutput}

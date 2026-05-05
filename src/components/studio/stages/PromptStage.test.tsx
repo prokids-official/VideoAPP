@@ -65,6 +65,28 @@ describe('PromptStage', () => {
     expect(screen.getByRole('button', { name: '保存视频提示词 01' })).toBeTruthy();
   });
 
+  it('highlights the located storyboard unit from export preflight', () => {
+    render(
+      <PromptVidStage
+        project={{ ...project, current_stage: 'prompt-vid' }}
+        storyboardAssets={[makeStoryboardAsset()]}
+        assets={[makePromptAsset('PROMPT_VID')]}
+        stateJson={null}
+        locateTarget={{
+          stage: 'prompt-vid',
+          storyboardAssetId: 'storyboard-1',
+          storyboardNumber: 1,
+          reason: 'Missing video prompt',
+        }}
+        onSave={vi.fn()}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('已定位到 SHOT 01')).toBeTruthy();
+    expect(screen.getByTestId('prompt-unit-storyboard-1').getAttribute('data-located')).toBe('true');
+  });
+
   it('attaches a generated image output to an existing image prompt', async () => {
     const onAttachGenerated = vi.fn(async () => makeGeneratedAsset('SHOT_IMG'));
     Object.defineProperty(window, 'fableglitch', {

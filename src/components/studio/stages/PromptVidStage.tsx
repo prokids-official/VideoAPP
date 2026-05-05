@@ -1,4 +1,5 @@
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import type { PreflightLocateTarget } from './ExportStage';
 import { PromptStageBase, type AttachGeneratedInput, type SavePromptInput } from './PromptStageBase';
 
 export function PromptVidStage({
@@ -7,6 +8,7 @@ export function PromptVidStage({
   assets,
   generatedAssets,
   stateJson,
+  locateTarget,
   onSave,
   onAttachGenerated,
   onDeleteGenerated,
@@ -17,6 +19,7 @@ export function PromptVidStage({
   assets: StudioAsset[];
   generatedAssets?: StudioAsset[];
   stateJson: string | null | undefined;
+  locateTarget?: PreflightLocateTarget | null;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
   onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
   onDeleteGenerated?: (asset: StudioAsset) => Promise<void>;
@@ -29,6 +32,7 @@ export function PromptVidStage({
       assets={assets}
       generatedAssets={generatedAssets}
       stateJson={stateJson}
+      locateTarget={locateTarget}
       copy={{
         stageLabel: '视频提示词',
         shortLabel: 'Video Prompt',

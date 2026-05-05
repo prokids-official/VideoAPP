@@ -1,4 +1,5 @@
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import type { PreflightLocateTarget } from './ExportStage';
 import { PromptStageBase, type AttachGeneratedInput, type SavePromptInput } from './PromptStageBase';
 
 export type { AttachGeneratedInput, SavePromptInput };
@@ -9,6 +10,7 @@ export function PromptImgStage({
   assets,
   generatedAssets,
   stateJson,
+  locateTarget,
   onSave,
   onAttachGenerated,
   onDeleteGenerated,
@@ -19,6 +21,7 @@ export function PromptImgStage({
   assets: StudioAsset[];
   generatedAssets?: StudioAsset[];
   stateJson: string | null | undefined;
+  locateTarget?: PreflightLocateTarget | null;
   onSave: (input: SavePromptInput) => Promise<StudioAsset>;
   onAttachGenerated?: (input: AttachGeneratedInput) => Promise<StudioAsset>;
   onDeleteGenerated?: (asset: StudioAsset) => Promise<void>;
@@ -31,6 +34,7 @@ export function PromptImgStage({
       assets={assets}
       generatedAssets={generatedAssets}
       stateJson={stateJson}
+      locateTarget={locateTarget}
       copy={{
         stageLabel: '图片提示词',
         shortLabel: '图像 Prompt',
