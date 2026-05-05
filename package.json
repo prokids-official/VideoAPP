@@ -7,8 +7,8 @@
   "main": "electron/main.mjs",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
-    "dev:renderer": "vite --host 127.0.0.1",
-    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
+    "dev:renderer": "vite --host 127.0.0.1 --port 5188 --strictPort",
+    "dev:electron": "wait-on tcp:5188 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5188 electron .",
     "start": "electron .",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
