@@ -3,7 +3,7 @@
 > 适用场景：2026-05-06 回公司电脑，用一个没有当前对话记忆的新 Codex / Claude 继续 VideoAPP Studio 开发。
 > 仓库：`https://github.com/prokids-official/VideoAPP`
 > 分支：`main` 直推
-> 当前主线：P1.2 个人创作舱收尾 + P1.3 AI / Agent / Skills，不正式进入 P5 自建画布。
+> 当前主线：P1.2 个人创作舱收尾 + P1.3 AI / Agent / Skills。外部 LibLib / RunningHub 画布已真嵌入；自建画布不急着复制无限画布，后续 P5 更像“导演生产台 / Shot Ledger / Asset Graph”。
 
 ---
 
@@ -28,10 +28,11 @@ npm test
 本次回公司重点看最新提交是否已经到：
 
 ```text
+7e72e69 fix(dev): avoid occupied vite port
+642c445 docs: refresh office handoff setup
 1ebde0e feat(canvas): embed external canvas browserview
 f679422 docs(canvas): plan liblib browserview embed
 b68cc54 feat(studio): highlight located preflight gaps
-a74761f docs: hand off current studio roadmap
 994ec88 feat(studio): locate export preflight gaps
 ```
 
@@ -86,6 +87,14 @@ P1.1 / P1.2 已经推进到：
   - 默认允许 LibLib / LibLib Art / RunningHub 域名
   - 可通过 `FG_CANVAS_ALLOWED_HOSTS` 追加新平台域名
   - Canvas 阶段新增 `链路预览 / LibLib 画布` 页签
+- 画布产品方向已修正：
+  - 外部 LibLib / RunningHub 是当前主要生产力，继续真嵌入
+  - 自建部分不复制“无限画布大线团”
+  - 后续 P5 只做更适合大工程的“导演生产台”：按 SHOT 管理剧本、prompt、图片、视频、评分和返工链路
+- P4.5 成片评审 / 打分系统已记录进 vision：
+  - App 内浏览最终视频
+  - 人工或 Agent 按评分文档打分
+  - 低分项能挂到时间码、资产、SHOT，并回流成返工任务
 
 最新验证：
 
@@ -93,6 +102,7 @@ P1.1 / P1.2 已经推进到：
 npm run lint     PASS
 npm run build    PASS
 npm test         PASS, 29 files / 92 tests
+npm run build    PASS after 7e72e69
 ```
 
 ---
@@ -155,6 +165,28 @@ src/components/studio/stages/ExportStage.tsx
 
 这个点需要乐美林拍板：公司资产库是否要新增独立 `CHAR_PROMPT` / `SCENE_PROMPT` / `PROP_PROMPT` 类型，还是继续把它们作为对应资产的 metadata。
 
+### 5.3 成片评分系统需要单独落地
+
+用户希望可以在 App 里浏览最终成片视频，并按已有评分文档打分。这个功能已记录为 vision 里的 `P4.5`，后续启动时必须先读取评分细则文档。
+
+建议能力：
+- 成片播放器：支持本地最终视频 / 公司库最终视频预览
+- 评分面板：总分 + 多维度明细 + 文字点评
+- 时间码批注：某个问题可以绑定到视频时间段
+- 关联资产：问题可以指向 SHOT、分镜图、视频 prompt、角色、场景等资产
+- 返工任务：低分项一键跳回个人创作舱对应阶段和 SHOT
+
+### 5.4 自建画布方向不是复制 LibLib
+
+当前结论：仍然需要自建能力，但不应该优先做一个完整无限画布平台。
+
+更好的形态是三视图共存：
+- `Stage Flow`：新手按 9 阶段往下走
+- `Shot Ledger`：专业用户按 SHOT 查看剧本、prompt、图、视频、状态、评分
+- `Asset Graph`：只在需要追溯时打开某个资产的上游 / 下游，不展示全项目所有连线
+
+外部画布继续负责生产；FableGlitch 负责规划、检查、归档、资产谱系、评分、返工、入库。
+
 ---
 
 ## 6. 下一步建议顺序
@@ -188,7 +220,17 @@ src/components/studio/stages/ExportStage.tsx
 - 再决定是否新增公司 asset type
 - 本地创作舱先落 metadata 方案
 
-### Next 4：P1.3 AI / Agent / Skills
+### Next 4：成片评分系统 spec
+
+目标：把用户已有的评分文档变成 App 内的成片评审流程。
+
+建议任务：
+- 先让用户提供评分文档
+- 写 P4.5 spec：评分 schema、数据库表、UI 流程、Agent 评分输入输出
+- 确定评分是否先本地保存，还是直接入公司库
+- 评分问题要能跳回 SHOT / prompt / 图片 / 视频
+
+### Next 5：P1.3 AI / Agent / Skills
 
 目标：把用户的内置 agent / skills 做成创作舱里的生产力，而不是单纯手填表单。
 
@@ -223,6 +265,8 @@ src/components/studio/stages/ExportStage.tsx
 - npm test
 
 当前最新关键 commit 应该是：
+- 7e72e69 fix(dev): avoid occupied vite port
+- 642c445 docs: refresh office handoff setup
 - 1ebde0e feat(canvas): embed external canvas browserview
 - f679422 docs(canvas): plan liblib browserview embed
 - b68cc54 feat(studio): highlight located preflight gaps
@@ -232,11 +276,14 @@ src/components/studio/stages/ExportStage.tsx
 - 这个 App 是公司素材库 + AI 聊天工具 + AI 漫剧生产驾驶舱
 - 主线不是先做 P5 自建画布，而是 P1.2 创作舱收尾 + P1.3 AI/Agent/Skills
 - 外部 LibLib / RunningHub 画布是目前主要生产力，已经通过 BrowserView 真嵌入
+- 自建画布方向已调整：不要复制无限画布；后续做 Shot Ledger + Asset Graph + 导演生产台
 - 下一步优先做外部画布资产回流，以及公司项目资产谱系预览
+- 成片评分 / 打分系统已记录为 P4.5，启动前要先读用户已有评分文档
 
 已知问题：
 - 公司项目浏览里，prompt / 生成图 / 生成视频 / 角色三视图之间的上下游关系还不够可见
 - 角色三视图 prompt 还没像分镜 prompt 一样建成清晰链路，需要先做轻量 metadata 方案或写 spec amendment
+- 最终成片视频还没有 App 内评分、时间码批注、返工任务链路
 
 请先只汇报你读到的当前状态和下一步计划，不要直接大改。如果要动代码，继续 TDD，小步 commit + push。
 ```
@@ -271,5 +318,5 @@ Claude 可以继续做前端，但边界保持：
 - 不要把密钥写进 git。
 - 不要随便改 Supabase 生产迁移状态。
 - 公司资产库的数据结构不清楚时先问乐美林。
-- 自建画布是 P5，当前只做外部画布嵌入和资产回流。
+- 自建画布是 P5，当前只做外部画布嵌入和资产回流；P5 启动时做“导演生产台”，不要复制一个无限画布。
 - 每次开始工作先 `git status`，每个小闭环结束跑 `npm run lint && npm run build && npm test`。
