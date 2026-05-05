@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('fableglitch', {
   clipboard: {
     copyImageFromUrl: (payload) => ipcRenderer.invoke('clipboard:image:copy-from-url', payload),
   },
+  canvas: {
+    liblibShow: (input) => ipcRenderer.invoke('canvas:liblib:show', input),
+    liblibSetBounds: (bounds) => ipcRenderer.invoke('canvas:liblib:setBounds', bounds),
+    liblibHide: () => ipcRenderer.invoke('canvas:liblib:hide'),
+    liblibOpenExternal: (url) => ipcRenderer.invoke('canvas:liblib:openExternal', url),
+  },
   studio: {
     projectCreate: (input) => ipcRenderer.invoke('studio:project:create', input),
     projectList: () => ipcRenderer.invoke('studio:project:list'),

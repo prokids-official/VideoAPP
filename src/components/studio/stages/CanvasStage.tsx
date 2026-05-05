@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
 import { buildStudioAssetLinkIndex, studioAssetLinkLabels } from '../../../lib/studio-asset-links';
 import { Button } from '../../ui/Button';
@@ -46,15 +46,32 @@ interface CanvasView {
   looseAssets: StudioAsset[];
 }
 
+type CanvasTab = 'preview' | 'liblib';
+
+interface CanvasStageState {
+  liblib_url?: string;
+  active_tab?: CanvasTab;
+}
+
 export function CanvasStage({
   project,
   assets,
+  stateJson,
+  onSaveState,
   onAdvance,
 }: {
   project: StudioProject;
   assets: StudioAsset[];
+  stateJson?: string | null;
+  onSaveState?: (stateJson: string) => void | Promise<void>;
   onAdvance: () => void | Promise<void>;
 }) {
+  const savedState = useMemo(() => parseCanvasStageState(stateJson), [stateJson]);
+  const [activeTab, setActiveTab] = useState<CanvasTab>(savedState.active_tab ?? 'preview');
+  const [liblibUrl, setLiblibUrl] = useState(savedState.liblib_url ?? 'https://www.liblib.tv/canvas');
+  const [liblibStatus, setLiblibStatus] = useState<string | null>(null);
+  const [liblibError, setLiblibError] = useState<string | null>(null);
+  const embedHostRef = useRef<HTMLDivElement | null>(null);
   const canvasView = useMemo(() => buildCanvasView(assets), [assets]);
   const looseGroups = useMemo(() => groupAssets(canvasView.looseAssets), [canvasView.looseAssets]);
   const fallbackGroups = useMemo(() => groupAssets(assets), [assets]);
@@ -62,6 +79,71 @@ export function CanvasStage({
   const pushedCount = assets.filter((asset) => asset.pushed_at != null).length;
   const generatedCount = assets.filter((asset) => GENERATED_TYPES.has(asset.type_code)).length;
   const hasTimeline = canvasView.units.length > 0;
+
+  useEffect(() => {
+    if (activeTab !== 'liblib') {
+      void window.fableglitch?.canvas?.liblibHide?.();
+      return;
+    }
+
+    const host = embedHostRef.current;
+    if (!host || !window.fableglitch?.canvas?.liblibSetBounds) return;
+
+    const syncBounds = () => {
+      const bounds = readEmbedBounds(host);
+      if (bounds) void window.fableglitch.canvas.liblibSetBounds(bounds);
+    };
+
+    syncBounds();
+    window.addEventListener('resize', syncBounds);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncBounds);
+    observer?.observe(host);
+
+    return () => {
+      window.removeEventListener('resize', syncBounds);
+      observer?.disconnect();
+      void window.fableglitch?.canvas?.liblibHide?.();
+    };
+  }, [activeTab]);
+
+  async function saveCanvasState(next: CanvasStageState) {
+    await onSaveState?.(JSON.stringify({
+      liblib_url: next.liblib_url ?? liblibUrl,
+      active_tab: next.active_tab ?? activeTab,
+    }));
+  }
+
+  async function showEmbeddedCanvas() {
+    const host = embedHostRef.current;
+    const bounds = host ? readEmbedBounds(host) : null;
+    if (!bounds) {
+      setLiblibError('画布区域还没有准备好');
+      return;
+    }
+
+    try {
+      setLiblibError(null);
+      setLiblibStatus('正在打开外部画布...');
+      const result = await window.fableglitch.canvas.liblibShow({ url: liblibUrl, bounds });
+      setLiblibUrl(result.url);
+      setLiblibStatus('已嵌入。这里仍是第三方生产环境，生成后把资产导回创作舱即可。');
+      await saveCanvasState({ liblib_url: result.url, active_tab: 'liblib' });
+    } catch (cause) {
+      setLiblibStatus(null);
+      setLiblibError(cause instanceof Error ? cause.message : '外部画布打开失败');
+    }
+  }
+
+  async function openExternalCanvas() {
+    try {
+      setLiblibError(null);
+      const result = await window.fableglitch.canvas.liblibOpenExternal(liblibUrl);
+      setLiblibUrl(result.url);
+      await saveCanvasState({ liblib_url: result.url, active_tab: 'liblib' });
+    } catch (cause) {
+      setLiblibError(cause instanceof Error ? cause.message : '外部画布打开失败');
+    }
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden rounded-lg border border-border bg-surface p-5">
@@ -73,45 +155,101 @@ export function CanvasStage({
             按分镜把剧本单元、图片提示词、视频提示词和生成结果串起来，先确认整片资产链路是否齐，再进入入库 review。
           </p>
         </div>
-        <Button type="button" variant="gradient" onClick={() => void onAdvance()}>
-          准备入库 →
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('preview')}
+            className={tabClass(activeTab === 'preview')}
+          >
+            链路预览
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('liblib')}
+            className={tabClass(activeTab === 'liblib')}
+          >
+            LibLib 画布
+          </button>
+          <Button type="button" variant="gradient" onClick={() => void onAdvance()}>
+            准备入库 →
+          </Button>
+        </div>
       </header>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric label="本地资产" value={String(assets.length)} />
-        <Metric label="分镜单元" value={String(canvasView.units.length)} />
-        <Metric label="生成输出" value={String(generatedCount)} />
-        <Metric label="已推送" value={String(pushedCount)} />
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {assets.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-surface-2 p-8 text-center text-sm text-text-3">
-            还没有本地资产。先按流程保存剧本、角色、场景、提示词，再回到画布总览。
+      {activeTab === 'preview' ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-4">
+            <Metric label="本地资产" value={String(assets.length)} />
+            <Metric label="分镜单元" value={String(canvasView.units.length)} />
+            <Metric label="生成输出" value={String(generatedCount)} />
+            <Metric label="已推送" value={String(pushedCount)} />
           </div>
-        ) : hasTimeline ? (
-          <div className="space-y-5">
-            <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-text">分镜时间线</h3>
-                <span className="font-mono text-xs text-text-3">{canvasView.units.length}</span>
-              </div>
-              <div className="space-y-3">
-                {canvasView.units.map((unit) => (
-                  <TimelineUnitCard key={unit.storyboard.id} unit={unit} />
-                ))}
-              </div>
-            </section>
 
-            {looseGroups.length > 0 && (
-              <AssetSections groups={looseGroups} linkIndex={linkIndex} title="资产篮子" />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {assets.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-surface-2 p-8 text-center text-sm text-text-3">
+                还没有本地资产。先按流程保存剧本、角色、场景、提示词，再回到画布总览。
+              </div>
+            ) : hasTimeline ? (
+              <div className="space-y-5">
+                <section>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-text">分镜时间线</h3>
+                    <span className="font-mono text-xs text-text-3">{canvasView.units.length}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {canvasView.units.map((unit) => (
+                      <TimelineUnitCard key={unit.storyboard.id} unit={unit} />
+                    ))}
+                  </div>
+                </section>
+
+                {looseGroups.length > 0 && (
+                  <AssetSections groups={looseGroups} linkIndex={linkIndex} title="资产篮子" />
+                )}
+              </div>
+            ) : (
+              <AssetSections groups={fallbackGroups} linkIndex={linkIndex} />
             )}
           </div>
-        ) : (
-          <AssetSections groups={fallbackGroups} linkIndex={linkIndex} />
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+          <section className="rounded-lg border border-border bg-surface-2 p-4">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
+              <label className="min-w-0">
+                <span className="text-xs uppercase tracking-widest text-text-4">外部画布地址</span>
+                <input
+                  value={liblibUrl}
+                  onChange={(event) => setLiblibUrl(event.target.value)}
+                  placeholder="https://www.liblib.tv/canvas/share?shareId=..."
+                  className="mt-2 w-full rounded-lg border border-border bg-surface px-3 py-3 text-sm text-text outline-none transition focus:border-accent"
+                />
+              </label>
+              <Button type="button" variant="gradient" onClick={() => void showEmbeddedCanvas()}>
+                嵌入打开
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => void openExternalCanvas()}>
+                在浏览器打开
+              </Button>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-text-3">
+              当前内置白名单覆盖 LibLib 与 RunningHub 系列域名，后续换生产平台可以通过配置追加域名。第三方画布只负责生产，资产仍回到创作舱归档和入库。
+            </p>
+            {liblibStatus && <p className="mt-3 text-xs text-good">{liblibStatus}</p>}
+            {liblibError && <p className="mt-3 text-xs text-bad">{liblibError}</p>}
+          </section>
+
+          <div
+            ref={embedHostRef}
+            className="relative min-h-[520px] flex-1 overflow-hidden rounded-lg border border-border bg-[#050505]"
+          >
+            <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm leading-6 text-text-3">
+              点击“嵌入打开”后，第三方画布会在这块区域内运行。
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -289,6 +427,46 @@ function AssetCard({ asset, linkLabels }: { asset: StudioAsset; linkLabels: stri
       </div>
     </article>
   );
+}
+
+function tabClass(active: boolean) {
+  return [
+    'rounded-lg border px-4 py-2.5 text-sm font-semibold transition',
+    active
+      ? 'border-accent/45 bg-accent/15 text-accent shadow-[0_0_24px_rgba(168,85,247,0.16)]'
+      : 'border-border bg-surface-2 text-text-3 hover:border-accent/35 hover:text-text',
+  ].join(' ');
+}
+
+function parseCanvasStageState(value?: string | null): CanvasStageState {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const record = parsed as Record<string, unknown>;
+    const activeTab = record.active_tab === 'liblib' || record.active_tab === 'preview'
+      ? record.active_tab
+      : undefined;
+    return {
+      liblib_url: readString(record.liblib_url) ?? undefined,
+      active_tab: activeTab,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function readEmbedBounds(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
+  if (width < 1 || height < 1) return null;
+  return {
+    x: Math.max(0, Math.round(rect.x)),
+    y: Math.max(0, Math.round(rect.y)),
+    width,
+    height,
+  };
 }
 
 function buildCanvasView(assets: StudioAsset[]): CanvasView {

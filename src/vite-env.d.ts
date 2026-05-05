@@ -70,6 +70,20 @@ interface FableglitchClipboard {
   copyImageFromUrl: (payload: { url: string }) => Promise<{ ok: true }>;
 }
 
+interface LiblibBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface FableglitchCanvas {
+  liblibShow: (input: { url: string; bounds: LiblibBounds }) => Promise<{ ok: true; url: string }>;
+  liblibSetBounds: (bounds: LiblibBounds) => Promise<{ ok: true }>;
+  liblibHide: () => Promise<{ ok: true }>;
+  liblibOpenExternal: (url: string) => Promise<{ ok: true; url: string }>;
+}
+
 interface FableglitchStudio {
   projectCreate: (input: {
     name: string;
@@ -130,6 +144,7 @@ interface FableglitchBridge {
   db: FableglitchDb;
   fs: FableglitchFs;
   clipboard: FableglitchClipboard;
+  canvas: FableglitchCanvas;
   studio: FableglitchStudio;
   net: FableglitchNet;
   session: FableglitchSession;

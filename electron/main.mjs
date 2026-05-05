@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, clipboard, ipcMain, nativeImage } from 'electron';
+import { app, BrowserView, BrowserWindow, Menu, clipboard, ipcMain, nativeImage, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -39,9 +39,11 @@ import {
 } from './file-system.mjs';
 import { apiRequest, assetContentRequest, assetPushRequest, hasSession, dropSession } from './api-client.mjs';
 import { configureWritableAppPaths } from './startup-paths.mjs';
+import { createLiblibCanvasController } from './liblib-canvas.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appPaths = configureWritableAppPaths(app);
+const liblibCanvas = createLiblibCanvasController({ BrowserView, shell });
 
 ipcMain.handle('db:session:get', (_event, key) => sessionGet(key));
 ipcMain.handle('db:session:set', (_event, key, value) => {
@@ -97,6 +99,14 @@ ipcMain.handle('fs:file:open', (_event, filters) => openFileDialog(filters));
 ipcMain.handle('fs:asset:save', (_event, payload) => saveAssetFile(payload));
 ipcMain.handle('fs:view-cache:save', (_event, payload) => saveViewCacheFile(payload));
 ipcMain.handle('clipboard:image:copy-from-url', (_event, payload) => copyImageFromUrl(payload));
+
+ipcMain.handle('canvas:liblib:show', (event, input) => {
+  const win = getSenderWindow(event);
+  return liblibCanvas.show(win, input);
+});
+ipcMain.handle('canvas:liblib:setBounds', (_event, bounds) => liblibCanvas.setBounds(bounds));
+ipcMain.handle('canvas:liblib:hide', () => liblibCanvas.hide());
+ipcMain.handle('canvas:liblib:openExternal', (_event, url) => liblibCanvas.openExternal(url));
 
 ipcMain.handle('net:request', (_event, payload) => apiRequest(payload));
 ipcMain.handle('net:asset-content', (_event, payload) => assetContentRequest(payload));
@@ -191,6 +201,9 @@ async function createMainWindow() {
     },
   });
   registerWindowDiagnostics(win);
+  win.on('closed', () => {
+    liblibCanvas.destroy();
+  });
 
   if (process.env.VITE_DEV_SERVER_URL) {
     await win.loadURL(process.env.VITE_DEV_SERVER_URL);

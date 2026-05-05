@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
 import { CanvasStage } from './CanvasStage';
@@ -35,7 +35,7 @@ describe('CanvasStage', () => {
     expect(screen.getByText('Image prompt 01')).toBeTruthy();
     expect(screen.getByText('2 KB')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByRole('button', { name: '准备入库 →' }));
 
     expect(onAdvance).toHaveBeenCalledOnce();
   });
@@ -106,6 +106,71 @@ describe('CanvasStage', () => {
     expect(screen.getByText('Generated image 01')).toBeTruthy();
     expect(screen.getByText('Video prompt 01')).toBeTruthy();
     expect(screen.getByText('Generated video 01')).toBeTruthy();
+  });
+
+  it('opens and hides the embedded external canvas tab', async () => {
+    const canvasBridge = {
+      liblibShow: vi.fn(async () => ({
+        ok: true as const,
+        url: 'https://www.liblib.tv/canvas/share?shareId=eVpJAFCFd',
+      })),
+      liblibSetBounds: vi.fn(async () => ({ ok: true as const })),
+      liblibHide: vi.fn(async () => ({ ok: true as const })),
+      liblibOpenExternal: vi.fn(async () => ({
+        ok: true as const,
+        url: 'https://www.liblib.tv/canvas/share?shareId=eVpJAFCFd',
+      })),
+    };
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: { canvas: canvasBridge },
+    });
+    Element.prototype.getBoundingClientRect = vi.fn(() => ({
+      x: 100,
+      y: 120,
+      width: 800,
+      height: 500,
+      top: 120,
+      left: 100,
+      right: 900,
+      bottom: 620,
+      toJSON: () => ({}),
+    }));
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal('ResizeObserver', vi.fn(function ResizeObserver() {
+      return { observe, disconnect };
+    }));
+    const onSaveState = vi.fn(async () => {});
+
+    render(
+      <CanvasStage
+        project={project}
+        assets={[]}
+        stateJson={JSON.stringify({ liblib_url: 'https://www.liblib.tv/canvas/share?shareId=eVpJAFCFd' })}
+        onSaveState={onSaveState}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'LibLib 画布' }));
+    fireEvent.click(screen.getByRole('button', { name: '嵌入打开' }));
+
+    await waitFor(() => {
+      expect(canvasBridge.liblibShow).toHaveBeenCalledWith({
+        url: 'https://www.liblib.tv/canvas/share?shareId=eVpJAFCFd',
+        bounds: { x: 100, y: 120, width: 800, height: 500 },
+      });
+    });
+    await waitFor(() => {
+      expect(onSaveState).toHaveBeenCalledWith(expect.stringContaining('"active_tab":"liblib"'));
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '链路预览' }));
+
+    await waitFor(() => {
+      expect(canvasBridge.liblibHide).toHaveBeenCalled();
+    });
   });
 });
 

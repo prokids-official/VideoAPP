@@ -477,6 +477,15 @@ export function StudioWorkspaceRoute({
           <CanvasStage
             project={project}
             assets={assets}
+            stateJson={bundle.stage_state.canvas ?? null}
+            onSaveState={async (stateJson) => {
+              await studioApi.saveStage(projectId, 'canvas', stateJson);
+              setBundle((prev) => (
+                prev
+                  ? { ...prev, stage_state: { ...prev.stage_state, canvas: stateJson } }
+                  : prev
+              ));
+            }}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'export' ? (
