@@ -193,10 +193,7 @@ describe('StudioWorkspaceRoute', () => {
     fireEvent.change(await screen.findByLabelText('角色名称'), { target: { value: '李火旺' } });
     fireEvent.change(screen.getByLabelText('版本/定位'), { target: { value: '主角' } });
     fireEvent.change(screen.getByLabelText('外貌'), { target: { value: '青年男性，眼神锐利' } });
-    fireEvent.change(screen.getByLabelText('角色设定 prompt'), { target: { value: 'profile prompt for Li Huowang' } });
-    fireEvent.change(screen.getByLabelText('三视图 prompt'), { target: { value: 'turnaround sheet, front side back' } });
-    fireEvent.change(screen.getByLabelText('参考资产 ID'), { target: { value: 'ref-char-1, ref-style-2' } });
-    fireEvent.change(screen.getByLabelText('生成结果 ID'), { target: { value: 'gen-char-1' } });
+    fireEvent.change(screen.getByLabelText('AI 图片 prompt'), { target: { value: 'cinematic character sheet' } });
     fireEvent.click(screen.getByRole('button', { name: '保存角色资产' }));
 
     await waitFor(() => {
@@ -207,10 +204,7 @@ describe('StudioWorkspaceRoute', () => {
         variant: '主角',
       }));
       expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
-        meta_json: expect.stringContaining('"source_reference_asset_ids":["ref-char-1","ref-style-2"]'),
-      }));
-      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
-        meta_json: expect.stringContaining('"generated_asset_ids":["gen-char-1"]'),
+        meta_json: expect.stringContaining('"ai_prompt":"cinematic character sheet"'),
       }));
       expect(studio.stageSave).toHaveBeenCalledWith(
         'studio-1',

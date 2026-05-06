@@ -7,10 +7,7 @@ const CHARACTER_FIELDS = [
   { key: 'personality', label: '性格', placeholder: '内在冲突、行为方式、情绪基调...' },
   { key: 'palette', label: '配色', placeholder: '主色、辅色、材质反光...' },
   { key: 'visual_anchor', label: '视觉锚点', placeholder: '让角色一眼被记住的视觉特征...' },
-  { key: 'profile_prompt', label: '角色设定 prompt', placeholder: '角色身份、外貌、性格、风格约束，可用于人设生成...' },
-  { key: 'turnaround_prompt', label: '三视图 prompt', placeholder: 'front view, side view, back view, consistent character turnaround...' },
-  { key: 'source_reference_asset_ids', label: '参考资产 ID', placeholder: '逗号分隔，例如 ref-char-1, ref-style-2' },
-  { key: 'generated_asset_ids', label: '生成结果 ID', placeholder: '逗号分隔，例如 gen-char-1' },
+  { key: 'ai_prompt', label: 'AI 图片 prompt', placeholder: '可直接复制到生图工具的角色提示词...' },
 ];
 
 export function CharacterStage({
