@@ -12,6 +12,9 @@ import type {
   IdeaUpdateResult,
   PreviewFilenameResult,
   RecentEpisode,
+  ScriptWriterDryRunPayload,
+  ScriptWriterDryRunResult,
+  SkillsListResult,
   StorageBackend,
   SignupPendingResult,
   TreeResponse,
@@ -136,6 +139,19 @@ export const api = {
 
   tree: () =>
     call<TreeResponse>({ method: 'GET', path: '/tree', requireAuth: true }),
+
+  skills: (category: string) => {
+    const qs = new URLSearchParams({ category });
+    return call<SkillsListResult>({ method: 'GET', path: `/skills?${qs.toString()}`, requireAuth: true });
+  },
+
+  scriptWriterDryRun: (input: ScriptWriterDryRunPayload) =>
+    call<ScriptWriterDryRunResult>({
+      method: 'POST',
+      path: '/agents/script-writer/run',
+      body: input,
+      requireAuth: true,
+    }),
 
   recentEpisodes: (limit = 5) =>
     call<{ episodes: RecentEpisode[] }>({ method: 'GET', path: `/episodes/recent?limit=${limit}`, requireAuth: true }),

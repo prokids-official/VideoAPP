@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { useEffect, useMemo, useState } from 'react';
+import type { AgentMessage, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import { api } from '../../../lib/api';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 
@@ -47,6 +48,10 @@ export function ScriptStage({
   const [styleHint, setStyleHint] = useState(initialState.style_hint ?? '');
   const [durationSec, setDurationSec] = useState(String(initialState.duration_sec ?? defaultDuration(project.size_kind)));
   const [body, setBody] = useState(initialState.body ?? '');
+  const [skillId, setSkillId] = useState(initialState.skill_id ?? 'grim-fairy-3d');
+  const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
+  const [loadingSkills, setLoadingSkills] = useState(false);
+  const [runningAgent, setRunningAgent] = useState(false);
   const [viewMode, setViewMode] = useState<ScriptViewMode>(initialState.view_mode ?? 'shooting-script');
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -56,6 +61,28 @@ export function ScriptStage({
   const cleanBody = body.trim();
   const cleanName = name.trim() || `${project.name} · 主线剧本`;
   const cleanDuration = normalizeDuration(durationSec);
+  const selectedSkill = skills.find((skill) => skill.id === skillId) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoadingSkills(true);
+      const result = await api.skills('script-writer');
+      if (cancelled) return;
+      if (result.ok) {
+        setSkills(result.data.skills);
+        if (!result.data.skills.some((skill) => skill.id === skillId) && result.data.skills[0]) {
+          setSkillId(result.data.skills[0].id);
+        }
+      } else {
+        setError(result.message);
+      }
+      setLoadingSkills(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [skillId]);
 
   async function save() {
     setSaving(true);
@@ -68,7 +95,7 @@ export function ScriptStage({
         mode,
         styleHint: styleHint.trim(),
         durationSec: cleanDuration,
-        skillId: 'grim-fairy-3d',
+        skillId,
         provider: 'company-default',
         viewMode,
       });
@@ -107,6 +134,39 @@ export function ScriptStage({
       setError(cause instanceof Error ? cause.message : '导入失败');
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function runScriptWriterDryRun() {
+    if (!skillId || loadingSkills || runningAgent) {
+      return;
+    }
+    setRunningAgent(true);
+    setStatus(null);
+    setError(null);
+    try {
+      const result = await api.scriptWriterDryRun({
+        skill_id: skillId,
+        dry_run: true,
+        input: {
+          project_name: project.name,
+          mode,
+          duration_sec: cleanDuration,
+          style_hint: styleHint.trim(),
+          inspiration_text: project.inspiration_text?.trim() ?? '',
+          existing_script: cleanBody,
+        },
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setBody(formatDryRunPromptPreview(result.data.run.messages));
+      setStatus('Agent dry-run prompt ready');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Agent dry-run failed');
+    } finally {
+      setRunningAgent(false);
     }
   }
 
@@ -188,13 +248,32 @@ export function ScriptStage({
 
           <div className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">Skill / 模型</div>
-            <div className="text-sm font-medium text-text">好莱坞级 3D 动画导演</div>
-            <div className="mt-1 text-xs leading-5 text-text-3">公司默认 · DeepSeek Pro / BYOK 优先，P1.3 上线后启用</div>
+            <select
+              aria-label="script writer skill"
+              value={skillId}
+              disabled={loadingSkills || skills.length === 0}
+              onChange={(event) => setSkillId(event.target.value)}
+              className="h-10 w-full rounded-md border border-border bg-surface px-3 font-mono text-xs text-text outline-none transition focus:border-accent/60 focus:bg-surface-3"
+            >
+              {skills.length === 0 ? (
+                <option value={skillId}>{loadingSkills ? 'loading skills...' : skillId}</option>
+              ) : (
+                skills.map((skill) => (
+                  <option key={skill.id} value={skill.id}>
+                    {skill.id}
+                  </option>
+                ))
+              )}
+            </select>
+            <div className="mt-2 text-sm font-medium text-text">{selectedSkill?.name_cn ?? skillId}</div>
+            <div className="mt-1 text-xs leading-5 text-text-3">
+              {selectedSkill ? `${selectedSkill.default_model} · v${selectedSkill.version}` : 'company-default'}
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button type="button" variant="secondary" disabled>
-              AI 写剧本
+            <Button type="button" variant="secondary" disabled={loadingSkills || runningAgent || !skillId} onClick={() => void runScriptWriterDryRun()}>
+              {runningAgent ? 'AI dry-run...' : 'AI 写剧本'}
             </Button>
             <Button type="button" variant="secondary" disabled>
               AI 优化
@@ -352,6 +431,11 @@ function normalizeDuration(value: string) {
     return 60;
   }
   return Math.min(7200, Math.max(15, Math.round(parsed)));
+}
+
+function formatDryRunPromptPreview(messages: AgentMessage[]) {
+  const parts = messages.map((message) => `## ${message.role.toUpperCase()}\n\n${message.content.trim()}`);
+  return `# Script Writer Agent Dry Run\n\n${parts.join('\n\n---\n\n')}\n`;
 }
 
 function uint8ToArrayBuffer(bytes: Uint8Array): ArrayBuffer {

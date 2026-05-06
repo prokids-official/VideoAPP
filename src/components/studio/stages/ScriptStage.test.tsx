@@ -1,17 +1,25 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ScriptStage } from './ScriptStage';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { api } from '../../../lib/api';
+import { ScriptStage } from './ScriptStage';
+
+vi.mock('../../../lib/api', () => ({
+  api: {
+    skills: vi.fn(),
+    scriptWriterDryRun: vi.fn(),
+  },
+}));
 
 vi.mock('../../../lib/docx', () => ({
-  docxToMarkdown: vi.fn(async () => '# 导入剧本\n\n雨夜废城里，机械少女醒来。'),
+  docxToMarkdown: vi.fn(async () => '# Imported script\n\nRain wakes the city.'),
 }));
 
 const project: StudioProject = {
   id: 'studio-1',
-  name: '末日机械人',
+  name: 'Mecha Project',
   size_kind: 'short',
-  inspiration_text: '雨夜废城',
+  inspiration_text: 'Rain city',
   current_stage: 'script',
   owner_id: 'local',
   created_at: Date.now(),
@@ -22,7 +30,7 @@ const scriptAsset: StudioAsset = {
   id: 'asset-script-1',
   project_id: 'studio-1',
   type_code: 'SCRIPT',
-  name: '主线剧本',
+  name: 'Main script',
   variant: null,
   version: 1,
   meta_json: '{}',
@@ -38,6 +46,41 @@ const scriptAsset: StudioAsset = {
 describe('ScriptStage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.skills).mockResolvedValue({
+      ok: true,
+      data: {
+        skills: [
+          {
+            id: 'grim-fairy-3d',
+            name_cn: 'Grim Fairy 3D Director',
+            category: 'script-writer',
+            default_model: 'deepseek-v4-pro',
+            version: 1,
+            description: 'Write compact animated shorts.',
+          },
+        ],
+      },
+    });
+    vi.mocked(api.scriptWriterDryRun).mockResolvedValue({
+      ok: true,
+      data: {
+        run: {
+          status: 'dry-run',
+          provider: 'dry-run',
+          model: 'deepseek-v4-pro',
+          skill: {
+            id: 'grim-fairy-3d',
+            name_cn: 'Grim Fairy 3D Director',
+            category: 'script-writer',
+            version: 1,
+          },
+          messages: [
+            { role: 'system', content: 'You are a grim fairy 3D animation director.' },
+            { role: 'user', content: 'project_name: Mecha Project\nmode: from-scratch' },
+          ],
+        },
+      },
+    });
     Object.defineProperty(window, 'fableglitch', {
       configurable: true,
       value: {
@@ -53,35 +96,64 @@ describe('ScriptStage', () => {
     });
   });
 
-  it('renders the future AI cockpit controls as disabled placeholders', () => {
+  it('loads script writer skills and enables the dry-run write action', async () => {
     render(<ScriptStage project={project} assets={[]} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />);
 
-    expect((screen.getByRole('button', { name: 'AI 写剧本' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'AI 优化' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: 'AI 评分' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('好莱坞级 3D 动画导演')).toBeTruthy();
-    expect(screen.getAllByText(/P1\.3 上线后启用/).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(api.skills).toHaveBeenCalledWith('script-writer');
+    });
+
+    expect(screen.getByDisplayValue('grim-fairy-3d')).toBeTruthy();
+    expect(findButton('AI').disabled).toBe(false);
+    expect(screen.getByText('Grim Fairy 3D Director')).toBeTruthy();
+  });
+
+  it('runs the script writer dry-run agent and writes the prompt preview into the editor', async () => {
+    const { container } = render(
+      <ScriptStage project={project} assets={[]} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />,
+    );
+
+    fireEvent.change(requiredInput(container, '#studio-script-style'), { target: { value: 'Cold fairytale' } });
+    fireEvent.change(requiredInput(container, '#studio-script-duration'), { target: { value: '90' } });
+    fireEvent.click(await waitFor(() => findButton('AI')));
+
+    await waitFor(() => {
+      expect(api.scriptWriterDryRun).toHaveBeenCalledWith({
+        skill_id: 'grim-fairy-3d',
+        dry_run: true,
+        input: {
+          project_name: 'Mecha Project',
+          mode: 'from-scratch',
+          duration_sec: 90,
+          style_hint: 'Cold fairytale',
+          inspiration_text: 'Rain city',
+          existing_script: '',
+        },
+      });
+    });
+    const editor = screen.getByLabelText('剧本正文') as HTMLTextAreaElement;
+    expect(editor.value).toContain('SYSTEM');
+    expect(editor.value).toContain('project_name: Mecha Project');
   });
 
   it('saves markdown as a SCRIPT asset with reproducible agent metadata', async () => {
     const onSave = vi.fn(async () => scriptAsset);
+    const { container } = render(
+      <ScriptStage project={project} assets={[]} stateJson={null} onSave={onSave} onAdvance={vi.fn()} />,
+    );
 
-    render(<ScriptStage project={project} assets={[]} stateJson={null} onSave={onSave} onAdvance={vi.fn()} />);
-
-    fireEvent.change(screen.getByLabelText('剧本标题'), { target: { value: '主线剧本' } });
-    fireEvent.change(screen.getByLabelText('风格倾向'), { target: { value: '黑色童话，克制冷感' } });
-    fireEvent.change(screen.getByLabelText('目标时长'), { target: { value: '90' } });
-    fireEvent.change(screen.getByLabelText('剧本正文'), {
-      target: { value: '雨水从破败霓虹灯上滴落，机械少女第一次睁眼。' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '保存为 SCRIPT 资产' }));
+    fireEvent.change(requiredInput(container, '#studio-script-name'), { target: { value: 'Main script' } });
+    fireEvent.change(requiredInput(container, '#studio-script-style'), { target: { value: 'Cold fairytale' } });
+    fireEvent.change(requiredInput(container, '#studio-script-duration'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('剧本正文'), { target: { value: 'Rain falls on the broken neon.' } });
+    fireEvent.submit(requiredElement(container, 'form'));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith({
-        name: '主线剧本',
-        body: '雨水从破败霓虹灯上滴落，机械少女第一次睁眼。',
+        name: 'Main script',
+        body: 'Rain falls on the broken neon.',
         mode: 'from-scratch',
-        styleHint: '黑色童话，克制冷感',
+        styleHint: 'Cold fairytale',
         durationSec: 90,
         skillId: 'grim-fairy-3d',
         provider: 'company-default',
@@ -93,8 +165,36 @@ describe('ScriptStage', () => {
   it('imports docx content into the editor', async () => {
     render(<ScriptStage project={project} assets={[]} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '导入 .docx' }));
+    fireEvent.click(screen.getByRole('button', { name: /docx/i }));
 
-    expect(await screen.findByDisplayValue(/导入剧本/)).toBeTruthy();
+    expect(await screen.findByDisplayValue(/Imported script/)).toBeTruthy();
   });
 });
+
+function findButton(labelPart: string): HTMLButtonElement {
+  const button = screen.getAllByRole('button').find((item) => item.textContent?.includes(labelPart));
+  if (!button) {
+    throw new Error(`Button containing ${labelPart} not found`);
+  }
+  return button as HTMLButtonElement;
+}
+
+function requiredInput(container: HTMLElement, selector: string): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+  const element = requiredElement(container, selector);
+  if (
+    element instanceof HTMLInputElement
+    || element instanceof HTMLTextAreaElement
+    || element instanceof HTMLSelectElement
+  ) {
+    return element;
+  }
+  throw new Error(`${selector} is not a form control`);
+}
+
+function requiredElement(container: HTMLElement, selector: string): HTMLElement {
+  const element = container.querySelector(selector);
+  if (!element) {
+    throw new Error(`${selector} not found`);
+  }
+  return element as HTMLElement;
+}

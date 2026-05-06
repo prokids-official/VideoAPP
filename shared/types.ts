@@ -144,6 +144,53 @@ export interface UsageMeResponse {
   recent: UsageLogSummary[];
 }
 
+export interface SkillCatalogItem {
+  id: string;
+  name_cn: string;
+  category: string;
+  default_model: string;
+  version: number;
+  description: string;
+}
+
+export interface SkillsListResult {
+  skills: SkillCatalogItem[];
+}
+
+export type AgentMessageRole = 'system' | 'user' | 'assistant';
+
+export interface AgentMessage {
+  role: AgentMessageRole;
+  content: string;
+}
+
+export type ScriptWriterMode = 'from-scratch' | 'optimize-existing' | 'import-existing';
+
+export interface ScriptWriterRunInput {
+  project_name: string;
+  mode: ScriptWriterMode;
+  duration_sec: number;
+  style_hint: string;
+  inspiration_text: string;
+  existing_script: string;
+}
+
+export interface ScriptWriterDryRunPayload {
+  skill_id: string;
+  dry_run: true;
+  input: ScriptWriterRunInput;
+}
+
+export interface ScriptWriterDryRunResult {
+  run: {
+    status: 'dry-run';
+    provider: 'dry-run';
+    model: string;
+    skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
+    messages: AgentMessage[];
+  };
+}
+
 export type IdeaStatus = 'pending' | 'accepted' | 'rejected' | 'shipped';
 
 export interface IdeaSummary {
