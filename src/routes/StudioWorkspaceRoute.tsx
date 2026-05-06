@@ -11,7 +11,7 @@ import { PropStage } from '../components/studio/stages/PropStage';
 import { StoryboardStage, type SaveStoryboardInput } from '../components/studio/stages/StoryboardStage';
 import { PromptImgStage, type AttachGeneratedInput, type SavePromptInput } from '../components/studio/stages/PromptImgStage';
 import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
-import { CanvasStage } from '../components/studio/stages/CanvasStage';
+import { CanvasStage, type ExternalCanvasImportInput } from '../components/studio/stages/CanvasStage';
 import { ExportStage, type PreflightLocateTarget } from '../components/studio/stages/ExportStage';
 import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
@@ -330,6 +330,11 @@ export function StudioWorkspaceRoute({
     return updatedAsset;
   }
 
+  async function handleImportExternalOutput(input: ExternalCanvasImportInput): Promise<StudioAsset> {
+    const { typeCode, ...attachInput } = input;
+    return handleAttachGeneratedOutput(typeCode, attachInput);
+  }
+
   async function handleDeleteGeneratedOutput(asset: StudioAsset): Promise<void> {
     await studioApi.deleteAsset(asset.id);
     setBundle((prev) => {
@@ -486,6 +491,7 @@ export function StudioWorkspaceRoute({
                   : prev
               ));
             }}
+            onImportExternalOutput={handleImportExternalOutput}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'export' ? (

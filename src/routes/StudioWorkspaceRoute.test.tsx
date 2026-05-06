@@ -353,6 +353,78 @@ describe('StudioWorkspaceRoute', () => {
       expect(studio.projectUpdate).toHaveBeenCalledWith('studio-1', { current_stage: 'export' });
     });
   });
+
+  it('imports external canvas output through the studio bridge', async () => {
+    const savedAsset = {
+      id: 'shot-img-new',
+      project_id: 'studio-1',
+      type_code: 'SHOT_IMG',
+      name: '鍒嗛暅鍥?01',
+      variant: null,
+      version: 1,
+      meta_json: '{}',
+      content_path: null,
+      size_bytes: null,
+      mime_type: 'image/png',
+      pushed_to_episode_id: null,
+      pushed_at: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: {
+        studio,
+        fs: {
+          openFileDialog: vi.fn(async () => ({
+            path: 'E:\\outputs\\liblib-shot-01.png',
+            name: 'liblib-shot-01.png',
+            size_bytes: 4,
+            content: new Uint8Array([1, 2, 3, 4]),
+          })),
+        },
+      },
+    });
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'canvas' },
+      assets: [
+        makeStoryboardAsset(),
+        {
+          ...makeSavedPromptAsset('prompt-img-1', 'PROMPT_IMG', '鍥剧墖鎻愮ず璇?01'),
+          meta_json: JSON.stringify({
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+            storyboard_summary: 'Rain opener',
+            prompt_text: 'wide shot, rainy ruined city, cinematic neon reflection',
+          }),
+        },
+      ],
+      stage_state: {},
+    });
+    studio.assetSave.mockResolvedValueOnce(savedAsset);
+    studio.assetWriteFile.mockResolvedValueOnce({ path: 'E:\\studio\\shot-img-new.png', size_bytes: 4 });
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /LibLib/ }));
+    fireEvent.click(screen.getByRole('button', { name: '导入外部产物' }));
+
+    await waitFor(() => {
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        project_id: 'studio-1',
+        type_code: 'SHOT_IMG',
+        mime_type: 'image/png',
+      }));
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        meta_json: expect.stringContaining('"source_prompt_asset_id":"prompt-img-1"'),
+      }));
+      expect(studio.assetWriteFile).toHaveBeenCalledWith(
+        'shot-img-new',
+        new Uint8Array([1, 2, 3, 4]),
+      );
+    });
+  });
 });
 
 function makeStoryboardAsset() {

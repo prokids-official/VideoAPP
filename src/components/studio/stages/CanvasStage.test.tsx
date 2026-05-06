@@ -172,6 +172,64 @@ describe('CanvasStage', () => {
       expect(canvasBridge.liblibHide).toHaveBeenCalled();
     });
   });
+
+  it('imports a downloaded external canvas output back onto a shot prompt', async () => {
+    const onImportExternalOutput = vi.fn(async () => makeAsset('shot-img-new', 'SHOT_IMG', 'Imported image 01', 4));
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: {
+        fs: {
+          openFileDialog: vi.fn(async () => ({
+            path: 'E:\\outputs\\liblib-shot-01.png',
+            name: 'liblib-shot-01.png',
+            size_bytes: 4,
+            content: new Uint8Array([1, 2, 3, 4]),
+          })),
+        },
+      },
+    });
+
+    render(
+      <CanvasStage
+        project={project}
+        assets={[
+          makeAsset('storyboard-1', 'STORYBOARD_UNIT', 'Rain opener', 1024, {
+            number: 1,
+            duration_s: 15,
+            summary: 'Rain falls over the gate',
+          }),
+          makeAsset('prompt-img-1', 'PROMPT_IMG', 'Image prompt 01', 512, {
+            storyboard_asset_id: 'storyboard-1',
+            storyboard_number: 1,
+            storyboard_summary: 'Rain falls over the gate',
+            prompt_text: 'wide shot, rain, gate',
+          }),
+        ]}
+        onImportExternalOutput={onImportExternalOutput}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /LibLib/ }));
+    fireEvent.click(screen.getByRole('button', { name: '导入外部产物' }));
+
+    await waitFor(() => {
+      expect(onImportExternalOutput).toHaveBeenCalledWith({
+        typeCode: 'SHOT_IMG',
+        promptAssetId: 'prompt-img-1',
+        storyboardAssetId: 'storyboard-1',
+        storyboardNumber: 1,
+        storyboardSummary: 'Rain falls over the gate',
+        promptText: 'wide shot, rain, gate',
+        file: {
+          name: 'liblib-shot-01.png',
+          content: new Uint8Array([1, 2, 3, 4]),
+          mimeType: 'image/png',
+          sizeBytes: 4,
+        },
+      });
+    });
+  });
 });
 
 function makeAsset(

@@ -30,6 +30,24 @@ const TYPE_ORDER = [
 const PROMPT_TYPES = new Set(['PROMPT_IMG', 'PROMPT_VID']);
 const GENERATED_TYPES = new Set(['SHOT_IMG', 'SHOT_VID']);
 
+type OutputTypeCode = 'SHOT_IMG' | 'SHOT_VID';
+type OutputKind = 'image' | 'video';
+
+export interface ExternalCanvasImportInput {
+  typeCode: OutputTypeCode;
+  promptAssetId: string;
+  storyboardAssetId: string;
+  storyboardNumber: number;
+  storyboardSummary: string;
+  promptText: string;
+  file: {
+    name: string;
+    content: Uint8Array;
+    mimeType: string;
+    sizeBytes: number;
+  };
+}
+
 interface CanvasTimelineUnit {
   storyboard: StudioAsset;
   number: number;
@@ -58,12 +76,14 @@ export function CanvasStage({
   assets,
   stateJson,
   onSaveState,
+  onImportExternalOutput,
   onAdvance,
 }: {
   project: StudioProject;
   assets: StudioAsset[];
   stateJson?: string | null;
   onSaveState?: (stateJson: string) => void | Promise<void>;
+  onImportExternalOutput?: (input: ExternalCanvasImportInput) => Promise<StudioAsset>;
   onAdvance: () => void | Promise<void>;
 }) {
   const savedState = useMemo(() => parseCanvasStageState(stateJson), [stateJson]);
@@ -75,6 +95,13 @@ export function CanvasStage({
   const canvasView = useMemo(() => buildCanvasView(assets), [assets]);
   const looseGroups = useMemo(() => groupAssets(canvasView.looseAssets), [canvasView.looseAssets]);
   const fallbackGroups = useMemo(() => groupAssets(assets), [assets]);
+  const importChoices = useMemo(() => buildExternalImportChoices(canvasView), [canvasView]);
+  const [selectedImportChoiceKey, setSelectedImportChoiceKey] = useState('');
+  const [importingExternalOutput, setImportingExternalOutput] = useState(false);
+  const selectedImportChoice = useMemo(
+    () => importChoices.find((choice) => choice.key === selectedImportChoiceKey) ?? importChoices[0] ?? null,
+    [importChoices, selectedImportChoiceKey],
+  );
   const linkIndex = useMemo(() => buildStudioAssetLinkIndex(assets), [assets]);
   const pushedCount = assets.filter((asset) => asset.pushed_at != null).length;
   const generatedCount = assets.filter((asset) => GENERATED_TYPES.has(asset.type_code)).length;
@@ -142,6 +169,40 @@ export function CanvasStage({
       await saveCanvasState({ liblib_url: result.url, active_tab: 'liblib' });
     } catch (cause) {
       setLiblibError(cause instanceof Error ? cause.message : '外部画布打开失败');
+    }
+  }
+
+  async function importExternalOutput() {
+    if (!onImportExternalOutput) return;
+    const choice = selectedImportChoice;
+    if (!choice) return;
+
+    setImportingExternalOutput(true);
+    setLiblibStatus(null);
+    setLiblibError(null);
+    try {
+      const selected = await window.fableglitch.fs.openFileDialog(fileDialogFilters(choice.kind));
+      if (!selected) return;
+      await onImportExternalOutput({
+        typeCode: choice.typeCode,
+        promptAssetId: choice.prompt.id,
+        storyboardAssetId: choice.unit.storyboard.id,
+        storyboardNumber: choice.unit.number,
+        storyboardSummary: choice.unit.summary,
+        promptText: readString(parseMeta(choice.prompt.meta_json).prompt_text) ?? '',
+        file: {
+          name: selected.name,
+          content: selected.content,
+          mimeType: inferMimeType(selected.name, choice.kind),
+          sizeBytes: selected.size_bytes,
+        },
+      });
+      setLiblibStatus(`已导入 SHOT ${pad(choice.unit.number)} 的${choice.kind === 'image' ? '图片' : '视频'}产物。`);
+    } catch (cause) {
+      setLiblibError(cause instanceof Error ? cause.message : '导入外部产物失败');
+      throw cause;
+    } finally {
+      setImportingExternalOutput(false);
     }
   }
 
@@ -238,6 +299,41 @@ export function CanvasStage({
             </p>
             {liblibStatus && <p className="mt-3 text-xs text-good">{liblibStatus}</p>}
             {liblibError && <p className="mt-3 text-xs text-bad">{liblibError}</p>}
+          </section>
+
+          <section className="rounded-lg border border-border bg-surface-2 p-4">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <label className="min-w-0">
+                <span className="text-xs uppercase tracking-widest text-text-4">来源提示词</span>
+                <select
+                  value={selectedImportChoice?.key ?? ''}
+                  onChange={(event) => setSelectedImportChoiceKey(event.target.value)}
+                  disabled={importChoices.length === 0 || !onImportExternalOutput}
+                  className="mt-2 w-full rounded-lg border border-border bg-surface px-3 py-3 text-sm text-text outline-none transition focus:border-accent"
+                >
+                  {importChoices.length === 0 ? (
+                    <option value="">先保存提示词，再导入产物</option>
+                  ) : (
+                    importChoices.map((choice) => (
+                      <option key={choice.key} value={choice.key}>
+                        {choice.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={importChoices.length === 0 || !onImportExternalOutput || importingExternalOutput}
+                onClick={() => void importExternalOutput()}
+              >
+                {importingExternalOutput ? '导入中...' : '导入外部产物'}
+              </Button>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-text-3">
+              从 LibLib 或 RunningHub 下载生成文件后，在这里挂回对应 SHOT，链路预览会立刻串起 Prompt → Output。
+            </p>
           </section>
 
           <div
@@ -529,6 +625,36 @@ function buildCanvasView(assets: StudioAsset[]): CanvasView {
   };
 }
 
+interface ExternalImportChoice {
+  key: string;
+  label: string;
+  kind: OutputKind;
+  typeCode: OutputTypeCode;
+  unit: CanvasTimelineUnit;
+  prompt: StudioAsset;
+}
+
+function buildExternalImportChoices(view: CanvasView): ExternalImportChoice[] {
+  return view.units.flatMap((unit) => [
+    ...unit.promptImg.map((prompt) => ({
+      key: `SHOT_IMG:${prompt.id}`,
+      label: `SHOT ${pad(unit.number)} image - ${prompt.name}`,
+      kind: 'image' as const,
+      typeCode: 'SHOT_IMG' as const,
+      unit,
+      prompt,
+    })),
+    ...unit.promptVid.map((prompt) => ({
+      key: `SHOT_VID:${prompt.id}`,
+      label: `SHOT ${pad(unit.number)} video - ${prompt.name}`,
+      kind: 'video' as const,
+      typeCode: 'SHOT_VID' as const,
+      unit,
+      prompt,
+    })),
+  ]);
+}
+
 function findUnitForAsset(meta: Record<string, unknown>, unitsByStoryboardId: Map<string, CanvasTimelineUnit>) {
   const storyboardAssetId = readString(meta.storyboard_asset_id);
   if (storyboardAssetId) {
@@ -598,4 +724,31 @@ function formatNumber(value: number) {
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
+}
+
+function fileDialogFilters(kind: OutputKind) {
+  return kind === 'image'
+    ? [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+    : [{ name: 'Videos', extensions: ['mp4', 'mov', 'webm'] }];
+}
+
+function inferMimeType(filename: string, kind: OutputKind) {
+  const ext = filename.toLowerCase().split('.').pop() ?? '';
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'mov':
+      return 'video/quicktime';
+    case 'webm':
+      return 'video/webm';
+    case 'mp4':
+      return 'video/mp4';
+    default:
+      return kind === 'image' ? 'image/png' : 'video/mp4';
+  }
 }
