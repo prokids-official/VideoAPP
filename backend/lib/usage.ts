@@ -2,7 +2,7 @@ import { supabaseAdmin } from './supabase-admin';
 
 export interface UsageEntry {
   userId: string;
-  provider: 'github' | 'r2' | 'supabase' | 'openai' | 'anthropic' | 'nanobanana' | 'gptimage';
+  provider: 'github' | 'r2' | 'supabase' | 'openai' | 'openai-compatible' | 'deepseek' | 'anthropic' | 'nanobanana' | 'gptimage';
   model?: string;
   action: 'commit' | 'upload' | 'download' | 'chat' | 'image-gen' | 'misc';
   tokensInput?: number;

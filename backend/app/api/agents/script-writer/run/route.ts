@@ -2,8 +2,11 @@ export const runtime = 'nodejs';
 
 import { z } from 'zod';
 import { err, ok } from '@/lib/api-response';
+import { callOpenAICompatibleChat, missingProviderConfig } from '@/lib/ai-chat';
 import { requireUser } from '@/lib/auth-guard';
+import { env } from '@/lib/env';
 import { loadSkillCatalog } from '@/lib/skill-loader';
+import { logUsage } from '@/lib/usage';
 
 const inputSchema = z.object({
   project_name: z.string().trim().min(1),
@@ -16,7 +19,7 @@ const inputSchema = z.object({
 
 const bodySchema = z.object({
   skill_id: z.string().trim().min(1),
-  dry_run: z.literal(true).default(true),
+  dry_run: z.boolean().default(true),
   input: inputSchema,
 });
 
@@ -45,6 +48,63 @@ export async function POST(req: Request): Promise<Response> {
     return err('PAYLOAD_MALFORMED', `Unknown script-writer skill: ${parsed.data.skill_id}`, undefined, 400);
   }
 
+  const messages = [
+    {
+      role: 'system' as const,
+      content: skill.body,
+    },
+    {
+      role: 'user' as const,
+      content: buildScriptWriterUserPrompt(parsed.data.input),
+    },
+  ];
+
+  if (!parsed.data.dry_run) {
+    const providerConfig = {
+      baseUrl: env.AI_CHAT_BASE_URL,
+      apiKey: env.AI_CHAT_API_KEY ?? '',
+      model: env.AI_CHAT_MODEL || skill.default_model,
+    };
+    const missing = missingProviderConfig(providerConfig);
+    if (missing) {
+      return err('INTERNAL_ERROR', missing, undefined, 500);
+    }
+
+    try {
+      const completion = await callOpenAICompatibleChat({
+        ...providerConfig,
+        messages,
+      });
+      await logUsage({
+        userId: auth.user_id,
+        provider: usageProvider(env.AI_CHAT_PROVIDER),
+        model: providerConfig.model,
+        action: 'chat',
+        tokensInput: completion.usage.promptTokens ?? undefined,
+        tokensOutput: completion.usage.completionTokens ?? undefined,
+        requestId: completion.id ?? undefined,
+      });
+      return ok({
+        run: {
+          status: 'completed',
+          provider: env.AI_CHAT_PROVIDER,
+          model: providerConfig.model,
+          skill: {
+            id: skill.id,
+            name_cn: skill.name_cn,
+            category: skill.category,
+            version: skill.version,
+          },
+          messages,
+          content: completion.content,
+          usage: completion.usage,
+        },
+      });
+    } catch (cause) {
+      return err('INTERNAL_ERROR', cause instanceof Error ? cause.message : 'AI provider request failed', undefined, 502);
+    }
+  }
+
   return ok({
     run: {
       status: 'dry-run',
@@ -56,18 +116,23 @@ export async function POST(req: Request): Promise<Response> {
         category: skill.category,
         version: skill.version,
       },
-      messages: [
-        {
-          role: 'system',
-          content: skill.body,
-        },
-        {
-          role: 'user',
-          content: buildScriptWriterUserPrompt(parsed.data.input),
-        },
-      ],
+      messages,
     },
   });
+}
+
+function usageProvider(value: string) {
+  switch (value) {
+    case 'openai':
+    case 'openai-compatible':
+    case 'deepseek':
+    case 'anthropic':
+    case 'nanobanana':
+    case 'gptimage':
+      return value;
+    default:
+      return 'openai-compatible';
+  }
 }
 
 function buildScriptWriterUserPrompt(input: z.infer<typeof inputSchema>): string {

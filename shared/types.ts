@@ -175,19 +175,25 @@ export interface ScriptWriterRunInput {
   existing_script: string;
 }
 
-export interface ScriptWriterDryRunPayload {
+export interface ScriptWriterRunPayload {
   skill_id: string;
-  dry_run: true;
+  dry_run: boolean;
   input: ScriptWriterRunInput;
 }
 
-export interface ScriptWriterDryRunResult {
+export interface ScriptWriterRunResult {
   run: {
-    status: 'dry-run';
-    provider: 'dry-run';
+    status: 'dry-run' | 'completed';
+    provider: string;
     model: string;
     skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
     messages: AgentMessage[];
+    content?: string;
+    usage?: {
+      promptTokens: number | null;
+      completionTokens: number | null;
+      totalTokens: number | null;
+    };
   };
 }
 

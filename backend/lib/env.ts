@@ -17,6 +17,10 @@ const schema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().default('fableglitch-assets'),
   R2_ENDPOINT: z.string().url().optional(),
+  AI_CHAT_PROVIDER: z.string().default('deepseek'),
+  AI_CHAT_BASE_URL: z.string().url().default('https://api.deepseek.com/v1'),
+  AI_CHAT_API_KEY: z.string().optional(),
+  AI_CHAT_MODEL: z.string().default('deepseek-chat'),
 });
 
 const parsed = schema.safeParse(process.env);

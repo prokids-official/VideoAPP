@@ -12,8 +12,8 @@ import type {
   IdeaUpdateResult,
   PreviewFilenameResult,
   RecentEpisode,
-  ScriptWriterDryRunPayload,
-  ScriptWriterDryRunResult,
+  ScriptWriterRunPayload,
+  ScriptWriterRunResult,
   SkillsListResult,
   StorageBackend,
   SignupPendingResult,
@@ -145,8 +145,8 @@ export const api = {
     return call<SkillsListResult>({ method: 'GET', path: `/skills?${qs.toString()}`, requireAuth: true });
   },
 
-  scriptWriterDryRun: (input: ScriptWriterDryRunPayload) =>
-    call<ScriptWriterDryRunResult>({
+  scriptWriterRun: (input: ScriptWriterRunPayload) =>
+    call<ScriptWriterRunResult>({
       method: 'POST',
       path: '/agents/script-writer/run',
       body: input,

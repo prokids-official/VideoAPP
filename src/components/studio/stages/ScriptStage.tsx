@@ -145,9 +145,9 @@ export function ScriptStage({
     setStatus(null);
     setError(null);
     try {
-      const result = await api.scriptWriterDryRun({
+      const result = await api.scriptWriterRun({
         skill_id: skillId,
-        dry_run: true,
+        dry_run: false,
         input: {
           project_name: project.name,
           mode,
@@ -161,8 +161,13 @@ export function ScriptStage({
         setError(result.message);
         return;
       }
-      setBody(formatDryRunPromptPreview(result.data.run.messages));
-      setStatus('Agent dry-run prompt ready');
+      if (result.data.run.status === 'completed' && result.data.run.content) {
+        setBody(result.data.run.content);
+        setStatus(`AI script generated with ${result.data.run.provider}`);
+      } else {
+        setBody(formatDryRunPromptPreview(result.data.run.messages));
+        setStatus('Agent dry-run prompt ready');
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Agent dry-run failed');
     } finally {

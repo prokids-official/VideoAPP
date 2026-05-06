@@ -7,7 +7,7 @@ import { ScriptStage } from './ScriptStage';
 vi.mock('../../../lib/api', () => ({
   api: {
     skills: vi.fn(),
-    scriptWriterDryRun: vi.fn(),
+    scriptWriterRun: vi.fn(),
   },
 }));
 
@@ -61,12 +61,12 @@ describe('ScriptStage', () => {
         ],
       },
     });
-    vi.mocked(api.scriptWriterDryRun).mockResolvedValue({
+    vi.mocked(api.scriptWriterRun).mockResolvedValue({
       ok: true,
       data: {
         run: {
-          status: 'dry-run',
-          provider: 'dry-run',
+          status: 'completed',
+          provider: 'deepseek',
           model: 'deepseek-v4-pro',
           skill: {
             id: 'grim-fairy-3d',
@@ -78,6 +78,12 @@ describe('ScriptStage', () => {
             { role: 'system', content: 'You are a grim fairy 3D animation director.' },
             { role: 'user', content: 'project_name: Mecha Project\nmode: from-scratch' },
           ],
+          content: '# Script\n\nRain opens on a broken neon gate.',
+          usage: {
+            promptTokens: 123,
+            completionTokens: 45,
+            totalTokens: 168,
+          },
         },
       },
     });
@@ -108,7 +114,7 @@ describe('ScriptStage', () => {
     expect(screen.getByText('Grim Fairy 3D Director')).toBeTruthy();
   });
 
-  it('runs the script writer dry-run agent and writes the prompt preview into the editor', async () => {
+  it('runs the script writer agent and writes the generated script into the editor', async () => {
     const { container } = render(
       <ScriptStage project={project} assets={[]} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />,
     );
@@ -118,9 +124,9 @@ describe('ScriptStage', () => {
     fireEvent.click(await waitFor(() => findButton('AI')));
 
     await waitFor(() => {
-      expect(api.scriptWriterDryRun).toHaveBeenCalledWith({
+      expect(api.scriptWriterRun).toHaveBeenCalledWith({
         skill_id: 'grim-fairy-3d',
-        dry_run: true,
+        dry_run: false,
         input: {
           project_name: 'Mecha Project',
           mode: 'from-scratch',
@@ -132,8 +138,7 @@ describe('ScriptStage', () => {
       });
     });
     const editor = screen.getByLabelText('剧本正文') as HTMLTextAreaElement;
-    expect(editor.value).toContain('SYSTEM');
-    expect(editor.value).toContain('project_name: Mecha Project');
+    expect(editor.value).toBe('# Script\n\nRain opens on a broken neon gate.');
   });
 
   it('saves markdown as a SCRIPT asset with reproducible agent metadata', async () => {
