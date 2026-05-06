@@ -14,6 +14,7 @@ import { createDraft, listDrafts, saveDraftFile } from '../lib/drafts';
 import type {
   AssetRow,
   AssetContentResult,
+  AssetRelationAsset,
   AssetRelationsResult,
   AssetType,
   CreateLocalDraftInput,
@@ -339,6 +340,25 @@ export function TreeRoute({
     }
   }
 
+  function handlePreviewRelatedAsset(asset: AssetRelationAsset) {
+    void handlePreviewAsset({
+      id: asset.id,
+      type_code: asset.type_code,
+      name: asset.name,
+      variant: null,
+      version: 1,
+      stage: 'FINAL',
+      language: 'ZH',
+      final_filename: asset.final_filename,
+      storage_backend: asset.storage_backend,
+      storage_ref: asset.storage_ref,
+      file_size_bytes: null,
+      mime_type: asset.mime_type,
+      pushed_at: '',
+      status: 'pushed',
+    });
+  }
+
   async function handleCopyPreviewText() {
     if (previewContent?.kind !== 'markdown') {
       return;
@@ -490,6 +510,7 @@ export function TreeRoute({
         onCopyText={handleCopyPreviewText}
         onCopyImage={handleCopyPreviewImage}
         onDownloadAsset={handleDownloadPreviewAsset}
+        onSelectRelatedAsset={handlePreviewRelatedAsset}
         onClose={() => {
           setPreviewAsset(null);
           setPreviewContent(null);

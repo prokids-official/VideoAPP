@@ -95,49 +95,13 @@ describe('AssetPreviewModal', () => {
     expect(onDownloadAsset).toHaveBeenCalledTimes(1);
   });
 
-  it('shows related prompt and generated assets when available', () => {
+  it('shows an empty lineage state when no relations are recorded', () => {
     render(
       <AssetPreviewModal
         open
-        asset={{ ...asset, type_code: 'PROMPT_IMG' }}
-        content={{ kind: 'markdown', content: 'wide shot', content_type: 'text/markdown' }}
-        relations={{
-          asset_id: 'asset-1',
-          outgoing: [
-            {
-              id: 'rel-source',
-              relation_type: 'derived_from_storyboard',
-              metadata: { storyboard_number: 1 },
-              created_at: '2026-05-03T00:00:00Z',
-              asset: {
-                id: 'storyboard-1',
-                type_code: 'STORYBOARD_UNIT',
-                name: 'Storyboard 01',
-                final_filename: 'storyboard.md',
-                storage_backend: 'github',
-                storage_ref: 'path/storyboard.md',
-                mime_type: 'text/markdown',
-              },
-            },
-          ],
-          incoming: [
-            {
-              id: 'rel-generated',
-              relation_type: 'generated_from_prompt',
-              metadata: {},
-              created_at: '2026-05-03T00:01:00Z',
-              asset: {
-                id: 'shot-img-1',
-                type_code: 'SHOT_IMG',
-                name: 'Shot image 01',
-                final_filename: 'shot.png',
-                storage_backend: 'r2',
-                storage_ref: 'path/shot.png',
-                mime_type: 'image/png',
-              },
-            },
-          ],
-        }}
+        asset={{ ...asset, type_code: 'SHOT_IMG', mime_type: 'image/png' }}
+        content={{ kind: 'url', url: 'https://example.test/shot.png', expires_at: '2026-05-02T00:00:00Z' }}
+        relations={{ asset_id: 'asset-1', outgoing: [], incoming: [] }}
         loading={false}
         error={null}
         actionStatus={null}
@@ -148,10 +112,80 @@ describe('AssetPreviewModal', () => {
       />,
     );
 
-    expect(screen.getByText('Related assets')).toBeTruthy();
-    expect(screen.getByText('Source')).toBeTruthy();
+    expect(screen.getByText('资产谱系')).toBeTruthy();
+    expect(screen.getByText('还没有记录上下游关系')).toBeTruthy();
+  });
+
+  it('shows semantic lineage groups and lets users open related assets', async () => {
+    const onSelectRelatedAsset = vi.fn();
+
+    render(
+      <AssetPreviewModal
+        open
+        asset={{ ...asset, type_code: 'PROMPT_IMG' }}
+        content={{ kind: 'markdown', content: 'wide shot', content_type: 'text/markdown' }}
+        relations={promptImageRelations}
+        loading={false}
+        error={null}
+        actionStatus={null}
+        onClose={() => {}}
+        onCopyText={() => {}}
+        onCopyImage={() => {}}
+        onDownloadAsset={() => {}}
+        onSelectRelatedAsset={onSelectRelatedAsset}
+      />,
+    );
+
+    expect(screen.getByText('资产谱系')).toBeTruthy();
+    expect(screen.getByText('来源分镜')).toBeTruthy();
     expect(screen.getByText('Storyboard 01')).toBeTruthy();
-    expect(screen.getByText('Generated')).toBeTruthy();
+    expect(screen.getByText('生成的分镜图')).toBeTruthy();
     expect(screen.getByText('Shot image 01')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: /打开 Shot image 01/ }));
+
+    expect(onSelectRelatedAsset).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'shot-img-1',
+      type_code: 'SHOT_IMG',
+      name: 'Shot image 01',
+    }));
   });
 });
+
+const promptImageRelations = {
+  asset_id: 'asset-1',
+  outgoing: [
+    {
+      id: 'rel-source',
+      relation_type: 'derived_from_storyboard' as const,
+      metadata: { storyboard_number: 1 },
+      created_at: '2026-05-03T00:00:00Z',
+      asset: {
+        id: 'storyboard-1',
+        type_code: 'STORYBOARD_UNIT',
+        name: 'Storyboard 01',
+        final_filename: 'storyboard.md',
+        storage_backend: 'github' as const,
+        storage_ref: 'path/storyboard.md',
+        mime_type: 'text/markdown',
+      },
+    },
+  ],
+  incoming: [
+    {
+      id: 'rel-generated',
+      relation_type: 'generated_from_prompt' as const,
+      metadata: {},
+      created_at: '2026-05-03T00:01:00Z',
+      asset: {
+        id: 'shot-img-1',
+        type_code: 'SHOT_IMG',
+        name: 'Shot image 01',
+        final_filename: 'shot.png',
+        storage_backend: 'r2' as const,
+        storage_ref: 'path/shot.png',
+        mime_type: 'image/png',
+      },
+    },
+  ],
+};
