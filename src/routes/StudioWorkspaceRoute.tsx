@@ -13,7 +13,7 @@ import { PromptImgStage, type AttachGeneratedInput, type SavePromptInput } from 
 import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
 import { CanvasStage, type ExternalCanvasImportInput } from '../components/studio/stages/CanvasStage';
 import { ExportStage, type PreflightLocateTarget } from '../components/studio/stages/ExportStage';
-import type { SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
+import type { ImportEntityImageInput, SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
 /**
@@ -204,6 +204,35 @@ export function StudioWorkspaceRoute({
       };
     });
     return saved;
+  }
+
+  async function handleImportEntityImage(input: ImportEntityImageInput): Promise<StudioAsset> {
+    const file = await studioApi.writeAssetFile(input.asset.id, input.file.content);
+    const meta = {
+      ...parseJsonObject(input.asset.meta_json),
+      generated_image_filename: input.file.name,
+      generated_image_mime_type: input.file.mimeType,
+      generated_image_size_bytes: input.file.sizeBytes,
+      generated_image_imported_at: new Date().toISOString(),
+    };
+    const updated = await studioApi.saveAsset({
+      ...input.asset,
+      meta_json: JSON.stringify(meta),
+      content_path: file.path,
+      size_bytes: file.size_bytes || input.file.sizeBytes,
+      mime_type: input.file.mimeType,
+    });
+    setBundle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        assets: [
+          updated,
+          ...prev.assets.filter((asset) => asset.id !== updated.id),
+        ],
+      };
+    });
+    return updated;
   }
 
   async function handleSaveStoryboard(input: SaveStoryboardInput): Promise<StudioAsset> {
@@ -424,6 +453,8 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             stateJson={bundle.stage_state.character ?? null}
             onSave={handleSaveEntity}
+            onImportImage={handleImportEntityImage}
+            onReadAssetFile={(asset) => studioApi.readAssetFile(asset.id)}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'scene' ? (
@@ -432,6 +463,8 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             stateJson={bundle.stage_state.scene ?? null}
             onSave={handleSaveEntity}
+            onImportImage={handleImportEntityImage}
+            onReadAssetFile={(asset) => studioApi.readAssetFile(asset.id)}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'prop' ? (
@@ -440,6 +473,8 @@ export function StudioWorkspaceRoute({
             assets={stageAssets}
             stateJson={bundle.stage_state.prop ?? null}
             onSave={handleSaveEntity}
+            onImportImage={handleImportEntityImage}
+            onReadAssetFile={(asset) => studioApi.readAssetFile(asset.id)}
             onAdvance={handleAdvance}
           />
         ) : activeStage === 'storyboard' ? (
@@ -547,6 +582,17 @@ function entityStage(typeCode: SaveEntityInput['typeCode']): StudioStage {
       return 'scene';
     case 'PROP':
       return 'prop';
+  }
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
   }
 }
 

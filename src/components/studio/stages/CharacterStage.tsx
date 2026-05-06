@@ -1,5 +1,5 @@
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
-import { AssetEntityStage, type SaveEntityInput } from './AssetEntityStage';
+import { AssetEntityStage, type ImportEntityImageInput, type SaveEntityInput } from './AssetEntityStage';
 
 const CHARACTER_FIELDS = [
   { key: 'appearance', label: '外貌', placeholder: '年龄、脸型、眼神、发型、体态...' },
@@ -15,12 +15,16 @@ export function CharacterStage({
   assets,
   stateJson,
   onSave,
+  onImportImage,
+  onReadAssetFile,
   onAdvance,
 }: {
   project: StudioProject;
   assets: StudioAsset[];
   stateJson: string | null | undefined;
   onSave: (input: SaveEntityInput) => Promise<StudioAsset>;
+  onImportImage?: (input: ImportEntityImageInput) => Promise<StudioAsset>;
+  onReadAssetFile?: (asset: StudioAsset) => Promise<Uint8Array>;
   onAdvance: () => void | Promise<void>;
 }) {
   return (
@@ -39,6 +43,8 @@ export function CharacterStage({
         fields: CHARACTER_FIELDS,
       }}
       onSave={onSave}
+      onImportImage={onImportImage}
+      onReadAssetFile={onReadAssetFile}
       onAdvance={onAdvance}
     />
   );

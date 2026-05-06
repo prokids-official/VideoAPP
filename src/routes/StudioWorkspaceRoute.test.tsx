@@ -214,6 +214,80 @@ describe('StudioWorkspaceRoute', () => {
     });
   });
 
+  it('imports generated entity images through the studio bridge', async () => {
+    const existingAsset = {
+      id: 'char-asset-existing',
+      project_id: 'studio-1',
+      type_code: 'CHAR',
+      name: '李火旺',
+      variant: '主角',
+      version: 1,
+      meta_json: JSON.stringify({ ai_prompt: 'cinematic character sheet' }),
+      content_path: null,
+      size_bytes: null,
+      mime_type: null,
+      pushed_to_episode_id: null,
+      pushed_at: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+    const updatedAsset = {
+      ...existingAsset,
+      content_path: 'E:\\studio\\char-asset-existing.png',
+      size_bytes: 4,
+      mime_type: 'image/png',
+      meta_json: JSON.stringify({
+        ai_prompt: 'cinematic character sheet',
+        generated_image_filename: 'li-huowang.png',
+      }),
+    };
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: {
+        studio,
+        fs: {
+          openFileDialog: vi.fn(async () => ({
+            path: 'E:\\outputs\\li-huowang.png',
+            name: 'li-huowang.png',
+            size_bytes: 4,
+            content: new Uint8Array([1, 2, 3, 4]),
+          })),
+        },
+      },
+    });
+    studio.projectGet.mockResolvedValueOnce({
+      ...bundle,
+      project: { ...bundle.project, current_stage: 'character' },
+      assets: [existingAsset],
+      stage_state: {},
+    });
+    studio.assetWriteFile.mockResolvedValueOnce({ path: 'E:\\studio\\char-asset-existing.png', size_bytes: 4 });
+    studio.assetSave.mockResolvedValueOnce(updatedAsset);
+
+    render(<StudioWorkspaceRoute projectId="studio-1" onBackToList={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '导入生成图片' }));
+
+    await waitFor(() => {
+      expect(studio.assetWriteFile).toHaveBeenCalledWith(
+        'char-asset-existing',
+        new Uint8Array([1, 2, 3, 4]),
+      );
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'char-asset-existing',
+        project_id: 'studio-1',
+        type_code: 'CHAR',
+        name: '李火旺',
+        content_path: 'E:\\studio\\char-asset-existing.png',
+        size_bytes: 4,
+        mime_type: 'image/png',
+      }));
+      expect(studio.assetSave).toHaveBeenCalledWith(expect.objectContaining({
+        meta_json: expect.stringContaining('"generated_image_filename":"li-huowang.png"'),
+      }));
+    });
+  });
+
   it('saves storyboard units through the studio bridge', async () => {
     const savedAsset = {
       id: 'storyboard-unit-new',

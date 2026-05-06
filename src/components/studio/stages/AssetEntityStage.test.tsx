@@ -52,6 +52,60 @@ describe('AssetEntityStage', () => {
     });
   });
 
+  it('copies the AI image prompt and imports generated images for saved entity assets', async () => {
+    const asset = makeAsset('CHAR', '李火旺');
+    const onImportImage = vi.fn(async () => ({
+      ...asset,
+      content_path: 'E:\\studio\\asset-CHAR.png',
+      size_bytes: 2,
+      mime_type: 'image/png',
+    }));
+    const writeText = vi.fn(async () => undefined);
+    const openFileDialog = vi.fn(async () => ({
+      path: 'E:\\outputs\\li-huowang.png',
+      name: 'li-huowang.png',
+      size_bytes: 2,
+      content: new Uint8Array([7, 8]),
+    }));
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    Object.defineProperty(window, 'fableglitch', {
+      configurable: true,
+      value: { fs: { openFileDialog } },
+    });
+
+    render(
+      <CharacterStage
+        project={project}
+        assets={[asset]}
+        stateJson={null}
+        onSave={vi.fn()}
+        onImportImage={onImportImage}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('AI 图片 prompt'), { target: { value: 'cinematic character sheet' } });
+    fireEvent.click(screen.getByRole('button', { name: '复制 AI 图片 prompt' }));
+    fireEvent.click(screen.getByRole('button', { name: '导入生成图片' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('cinematic character sheet');
+      expect(openFileDialog).toHaveBeenCalledWith([{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]);
+      expect(onImportImage).toHaveBeenCalledWith({
+        asset,
+        file: {
+          name: 'li-huowang.png',
+          content: new Uint8Array([7, 8]),
+          mimeType: 'image/png',
+          sizeBytes: 2,
+        },
+      });
+    });
+  });
+
   it('saves a SCENE asset with scene-specific fields', async () => {
     const onSave = vi.fn(async () => makeAsset('SCENE', '破庙'));
 
