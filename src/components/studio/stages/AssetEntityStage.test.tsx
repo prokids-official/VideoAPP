@@ -32,7 +32,10 @@ describe('AssetEntityStage', () => {
     fireEvent.change(screen.getByLabelText('性格'), { target: { value: '警惕、孤勇、克制' } });
     fireEvent.change(screen.getByLabelText('配色'), { target: { value: '深褐、暗红、冷灰' } });
     fireEvent.change(screen.getByLabelText('视觉锚点'), { target: { value: '雨水、破伞、发光眼瞳' } });
-    fireEvent.change(screen.getByLabelText('AI 提示词'), { target: { value: 'cinematic character sheet' } });
+    fireEvent.change(screen.getByLabelText('角色设定 prompt'), { target: { value: 'profile prompt for Li Huowang' } });
+    fireEvent.change(screen.getByLabelText('三视图 prompt'), { target: { value: 'turnaround sheet, front side back' } });
+    fireEvent.change(screen.getByLabelText('参考资产 ID'), { target: { value: 'ref-char-1, ref-style-2' } });
+    fireEvent.change(screen.getByLabelText('生成结果 ID'), { target: { value: 'gen-char-1' } });
     fireEvent.click(screen.getByRole('button', { name: '保存角色资产' }));
 
     await waitFor(() => {
@@ -46,7 +49,10 @@ describe('AssetEntityStage', () => {
           personality: '警惕、孤勇、克制',
           palette: '深褐、暗红、冷灰',
           visual_anchor: '雨水、破伞、发光眼瞳',
-          ai_prompt: 'cinematic character sheet',
+          profile_prompt: 'profile prompt for Li Huowang',
+          turnaround_prompt: 'turnaround sheet, front side back',
+          source_reference_asset_ids: 'ref-char-1, ref-style-2',
+          generated_asset_ids: 'gen-char-1',
         },
       });
     });

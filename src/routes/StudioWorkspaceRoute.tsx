@@ -176,13 +176,14 @@ export function StudioWorkspaceRoute({
 
   async function handleSaveEntity(input: SaveEntityInput): Promise<StudioAsset> {
     const stage = entityStage(input.typeCode);
+    const meta = normalizeEntityMeta(input.typeCode, input.meta);
     const saved = await studioApi.saveAsset({
       project_id: projectId,
       type_code: input.typeCode,
       name: input.name,
       variant: input.variant,
       version: 1,
-      meta_json: JSON.stringify(input.meta),
+      meta_json: JSON.stringify(meta),
       mime_type: null,
     });
     const stateJson = JSON.stringify({
@@ -548,6 +549,29 @@ function entityStage(typeCode: SaveEntityInput['typeCode']): StudioStage {
     case 'PROP':
       return 'prop';
   }
+}
+
+type EntityMetaValue = string | string[];
+
+function normalizeEntityMeta(
+  typeCode: SaveEntityInput['typeCode'],
+  meta: Record<string, string>,
+): Record<string, EntityMetaValue> {
+  if (typeCode !== 'CHAR') {
+    return meta;
+  }
+  return {
+    ...meta,
+    source_reference_asset_ids: splitIdList(meta.source_reference_asset_ids),
+    generated_asset_ids: splitIdList(meta.generated_asset_ids),
+  };
+}
+
+function splitIdList(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function countAssetsAfterSave(assets: StudioAsset[], saved: StudioAsset) {
