@@ -92,6 +92,7 @@ export function CanvasStage({
   const [liblibStatus, setLiblibStatus] = useState<string | null>(null);
   const [liblibError, setLiblibError] = useState<string | null>(null);
   const embedHostRef = useRef<HTMLDivElement | null>(null);
+  const liblibScrollRef = useRef<HTMLDivElement | null>(null);
   const canvasView = useMemo(() => buildCanvasView(assets), [assets]);
   const looseGroups = useMemo(() => groupAssets(canvasView.looseAssets), [canvasView.looseAssets]);
   const fallbackGroups = useMemo(() => groupAssets(assets), [assets]);
@@ -123,11 +124,14 @@ export function CanvasStage({
 
     syncBounds();
     window.addEventListener('resize', syncBounds);
+    const scrollContainer = liblibScrollRef.current;
+    scrollContainer?.addEventListener('scroll', syncBounds, { passive: true });
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncBounds);
     observer?.observe(host);
 
     return () => {
       window.removeEventListener('resize', syncBounds);
+      scrollContainer?.removeEventListener('scroll', syncBounds);
       observer?.disconnect();
       void window.fableglitch?.canvas?.liblibHide?.();
     };
@@ -275,7 +279,11 @@ export function CanvasStage({
           </div>
         </>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+        <div
+          ref={liblibScrollRef}
+          data-testid="canvas-liblib-scroll"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1"
+        >
           <section className="rounded-lg border border-border bg-surface-2 p-4">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
               <label className="min-w-0">

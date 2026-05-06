@@ -230,6 +230,20 @@ describe('CanvasStage', () => {
       });
     });
   });
+
+  it('lets the embedded canvas tab scroll when the window is short', () => {
+    render(
+      <CanvasStage
+        project={project}
+        assets={[]}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /LibLib/ }));
+
+    expect(screen.getByTestId('canvas-liblib-scroll').className).toContain('overflow-y-auto');
+  });
 });
 
 function makeAsset(
