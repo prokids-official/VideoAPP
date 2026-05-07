@@ -20,6 +20,8 @@ import type {
   SkillCreateResult,
   SkillsListResult,
   StorageBackend,
+  StoryboardRunPayload,
+  StoryboardRunResult,
   SignupPendingResult,
   TreeResponse,
   UsageMeResponse,
@@ -160,6 +162,14 @@ export const api = {
     call<ScriptWriterRunResult>({
       method: 'POST',
       path: '/agents/script-writer/run',
+      body: input,
+      requireAuth: true,
+    }),
+
+  storyboardRun: (input: StoryboardRunPayload) =>
+    call<StoryboardRunResult>({
+      method: 'POST',
+      path: '/agents/storyboard/run',
       body: input,
       requireAuth: true,
     }),

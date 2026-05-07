@@ -1,5 +1,8 @@
-import { useMemo, useState } from 'react';
-import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { useEffect, useMemo, useState } from 'react';
+import type { AIProviderConfigInput, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import { api } from '../../../lib/api';
+import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
+import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 import type { PreflightLocateTarget } from './ExportStage';
@@ -51,12 +54,56 @@ export function StoryboardStage({
   const [duration, setDuration] = useState(String(initialState.duration_s ?? 8));
   const [summary, setSummary] = useState(initialState.summary ?? '');
   const [saving, setSaving] = useState(false);
+  const [runningAgent, setRunningAgent] = useState(false);
+  const [providerConfig, setProviderConfig] = useState<AIProviderConfigInput>(defaultAiProviderSettings);
+  const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
+  const [selectedSkillId, setSelectedSkillId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const orderedSkills = useMemo(
+    () => orderSkills(skills, activeSkillIds),
+    [activeSkillIds, skills],
+  );
+  const selectedSkill = orderedSkills.find((skill) => skill.id === selectedSkillId) ?? orderedSkills[0] ?? null;
   const cleanSummary = summary.trim();
   const cleanNumber = normalizePositiveNumber(number, nextNumber(units));
   const cleanDuration = normalizePositiveNumber(duration, 8);
+  const canRunAgent = scriptAssets.length > 0 && Boolean(selectedSkill) && !saving && !runningAgent;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAgentSettings() {
+      const [settings, activeIds, catalog] = await Promise.all([
+        loadAiProviderSettings(),
+        loadActiveSkillIds(),
+        api.skills('storyboard'),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setProviderConfig(settings);
+      setActiveSkillIds(activeIds);
+      if (catalog.ok) {
+        const loadedSkills = catalog.data.skills;
+        const ordered = orderSkills(loadedSkills, activeIds);
+        setSkills(loadedSkills);
+        setSelectedSkillId((current) => current || ordered[0]?.id || '');
+      } else {
+        setError(catalog.message);
+      }
+    }
+
+    void loadAgentSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function save() {
     setSaving(true);
@@ -79,6 +126,54 @@ export function StoryboardStage({
     }
   }
 
+  async function runStoryboardAgent() {
+    if (!selectedSkill || scriptAssets.length === 0) {
+      return;
+    }
+
+    setRunningAgent(true);
+    setStatus(null);
+    setError(null);
+    try {
+      const scriptAsset = scriptAssets[0];
+      if (!scriptAsset) {
+        throw new Error('还没有 SCRIPT 资产');
+      }
+      const scriptBytes = await window.fableglitch.studio.assetReadFile(scriptAsset.id);
+      const scriptMarkdown = new TextDecoder().decode(scriptBytes);
+      const result = await api.storyboardRun({
+        skill_id: selectedSkill.id,
+        provider_config: providerConfig,
+        input: {
+          project_name: project.name,
+          duration_sec: storyboardTargetDuration(project.size_kind),
+          style_hint: '',
+          script_markdown: scriptMarkdown,
+        },
+      });
+
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+
+      for (const unit of result.data.run.units) {
+        await onSave({
+          number: unit.number,
+          summary: unit.summary,
+          durationS: unit.duration_s,
+        });
+      }
+
+      setStatus(`AI 已拆分 ${result.data.run.units.length} 个分镜`);
+      setNumber(String(nextNumberFromOutputs(result.data.run.units)));
+      setSummary('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'AI 拆分失败');
+    } finally {
+      setRunningAgent(false);
+    }
+  }
+
   async function saveAndAdvance() {
     await save();
     await onAdvance();
@@ -92,16 +187,38 @@ export function StoryboardStage({
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">分镜拆分</div>
             <h2 className="text-lg font-semibold tracking-tight">{project.name}</h2>
             <p className="mt-2 text-sm leading-6 text-text-3">
-              P1.2 只记录编号、摘要和秒数。复杂镜头类型、角色/场景引用会在 P1.3 接入 Agent 后展开。
+              P1.3 已接入 Storyboard Agent，可从 SCRIPT 自动拆出分镜单元，后续图片和视频提示词会按这里逐条展开。
             </p>
           </div>
 
           <div className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">AI 协助</div>
-            <Button type="button" variant="secondary" disabled className="w-full">
-              AI 拆分镜头
+            {orderedSkills.length > 1 && (
+              <select
+                aria-label="storyboard skill"
+                value={selectedSkill?.id ?? ''}
+                onChange={(event) => setSelectedSkillId(event.target.value)}
+                className="mb-2 h-9 w-full rounded-md border border-border bg-surface px-2 text-sm text-text outline-none focus:border-accent/60"
+              >
+                {orderedSkills.map((skill) => (
+                  <option key={skill.id} value={skill.id}>
+                    {skill.name_cn}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedSkill && (
+              <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-3">
+                <span className="truncate">{selectedSkill.name_cn}</span>
+                <span className="font-mono">{providerConfig.model}</span>
+              </div>
+            )}
+            <Button type="button" variant="secondary" disabled={!canRunAgent} className="w-full" onClick={() => void runStoryboardAgent()}>
+              {runningAgent ? 'AI 拆分中...' : 'AI 拆分分镜'}
             </Button>
-            <p className="mt-2 text-xs leading-5 text-text-3">P1.3 上线后可从 SCRIPT 自动切分镜头。</p>
+            <p className="mt-2 text-xs leading-5 text-text-3">
+              读取最新 SCRIPT，输出编号、摘要和秒数，保存为 STORYBOARD_UNIT。
+            </p>
           </div>
 
           <section className="rounded-lg border border-border bg-surface-2 p-3">
@@ -186,20 +303,20 @@ export function StoryboardStage({
                 {units.map((unit) => {
                   const located = locatedUnit?.id === unit.id;
                   return (
-                  <article
-                    key={unit.id}
-                    data-testid={`storyboard-unit-${unit.id}`}
-                    data-located={located ? 'true' : 'false'}
-                    className={`rounded-lg border p-3 transition ${located
-                      ? 'border-accent/70 bg-accent/10 ring-2 ring-accent/25'
-                      : 'border-border bg-surface'}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-mono text-sm font-semibold text-accent">{pad(unit.number)}</span>
-                      <span className="font-mono text-xs text-text-3">{unit.durationS}s</span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-text-2">{unit.summary}</p>
-                  </article>
+                    <article
+                      key={unit.id}
+                      data-testid={`storyboard-unit-${unit.id}`}
+                      data-located={located ? 'true' : 'false'}
+                      className={`rounded-lg border p-3 transition ${located
+                        ? 'border-accent/70 bg-accent/10 ring-2 ring-accent/25'
+                        : 'border-border bg-surface'}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-mono text-sm font-semibold text-accent">{pad(unit.number)}</span>
+                        <span className="font-mono text-xs text-text-3">{unit.durationS}s</span>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-text-2">{unit.summary}</p>
+                    </article>
                   );
                 })}
               </div>
@@ -275,7 +392,21 @@ function parseMeta(value: string): StoryboardUnitMeta {
   }
 }
 
+function orderSkills(skills: SkillCatalogItem[], activeSkillIds: string[]) {
+  return [...skills].sort((a, b) => {
+    const activeDelta = Number(activeSkillIds.includes(b.id)) - Number(activeSkillIds.includes(a.id));
+    if (activeDelta !== 0) {
+      return activeDelta;
+    }
+    return a.name_cn.localeCompare(b.name_cn);
+  });
+}
+
 function nextNumber(units: Array<{ number: number }>) {
+  return units.length === 0 ? 1 : Math.max(...units.map((unit) => unit.number)) + 1;
+}
+
+function nextNumberFromOutputs(units: Array<{ number: number }>) {
   return units.length === 0 ? 1 : Math.max(...units.map((unit) => unit.number)) + 1;
 }
 
@@ -285,6 +416,20 @@ function normalizePositiveNumber(value: unknown, fallback: number) {
     return fallback;
   }
   return Math.round(parsed);
+}
+
+function storyboardTargetDuration(sizeKind: StudioProject['size_kind']) {
+  switch (sizeKind) {
+    case 'shorts':
+      return 60;
+    case 'short':
+      return 90;
+    case 'feature':
+      return 5400;
+    case 'unknown':
+    default:
+      return 120;
+  }
 }
 
 function totalDuration(units: Array<{ durationS: number }>) {

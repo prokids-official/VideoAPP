@@ -237,6 +237,41 @@ export interface ScriptWriterRunResult {
   };
 }
 
+export interface StoryboardRunInput {
+  project_name: string;
+  duration_sec: number;
+  style_hint: string;
+  script_markdown: string;
+}
+
+export interface StoryboardRunPayload {
+  skill_id: string;
+  provider_config?: AIProviderConfigInput;
+  input: StoryboardRunInput;
+}
+
+export interface StoryboardUnitOutput {
+  number: number;
+  summary: string;
+  duration_s: number;
+}
+
+export interface StoryboardRunResult {
+  run: {
+    status: 'completed';
+    provider: string;
+    model: string;
+    skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
+    messages: AgentMessage[];
+    units: StoryboardUnitOutput[];
+    usage?: {
+      promptTokens: number | null;
+      completionTokens: number | null;
+      totalTokens: number | null;
+    };
+  };
+}
+
 export type IdeaStatus = 'pending' | 'accepted' | 'rejected' | 'shipped';
 
 export interface IdeaSummary {
