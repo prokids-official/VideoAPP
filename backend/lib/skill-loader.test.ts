@@ -48,6 +48,67 @@ describe('loadSkillCatalog', () => {
     ]);
   });
 
+  it('loads Claude/Codex-style root skill folders without VideoAPP category metadata', async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), 'videoapp-skills-'));
+    const skillDir = join(tempRoot, 'image-prompt-polisher');
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      [
+        '---',
+        'name: image-prompt-polisher',
+        'description: Improves prompt wording for image generation.',
+        '---',
+        '',
+        '# Image Prompt Polisher',
+        'Make the prompt concise and visual.',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const catalog = await loadSkillCatalog(tempRoot);
+
+    expect(catalog).toEqual([
+      expect.objectContaining({
+        id: 'image-prompt-polisher',
+        name_cn: 'image-prompt-polisher',
+        category: 'general',
+        description: 'Improves prompt wording for image generation.',
+        body: '# Image Prompt Polisher\nMake the prompt concise and visual.',
+      }),
+    ]);
+  });
+
+  it('parses CRLF frontmatter from imported skill files', async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), 'videoapp-skills-'));
+    const skillDir = join(tempRoot, 'script-writer', 'crlf-skill');
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      [
+        '---',
+        'name: crlf-skill',
+        'description: Handles Windows-authored skills.',
+        '---',
+        '',
+        '# Role',
+        'Write for a Windows-first studio.',
+      ].join('\r\n'),
+      'utf8',
+    );
+
+    const catalog = await loadSkillCatalog(tempRoot, { category: 'script-writer' });
+
+    expect(catalog).toEqual([
+      expect.objectContaining({
+        id: 'crlf-skill',
+        category: 'script-writer',
+        description: 'Handles Windows-authored skills.',
+        body: '# Role\nWrite for a Windows-first studio.',
+      }),
+    ]);
+  });
+
   it('loads enabled markdown skills with frontmatter and body', async () => {
     tempRoot = await mkdtemp(join(tmpdir(), 'videoapp-skills-'));
     await writeFile(

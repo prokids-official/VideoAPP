@@ -52,12 +52,9 @@ async function readSkillFile(root: string, filePath: string): Promise<SkillDefin
   const { frontmatter, body } = parseFrontmatter(raw);
   const inferred = inferSkillPath(root, filePath);
   const id = readString(frontmatter.id) ?? readString(frontmatter.name) ?? inferred.id;
-  const category = readString(frontmatter.category) ?? inferred.category;
+  const category = readString(frontmatter.category) ?? inferred.category ?? 'general';
   if (!id) {
     throw new Error(`Skill ${filePath} is missing id or name`);
-  }
-  if (!category) {
-    throw new Error(`Skill ${filePath} is missing category`);
   }
   return {
     id,
@@ -91,16 +88,17 @@ function inferSkillPath(root: string, filePath: string): { id: string | null; ca
 }
 
 function parseFrontmatter(raw: string): { frontmatter: Record<string, string>; body: string } {
-  if (!raw.startsWith('---\n')) {
-    return { frontmatter: {}, body: raw };
+  const normalized = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) {
+    return { frontmatter: {}, body: normalized };
   }
 
-  const end = raw.indexOf('\n---', 4);
+  const end = normalized.indexOf('\n---', 4);
   if (end === -1) {
-    return { frontmatter: {}, body: raw };
+    return { frontmatter: {}, body: normalized };
   }
 
-  const lines = raw.slice(4, end).split(/\r?\n/);
+  const lines = normalized.slice(4, end).split('\n');
   const frontmatter: Record<string, string> = {};
   for (const line of lines) {
     const delimiter = line.indexOf(':');
@@ -110,7 +108,7 @@ function parseFrontmatter(raw: string): { frontmatter: Record<string, string>; b
     if (key) frontmatter[key] = value;
   }
 
-  return { frontmatter, body: raw.slice(end + 4) };
+  return { frontmatter, body: normalized.slice(end + 4) };
 }
 
 function readString(value: unknown): string | null {
