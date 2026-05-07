@@ -157,6 +157,19 @@ export interface SkillsListResult {
   skills: SkillCatalogItem[];
 }
 
+export interface SkillCreatePayload {
+  id?: string;
+  name_cn: string;
+  category: string;
+  description: string;
+  body: string;
+  default_model?: string;
+}
+
+export interface SkillCreateResult {
+  skill: SkillCatalogItem;
+}
+
 export type OfficialDeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro';
 export type AIProviderMode = 'official-deepseek' | 'custom-openai-compatible';
 

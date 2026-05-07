@@ -16,6 +16,8 @@ import type {
   RecentEpisode,
   ScriptWriterRunPayload,
   ScriptWriterRunResult,
+  SkillCreatePayload,
+  SkillCreateResult,
   SkillsListResult,
   StorageBackend,
   SignupPendingResult,
@@ -142,10 +144,17 @@ export const api = {
   tree: () =>
     call<TreeResponse>({ method: 'GET', path: '/tree', requireAuth: true }),
 
-  skills: (category: string) => {
-    const qs = new URLSearchParams({ category });
-    return call<SkillsListResult>({ method: 'GET', path: `/skills?${qs.toString()}`, requireAuth: true });
+  skills: (category?: string) => {
+    const qs = new URLSearchParams();
+    if (category) {
+      qs.set('category', category);
+    }
+    const suffix = qs.toString();
+    return call<SkillsListResult>({ method: 'GET', path: `/skills${suffix ? `?${suffix}` : ''}`, requireAuth: true });
   },
+
+  createSkill: (input: SkillCreatePayload) =>
+    call<SkillCreateResult>({ method: 'POST', path: '/skills', body: input, requireAuth: true }),
 
   scriptWriterRun: (input: ScriptWriterRunPayload) =>
     call<ScriptWriterRunResult>({

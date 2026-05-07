@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
   loadSkillCatalog: vi.fn(),
+  createLocalSkill: vi.fn(),
 }));
 
 vi.mock('@/lib/auth-guard', () => ({
@@ -13,7 +14,11 @@ vi.mock('@/lib/skill-loader', () => ({
   loadSkillCatalog: mocks.loadSkillCatalog,
 }));
 
-import { GET } from './route';
+vi.mock('@/lib/skill-writer', () => ({
+  createLocalSkill: mocks.createLocalSkill,
+}));
+
+import { GET, POST } from './route';
 
 describe('GET /api/skills', () => {
   it('requires an authenticated user', async () => {
@@ -56,6 +61,54 @@ describe('GET /api/skills', () => {
             description: '写黑色童话短片剧本',
           },
         ],
+      },
+    });
+  });
+
+  it('creates a local SKILL.md from the builder payload', async () => {
+    mocks.requireUser.mockResolvedValueOnce({ user_id: 'u-1', email: 'a@beva.com' });
+    mocks.createLocalSkill.mockResolvedValueOnce({
+      id: 'shot-planner',
+      name_cn: '镜头规划助手',
+      category: 'storyboard',
+      default_model: 'deepseek-v4-flash',
+      enabled: true,
+      version: 1,
+      description: '把剧本拆成稳定镜头。',
+      body: '# Role\nPlan shots.',
+    });
+
+    const res = await POST(new Request('http://localhost/api/skills', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: 'shot-planner',
+        name_cn: '镜头规划助手',
+        category: 'storyboard',
+        description: '把剧本拆成稳定镜头。',
+        body: '# Role\nPlan shots.',
+      }),
+    }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.createLocalSkill).toHaveBeenCalledWith(undefined, {
+      id: 'shot-planner',
+      name_cn: '镜头规划助手',
+      category: 'storyboard',
+      description: '把剧本拆成稳定镜头。',
+      body: '# Role\nPlan shots.',
+      default_model: undefined,
+    });
+    expect(await res.json()).toEqual({
+      ok: true,
+      data: {
+        skill: {
+          id: 'shot-planner',
+          name_cn: '镜头规划助手',
+          category: 'storyboard',
+          default_model: 'deepseek-v4-flash',
+          version: 1,
+          description: '把剧本拆成稳定镜头。',
+        },
       },
     });
   });

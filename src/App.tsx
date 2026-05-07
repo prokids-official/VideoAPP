@@ -7,6 +7,7 @@ import { StudioRoute } from './routes/StudioRoute';
 import { StudioWorkspaceRoute } from './routes/StudioWorkspaceRoute';
 import { TreeRoute } from './routes/TreeRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
+import { SkillsRoute } from './routes/SkillsRoute';
 import { PushReviewRoute } from './routes/PushReviewRoute';
 import { api } from './lib/api';
 import { TitleBar } from './components/chrome/TitleBar';
@@ -25,6 +26,7 @@ type AppRoute =
   | 'studio-cockpit'
   | 'studio-workspace'
   | 'ideas'
+  | 'skills'
   | 'settings'
   | 'push-review';
 
@@ -103,6 +105,8 @@ export default function App() {
     content = <LoginRoute />;
   } else if (activeRoute === 'settings') {
     content = <SettingsRoute onBack={() => setRoute('home')} />;
+  } else if (activeRoute === 'skills') {
+    content = <SkillsRoute onBack={() => setRoute('home')} />;
   } else if (activeRoute === 'push-review' && pushReviewEpisode) {
     content = (
       <PushReviewRoute
@@ -120,6 +124,7 @@ export default function App() {
         onOpenTree={() => setRoute('studio')}
         onOpenStudio={() => setRoute('studio-cockpit')}
         onOpenIdeas={() => setRoute('ideas')}
+        onOpenSkills={() => setRoute('skills')}
         onOpenSettings={() => setRoute('settings')}
         onCreateEpisode={() => setEpisodeWizardOpen(true)}
       />
@@ -209,6 +214,8 @@ function routeSubtitle(route: AppRoute) {
       return '个人创作舱 · 工作台';
     case 'ideas':
       return '芝兰点子王';
+    case 'skills':
+      return 'Skills Hub';
     case 'settings':
       return '设置';
     case 'push-review':

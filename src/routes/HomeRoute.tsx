@@ -8,6 +8,7 @@ export function HomeRoute({
   onOpenTree,
   onOpenStudio,
   onOpenIdeas,
+  onOpenSkills,
   onOpenSettings,
   onCreateEpisode,
 }: {
@@ -15,6 +16,7 @@ export function HomeRoute({
   onOpenTree: () => void;
   onOpenStudio: () => void;
   onOpenIdeas: () => void;
+  onOpenSkills: () => void;
   onOpenSettings: () => void;
   onCreateEpisode: () => void;
 }) {
@@ -107,7 +109,7 @@ export function HomeRoute({
             <HomeCard title="公司项目" text="团队资产库和入库流程" action="进入" onClick={onOpenTree} />
             <HomeCard title="个人创作舱" text="本地创作 · 资产可推送入公司项目" action="打开" onClick={onOpenStudio} />
             <HomeCard title="芝兰点子王" text="团队灵感池，提交、筛选和推进想法" action="进入" onClick={onOpenIdeas} />
-            <HomeCard title="AI 工具" text="P1.3 接入模型和配额" action="敬请期待" disabled />
+            <HomeCard title="Skills Hub" text="激活、创建和复用 Agent 创作技能" action="打开" onClick={onOpenSkills} />
           </div>
           <div className="mt-4">
             <Button variant="gradient" onClick={onCreateEpisode}>
