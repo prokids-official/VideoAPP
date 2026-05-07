@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
 import { loadAiProviderSettings } from '../../../lib/ai-provider-settings';
+import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { api } from '../../../lib/api';
 import { ScriptStage } from './ScriptStage';
 
@@ -18,6 +19,10 @@ vi.mock('../../../lib/api', () => ({
     skills: vi.fn(),
     scriptWriterRun: vi.fn(),
   },
+}));
+
+vi.mock('../../../lib/skill-activation', () => ({
+  loadActiveSkillIds: vi.fn(),
 }));
 
 vi.mock('../../../lib/docx', () => ({
@@ -59,6 +64,7 @@ describe('ScriptStage', () => {
       mode: 'official-deepseek',
       model: 'deepseek-v4-flash',
     });
+    vi.mocked(loadActiveSkillIds).mockResolvedValue([]);
     vi.mocked(api.skills).mockResolvedValue({
       ok: true,
       data: {
@@ -125,6 +131,41 @@ describe('ScriptStage', () => {
     expect(screen.getByDisplayValue('grim-fairy-3d')).toBeTruthy();
     expect(findButton('AI').disabled).toBe(false);
     expect(screen.getByText('Grim Fairy 3D Director')).toBeTruthy();
+  });
+
+  it('prefers activated script writer skills from Skills Hub', async () => {
+    vi.mocked(loadActiveSkillIds).mockResolvedValue(['auto-script']);
+    vi.mocked(api.skills).mockResolvedValue({
+      ok: true,
+      data: {
+        skills: [
+          {
+            id: 'grim-fairy-3d',
+            name_cn: 'Grim Fairy 3D Director',
+            category: 'script-writer',
+            default_model: 'deepseek-v4-pro',
+            version: 1,
+            description: 'Write compact animated shorts.',
+          },
+          {
+            id: 'auto-script',
+            name_cn: '自动剧本生成器',
+            category: 'script-writer',
+            default_model: 'deepseek-v4-flash',
+            version: 1,
+            description: 'Turn ideas into structured scripts.',
+          },
+        ],
+      },
+    });
+
+    render(<ScriptStage project={project} assets={[]} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />);
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('script writer skill') as HTMLSelectElement).value).toBe('auto-script');
+    });
+    expect(screen.getByText('自动剧本生成器')).toBeTruthy();
+    expect(screen.getByText(/已激活/)).toBeTruthy();
   });
 
   it('runs the script writer agent and writes the generated script into the editor', async () => {

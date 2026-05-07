@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AgentMessage, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { api } from '../../../lib/api';
+import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 
@@ -52,6 +53,7 @@ export function ScriptStage({
   const [skillId, setSkillId] = useState(initialState.skill_id ?? 'grim-fairy-3d');
   const [providerConfig, setProviderConfig] = useState(defaultAiProviderSettings);
   const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [runningAgent, setRunningAgent] = useState(false);
   const [viewMode, setViewMode] = useState<ScriptViewMode>(initialState.view_mode ?? 'shooting-script');
@@ -64,18 +66,29 @@ export function ScriptStage({
   const cleanName = name.trim() || `${project.name} · 主线剧本`;
   const cleanDuration = normalizeDuration(durationSec);
   const selectedSkill = skills.find((skill) => skill.id === skillId) ?? null;
+  const selectedSkillActive = selectedSkill ? activeSkillIds.includes(selectedSkill.id) : false;
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       setLoadingSkills(true);
-      const result = await api.skills('script-writer');
+      const [result, activeIds] = await Promise.all([api.skills('script-writer'), loadActiveSkillIds()]);
       if (cancelled) return;
+      setActiveSkillIds(activeIds);
       if (result.ok) {
-        setSkills(result.data.skills);
-        if (!result.data.skills.some((skill) => skill.id === skillId) && result.data.skills[0]) {
-          setSkillId(result.data.skills[0].id);
-        }
+        const orderedSkills = orderSkillsByActivation(result.data.skills, activeIds);
+        const activeDefault = orderedSkills.find((skill) => activeIds.includes(skill.id));
+        setSkills(orderedSkills);
+        setSkillId((current) => {
+          const currentExists = orderedSkills.some((skill) => skill.id === current);
+          if (!initialState.skill_id && activeDefault) {
+            return activeDefault.id;
+          }
+          if (!currentExists && orderedSkills[0]) {
+            return orderedSkills[0].id;
+          }
+          return current;
+        });
       } else {
         setError(result.message);
       }
@@ -84,7 +97,7 @@ export function ScriptStage({
     return () => {
       cancelled = true;
     };
-  }, [skillId]);
+  }, [initialState.skill_id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,6 +303,11 @@ export function ScriptStage({
             <div className="mt-1 text-xs leading-5 text-text-3">
               {selectedSkill ? `${selectedSkill.default_model} · v${selectedSkill.version}` : 'company-default'}
             </div>
+            {selectedSkillActive && (
+              <div className="mt-2 inline-flex rounded-full border border-accent/30 bg-accent/10 px-2 py-1 text-xs text-accent">
+                已激活
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -452,6 +470,11 @@ function normalizeDuration(value: string) {
     return 60;
   }
   return Math.min(7200, Math.max(15, Math.round(parsed)));
+}
+
+function orderSkillsByActivation(skills: SkillCatalogItem[], activeIds: string[]) {
+  const activeSet = new Set(activeIds);
+  return [...skills].sort((a, b) => Number(activeSet.has(b.id)) - Number(activeSet.has(a.id)));
 }
 
 function formatDryRunPromptPreview(messages: AgentMessage[]) {
