@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { z } from 'zod';
 import { err, ok } from '@/lib/api-response';
 import { callOpenAICompatibleChat, missingProviderConfig } from '@/lib/ai-chat';
+import { resolveChatProviderConfig } from '@/lib/ai-provider';
 import { requireUser } from '@/lib/auth-guard';
 import { env } from '@/lib/env';
 import { loadSkillCatalog } from '@/lib/skill-loader';
@@ -20,6 +21,12 @@ const inputSchema = z.object({
 const bodySchema = z.object({
   skill_id: z.string().trim().min(1),
   dry_run: z.boolean().default(true),
+  provider_config: z.object({
+    mode: z.enum(['official-deepseek', 'custom-openai-compatible']),
+    model: z.string().trim().min(1),
+    base_url: z.string().trim().optional(),
+    api_key: z.string().trim().optional(),
+  }).optional(),
   input: inputSchema,
 });
 
@@ -60,11 +67,12 @@ export async function POST(req: Request): Promise<Response> {
   ];
 
   if (!parsed.data.dry_run) {
-    const providerConfig = {
+    const providerConfig = resolveChatProviderConfig(parsed.data.provider_config, {
+      provider: env.AI_CHAT_PROVIDER,
       baseUrl: env.AI_CHAT_BASE_URL,
       apiKey: env.AI_CHAT_API_KEY ?? '',
       model: env.AI_CHAT_MODEL || skill.default_model,
-    };
+    });
     const missing = missingProviderConfig(providerConfig);
     if (missing) {
       return err('INTERNAL_ERROR', missing, undefined, 500);
@@ -72,12 +80,14 @@ export async function POST(req: Request): Promise<Response> {
 
     try {
       const completion = await callOpenAICompatibleChat({
-        ...providerConfig,
+        baseUrl: providerConfig.baseUrl,
+        apiKey: providerConfig.apiKey,
+        model: providerConfig.model,
         messages,
       });
       await logUsage({
         userId: auth.user_id,
-        provider: usageProvider(env.AI_CHAT_PROVIDER),
+        provider: usageProvider(providerConfig.provider),
         model: providerConfig.model,
         action: 'chat',
         tokensInput: completion.usage.promptTokens ?? undefined,
@@ -87,7 +97,7 @@ export async function POST(req: Request): Promise<Response> {
       return ok({
         run: {
           status: 'completed',
-          provider: env.AI_CHAT_PROVIDER,
+          provider: providerConfig.provider,
           model: providerConfig.model,
           skill: {
             id: skill.id,
@@ -130,6 +140,8 @@ function usageProvider(value: string) {
     case 'nanobanana':
     case 'gptimage':
       return value;
+    case 'custom-openai-compatible':
+      return 'openai-compatible';
     default:
       return 'openai-compatible';
   }

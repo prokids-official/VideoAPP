@@ -20,7 +20,7 @@ const schema = z.object({
   AI_CHAT_PROVIDER: z.string().default('deepseek'),
   AI_CHAT_BASE_URL: z.string().url().default('https://api.deepseek.com/v1'),
   AI_CHAT_API_KEY: z.string().optional(),
-  AI_CHAT_MODEL: z.string().default('deepseek-chat'),
+  AI_CHAT_MODEL: z.string().default('deepseek-v4-flash'),
 });
 
 const parsed = schema.safeParse(process.env);

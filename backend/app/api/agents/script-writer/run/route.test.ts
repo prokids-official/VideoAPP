@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
     AI_CHAT_PROVIDER: 'deepseek',
     AI_CHAT_BASE_URL: 'https://api.deepseek.com/v1',
     AI_CHAT_API_KEY: 'sk-test',
-    AI_CHAT_MODEL: 'deepseek-chat',
+    AI_CHAT_MODEL: 'deepseek-v4-flash',
   },
 }));
 
@@ -150,7 +150,7 @@ describe('POST /api/agents/script-writer/run', () => {
     expect(mocks.callOpenAICompatibleChat).toHaveBeenCalledWith(expect.objectContaining({
       baseUrl: 'https://api.deepseek.com/v1',
       apiKey: 'sk-test',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       messages: [
         { role: 'system', content: '# Role\nYou are a senior AI screenwriter.' },
         { role: 'user', content: expect.stringContaining('Mecha Project') },
@@ -159,7 +159,7 @@ describe('POST /api/agents/script-writer/run', () => {
     expect(mocks.logUsage).toHaveBeenCalledWith({
       userId: 'u-1',
       provider: 'deepseek',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       action: 'chat',
       tokensInput: 123,
       tokensOutput: 45,
@@ -171,7 +171,7 @@ describe('POST /api/agents/script-writer/run', () => {
         run: expect.objectContaining({
           status: 'completed',
           provider: 'deepseek',
-          model: 'deepseek-chat',
+          model: 'deepseek-v4-flash',
           content: '# 剧本\n\n雨夜废城，机械少女醒来。',
           usage: {
             promptTokens: 123,
@@ -181,6 +181,70 @@ describe('POST /api/agents/script-writer/run', () => {
         }),
       },
     });
+  });
+
+  it('uses custom OpenAI-compatible provider config when supplied', async () => {
+    mocks.requireUser.mockResolvedValueOnce({ user_id: 'u-1', email: 'a@beva.com' });
+    mocks.loadSkillCatalog.mockResolvedValueOnce([
+      {
+        id: 'grim-fairy-3d',
+        name_cn: 'Grim Fairy 3D Director',
+        category: 'script-writer',
+        default_model: 'deepseek-v4-pro',
+        enabled: true,
+        version: 1,
+        description: 'Write compact animated shorts.',
+        body: '# Role\nYou are a senior AI screenwriter.',
+      },
+    ]);
+    mocks.callOpenAICompatibleChat.mockResolvedValueOnce({
+      id: 'chatcmpl-custom',
+      content: '# Script\n\nCustom route works.',
+      usage: {
+        promptTokens: 10,
+        completionTokens: 5,
+        totalTokens: 15,
+      },
+    });
+
+    const res = await POST(new Request('http://localhost/api/agents/script-writer/run', {
+      method: 'POST',
+      body: JSON.stringify({
+        skill_id: 'grim-fairy-3d',
+        dry_run: false,
+        provider_config: {
+          mode: 'custom-openai-compatible',
+          base_url: 'https://coding.dashscope.aliyuncs.com/v1',
+          api_key: 'sk-custom',
+          model: 'qwen3.6-plus',
+        },
+        input: {
+          project_name: 'Mecha Project',
+          mode: 'from-scratch',
+          duration_sec: 90,
+          style_hint: '',
+          inspiration_text: '',
+          existing_script: '',
+        },
+      }),
+    }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.callOpenAICompatibleChat).toHaveBeenCalledWith(expect.objectContaining({
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+      apiKey: 'sk-custom',
+      model: 'qwen3.6-plus',
+    }));
+    expect(mocks.logUsage).toHaveBeenCalledWith(expect.objectContaining({
+      provider: 'openai-compatible',
+      model: 'qwen3.6-plus',
+    }));
+    expect((await res.json()).data.run).toEqual(expect.objectContaining({
+      status: 'completed',
+      provider: 'custom-openai-compatible',
+      model: 'qwen3.6-plus',
+      content: '# Script\n\nCustom route works.',
+    }));
   });
 
   it('400s when the selected skill does not exist', async () => {

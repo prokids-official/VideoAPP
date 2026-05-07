@@ -1,8 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { api } from '../../../lib/api';
 import { ScriptStage } from './ScriptStage';
+
+vi.mock('../../../lib/ai-provider-settings', () => ({
+  defaultAiProviderSettings: {
+    mode: 'official-deepseek',
+    model: 'deepseek-v4-flash',
+  },
+  loadAiProviderSettings: vi.fn(),
+}));
 
 vi.mock('../../../lib/api', () => ({
   api: {
@@ -46,6 +55,10 @@ const scriptAsset: StudioAsset = {
 describe('ScriptStage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(loadAiProviderSettings).mockResolvedValue({
+      mode: 'official-deepseek',
+      model: 'deepseek-v4-flash',
+    });
     vi.mocked(api.skills).mockResolvedValue({
       ok: true,
       data: {
@@ -127,6 +140,10 @@ describe('ScriptStage', () => {
       expect(api.scriptWriterRun).toHaveBeenCalledWith({
         skill_id: 'grim-fairy-3d',
         dry_run: false,
+        provider_config: {
+          mode: 'official-deepseek',
+          model: 'deepseek-v4-flash',
+        },
         input: {
           project_name: 'Mecha Project',
           mode: 'from-scratch',

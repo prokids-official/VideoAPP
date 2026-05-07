@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AgentMessage, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { api } from '../../../lib/api';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
@@ -49,6 +50,7 @@ export function ScriptStage({
   const [durationSec, setDurationSec] = useState(String(initialState.duration_sec ?? defaultDuration(project.size_kind)));
   const [body, setBody] = useState(initialState.body ?? '');
   const [skillId, setSkillId] = useState(initialState.skill_id ?? 'grim-fairy-3d');
+  const [providerConfig, setProviderConfig] = useState(defaultAiProviderSettings);
   const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [runningAgent, setRunningAgent] = useState(false);
@@ -83,6 +85,19 @@ export function ScriptStage({
       cancelled = true;
     };
   }, [skillId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const settings = await loadAiProviderSettings();
+      if (!cancelled) {
+        setProviderConfig(settings);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function save() {
     setSaving(true);
@@ -148,6 +163,7 @@ export function ScriptStage({
       const result = await api.scriptWriterRun({
         skill_id: skillId,
         dry_run: false,
+        provider_config: providerConfig,
         input: {
           project_name: project.name,
           mode,

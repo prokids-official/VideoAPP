@@ -1,5 +1,7 @@
 import type {
   ApiResponse,
+  AIProviderTestPayload,
+  AIProviderTestResult,
   AssetsListResult,
   AuthResult,
   AssetStage,
@@ -149,6 +151,14 @@ export const api = {
     call<ScriptWriterRunResult>({
       method: 'POST',
       path: '/agents/script-writer/run',
+      body: input,
+      requireAuth: true,
+    }),
+
+  aiProviderTest: (input: AIProviderTestPayload) =>
+    call<AIProviderTestResult>({
+      method: 'POST',
+      path: '/ai/provider/test',
       body: input,
       requireAuth: true,
     }),

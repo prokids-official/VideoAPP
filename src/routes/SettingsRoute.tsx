@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { TopNav } from '../components/chrome/TopNav';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { defaultAiProviderSettings, loadAiProviderSettings, saveAiProviderSettings } from '../lib/ai-provider-settings';
 import { api } from '../lib/api';
 import { useAuth } from '../stores/use-auth';
-import type { UsageMeResponse } from '../../shared/types';
+import type { AIProviderConfigInput, AIProviderTestResult, UsageMeResponse } from '../../shared/types';
 
-type SettingsTab = 'profile' | 'security' | 'usage' | 'logout';
+type SettingsTab = 'profile' | 'security' | 'ai' | 'usage' | 'logout';
 
 const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: 'profile', label: '个人资料' },
   { id: 'security', label: '安全' },
+  { id: 'ai', label: 'AI Provider' },
   { id: 'usage', label: '用量' },
   { id: 'logout', label: '退出登录' },
 ];
@@ -132,6 +134,12 @@ export function SettingsRoute({ onBack }: { onBack: () => void }) {
                 </SettingsPanel>
               )}
 
+              {activeTab === 'ai' && (
+                <SettingsPanel title="AI Provider">
+                  <AIProviderPanel />
+                </SettingsPanel>
+              )}
+
               {activeTab === 'usage' && (
                 <SettingsPanel title="用量">
                   {usageLoading ? (
@@ -182,6 +190,150 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
       <div className="text-sm text-text-3">{label}</div>
       <div className={`${mono ? 'font-mono text-xs' : 'text-sm'} text-text-2`}>{value}</div>
     </div>
+  );
+}
+
+function AIProviderPanel() {
+  const [settings, setSettings] = useState<AIProviderConfigInput>(defaultAiProviderSettings);
+  const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<AIProviderTestResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const loaded = await loadAiProviderSettings();
+      if (!cancelled) {
+        setSettings(loaded);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setMessage(null);
+    await saveAiProviderSettings(settings);
+    setMessage('已保存');
+    setBusy(false);
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    setMessage(null);
+    setTestResult(null);
+    const result = await api.aiProviderTest({ provider_config: settings });
+    if (result.ok) {
+      setTestResult(result.data);
+      setMessage('连接成功');
+    } else {
+      setMessage(result.message);
+    }
+    setTesting(false);
+  }
+
+  const isCustom = settings.mode === 'custom-openai-compatible';
+  return (
+    <div className="space-y-5">
+      <label className="block">
+        <span className="mb-2 block text-sm font-medium text-text-2">线路</span>
+        <select
+          value={settings.mode}
+          onChange={(event) => {
+            const mode = event.target.value as AIProviderConfigInput['mode'];
+            setSettings(mode === 'official-deepseek'
+              ? { mode, model: 'deepseek-v4-flash' }
+              : { mode, base_url: '', api_key: '', model: 'qwen3.6-plus' });
+          }}
+          className="h-10 w-full rounded-md border border-border bg-surface-2 px-3 text-sm text-text outline-none transition focus:border-accent/60"
+        >
+          <option value="official-deepseek">官方 DeepSeek</option>
+          <option value="custom-openai-compatible">自定义 OpenAI-compatible</option>
+        </select>
+      </label>
+
+      {isCustom ? (
+        <div className="grid gap-4">
+          <TextInput
+            label="Base URL"
+            value={settings.base_url ?? ''}
+            onChange={(baseUrl) => setSettings({ ...settings, base_url: baseUrl })}
+            placeholder="https://coding.dashscope.aliyuncs.com/v1"
+          />
+          <TextInput
+            label="Model"
+            value={settings.model}
+            onChange={(model) => setSettings({ ...settings, model })}
+            placeholder="qwen3.6-plus"
+          />
+          <TextInput
+            label="API Key"
+            type="password"
+            value={settings.api_key ?? ''}
+            onChange={(apiKey) => setSettings({ ...settings, api_key: apiKey })}
+            placeholder="sk-..."
+          />
+        </div>
+      ) : (
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-text-2">模型</span>
+          <select
+            value={settings.model}
+            onChange={(event) => setSettings({ mode: 'official-deepseek', model: event.target.value })}
+            className="h-10 w-full rounded-md border border-border bg-surface-2 px-3 font-mono text-sm text-text outline-none transition focus:border-accent/60"
+          >
+            <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+            <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+          </select>
+        </label>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" disabled={busy} onClick={() => void save()}>
+          {busy ? '保存中...' : '保存'}
+        </Button>
+        <Button type="button" variant="secondary" disabled={testing} onClick={() => void testConnection()}>
+          {testing ? '测试中...' : '测试连接'}
+        </Button>
+      </div>
+
+      {message && <div className="font-mono text-xs text-text-3">{message}</div>}
+      {testResult && (
+        <div className="rounded-lg border border-border bg-surface-2 p-3 font-mono text-xs text-text-3">
+          {testResult.provider} / {testResult.model} / {testResult.content}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TextInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: 'text' | 'password';
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-text-2">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-10 w-full rounded-md border border-border bg-surface-2 px-3 font-mono text-sm text-text outline-none transition placeholder:text-text-4 focus:border-accent/60"
+      />
+    </label>
   );
 }
 

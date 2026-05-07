@@ -157,6 +157,32 @@ export interface SkillsListResult {
   skills: SkillCatalogItem[];
 }
 
+export type OfficialDeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro';
+export type AIProviderMode = 'official-deepseek' | 'custom-openai-compatible';
+
+export interface AIProviderConfigInput {
+  mode: AIProviderMode;
+  model: OfficialDeepSeekModel | string;
+  base_url?: string;
+  api_key?: string;
+}
+
+export interface AIProviderTestPayload {
+  provider_config: AIProviderConfigInput;
+}
+
+export interface AIProviderTestResult {
+  provider: 'deepseek' | 'custom-openai-compatible';
+  model: string;
+  ok: true;
+  content: string;
+  usage?: {
+    promptTokens: number | null;
+    completionTokens: number | null;
+    totalTokens: number | null;
+  };
+}
+
 export type AgentMessageRole = 'system' | 'user' | 'assistant';
 
 export interface AgentMessage {
@@ -178,6 +204,7 @@ export interface ScriptWriterRunInput {
 export interface ScriptWriterRunPayload {
   skill_id: string;
   dry_run: boolean;
+  provider_config?: AIProviderConfigInput;
   input: ScriptWriterRunInput;
 }
 
