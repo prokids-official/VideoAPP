@@ -80,6 +80,25 @@ describe('SkillsRoute', () => {
     });
   });
 
+  it('opens a skill detail panel and activates from that detail', async () => {
+    render(<SkillsRoute onBack={vi.fn()} />);
+
+    await screen.findByText('Skills Hub');
+    fireEvent.click(screen.getByRole('button', { name: 'Open skill detail scene-camera' }));
+
+    expect(screen.getByText('Skill Detail')).toBeTruthy();
+    expect(screen.getAllByText('/scene-camera').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('deepseek-v4-pro').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Compatible SKILL.md').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate skill scene-camera' }));
+
+    await waitFor(() => {
+      expect(toggleActiveSkillId).toHaveBeenCalledWith('scene-camera');
+      expect(screen.getByText((_, element) => element?.textContent === '已激活 2')).toBeTruthy();
+    });
+  });
+
   it('creates a custom skill and activates it', async () => {
     render(<SkillsRoute onBack={vi.fn()} />);
 
