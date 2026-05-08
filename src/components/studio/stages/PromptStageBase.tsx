@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AIProviderConfigInput, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import type { AIProviderConfigInput, SkillCatalogItem, StudioAgentRunSummary, StudioAsset, StudioProject } from '../../../../shared/types';
 import { api } from '../../../lib/api';
+import { createAgentRunSummary } from '../../../lib/agent-run-summary';
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
+import { AgentRunCard } from '../AgentRunCard';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 import type { PreflightLocateTarget } from './ExportStage';
 
@@ -28,6 +30,7 @@ interface GeneratedMeta {
 
 interface PromptStageState {
   prompt_count?: number;
+  last_agent_run?: StudioAgentRunSummary;
 }
 
 interface PromptStageCopy {
@@ -46,6 +49,7 @@ export interface SavePromptInput {
   storyboardNumber: number;
   storyboardSummary: string;
   promptText: string;
+  agentRun?: StudioAgentRunSummary;
 }
 
 export interface AttachGeneratedInput {
@@ -117,6 +121,7 @@ export function PromptStageBase({
   const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
   const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
   const [selectedSkillId, setSelectedSkillId] = useState('');
+  const [lastAgentRun, setLastAgentRun] = useState<StudioAgentRunSummary | null>(stageState.last_agent_run ?? null);
   const [runningAgent, setRunningAgent] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +230,15 @@ export function PromptStageBase({
         throw new Error(result.message);
       }
 
+      const agentRun = createAgentRunSummary({
+        stage: promptStage,
+        skill: result.data.run.skill,
+        provider: result.data.run.provider,
+        model: result.data.run.model,
+        outputCount: result.data.run.prompts.length,
+        usage: result.data.run.usage,
+      });
+
       for (const prompt of result.data.run.prompts) {
         const unit = units.find((item) => item.id === prompt.storyboard_asset_id || item.number === prompt.storyboard_number);
         if (!unit) {
@@ -235,6 +249,7 @@ export function PromptStageBase({
           storyboardNumber: unit.number,
           storyboardSummary: unit.summary,
           promptText: prompt.prompt_text,
+          agentRun,
         });
       }
 
@@ -248,6 +263,7 @@ export function PromptStageBase({
         }
         return next;
       });
+      setLastAgentRun(agentRun);
       setStatus(`AI 已生成 ${result.data.run.prompts.length} 条${copy.stageLabel}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'AI 生成失败');
@@ -507,6 +523,8 @@ export function PromptStageBase({
         }
         right={
           <div className="space-y-4">
+            <AgentRunCard run={lastAgentRun} />
+
             <section className="rounded-lg border border-border bg-surface-2 p-3">
               <div className="mb-2 text-xs uppercase tracking-widest text-text-4">资产篮子</div>
               <div className="text-sm text-text-2">

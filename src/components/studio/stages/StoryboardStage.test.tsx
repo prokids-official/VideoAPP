@@ -174,17 +174,33 @@ describe('StoryboardStage', () => {
           script_markdown: '# Script\n\nRain opens on a broken neon gate.',
         },
       });
-      expect(onSave).toHaveBeenCalledWith({
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
         number: 1,
         summary: '雨夜打开，霓虹门被雨水照亮。',
         durationS: 8,
-      });
-      expect(onSave).toHaveBeenCalledWith({
+        agentRun: expect.objectContaining({
+          stage: 'storyboard',
+          skill_id: 'storyboard-breakdown',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+          output_count: 2,
+        }),
+      }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
         number: 2,
         summary: '机械少女第一次睁眼。',
         durationS: 10,
-      });
+        agentRun: expect.objectContaining({
+          stage: 'storyboard',
+          skill_id: 'storyboard-breakdown',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+          output_count: 2,
+        }),
+      }));
     });
+    expect(screen.getByText('Agent Run')).toBeTruthy();
+    expect(screen.getByText('storyboard-breakdown')).toBeTruthy();
   });
 
   it('lists existing storyboard units from local assets', () => {

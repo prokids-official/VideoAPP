@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AIProviderConfigInput, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import type { AIProviderConfigInput, SkillCatalogItem, StudioAgentRunSummary, StudioAsset, StudioProject } from '../../../../shared/types';
 import { api } from '../../../lib/api';
+import { createAgentRunSummary } from '../../../lib/agent-run-summary';
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
+import { AgentRunCard } from '../AgentRunCard';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 import type { PreflightLocateTarget } from './ExportStage';
 
@@ -11,6 +13,7 @@ interface StoryboardState {
   number?: number;
   summary?: string;
   duration_s?: number;
+  last_agent_run?: StudioAgentRunSummary;
 }
 
 interface StoryboardUnitMeta {
@@ -23,6 +26,7 @@ export interface SaveStoryboardInput {
   number: number;
   summary: string;
   durationS: number;
+  agentRun?: StudioAgentRunSummary;
 }
 
 export function StoryboardStage({
@@ -59,6 +63,7 @@ export function StoryboardStage({
   const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
   const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
   const [selectedSkillId, setSelectedSkillId] = useState('');
+  const [lastAgentRun, setLastAgentRun] = useState<StudioAgentRunSummary | null>(initialState.last_agent_run ?? null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,14 +161,25 @@ export function StoryboardStage({
         throw new Error(result.message);
       }
 
+      const agentRun = createAgentRunSummary({
+        stage: 'storyboard',
+        skill: result.data.run.skill,
+        provider: result.data.run.provider,
+        model: result.data.run.model,
+        outputCount: result.data.run.units.length,
+        usage: result.data.run.usage,
+      });
+
       for (const unit of result.data.run.units) {
         await onSave({
           number: unit.number,
           summary: unit.summary,
           durationS: unit.duration_s,
+          agentRun,
         });
       }
 
+      setLastAgentRun(agentRun);
       setStatus(`AI 已拆分 ${result.data.run.units.length} 个分镜`);
       setNumber(String(nextNumberFromOutputs(result.data.run.units)));
       setSummary('');
@@ -337,6 +353,8 @@ export function StoryboardStage({
       }
       right={
         <div className="space-y-4">
+          <AgentRunCard run={lastAgentRun} />
+
           <section className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">节奏统计</div>
             <div className="text-sm text-text-2">

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AgentMessage, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import type { AgentMessage, SkillCatalogItem, StudioAgentRunSummary, StudioAsset, StudioProject } from '../../../../shared/types';
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
+import { createAgentRunSummary } from '../../../lib/agent-run-summary';
 import { api } from '../../../lib/api';
 import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
+import { AgentRunCard } from '../AgentRunCard';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 
 type ScriptMode = 'from-scratch' | 'optimize-existing' | 'import-existing';
@@ -18,6 +20,7 @@ interface ScriptState {
   skill_id?: string;
   provider?: string;
   view_mode?: ScriptViewMode;
+  last_agent_run?: StudioAgentRunSummary;
 }
 
 export interface SaveScriptInput {
@@ -29,6 +32,7 @@ export interface SaveScriptInput {
   skillId: string;
   provider: string;
   viewMode: ScriptViewMode;
+  agentRun?: StudioAgentRunSummary;
 }
 
 export function ScriptStage({
@@ -57,6 +61,7 @@ export function ScriptStage({
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [runningAgent, setRunningAgent] = useState(false);
   const [viewMode, setViewMode] = useState<ScriptViewMode>(initialState.view_mode ?? 'shooting-script');
+  const [lastAgentRun, setLastAgentRun] = useState<StudioAgentRunSummary | null>(initialState.last_agent_run ?? null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -126,6 +131,7 @@ export function ScriptStage({
         skillId,
         provider: 'company-default',
         viewMode,
+        ...(lastAgentRun ? { agentRun: lastAgentRun } : {}),
       });
       setStatus('SCRIPT 资产已保存');
     } catch (cause) {
@@ -191,7 +197,16 @@ export function ScriptStage({
         return;
       }
       if (result.data.run.status === 'completed' && result.data.run.content) {
+        const agentRun = createAgentRunSummary({
+          stage: 'script',
+          skill: result.data.run.skill,
+          provider: result.data.run.provider,
+          model: result.data.run.model,
+          outputCount: 1,
+          usage: result.data.run.usage,
+        });
         setBody(result.data.run.content);
+        setLastAgentRun(agentRun);
         setStatus(`AI script generated with ${result.data.run.provider}`);
       } else {
         setBody(formatDryRunPromptPreview(result.data.run.messages));
@@ -378,6 +393,8 @@ export function ScriptStage({
       }
       right={
         <div className="space-y-5">
+          <AgentRunCard run={lastAgentRun} />
+
           <section>
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">SCRIPT 资产</div>
             {assets.length === 0 ? (

@@ -197,6 +197,8 @@ describe('ScriptStage', () => {
     });
     const editor = screen.getByLabelText('剧本正文') as HTMLTextAreaElement;
     expect(editor.value).toBe('# Script\n\nRain opens on a broken neon gate.');
+    expect(screen.getByText('Agent Run')).toBeTruthy();
+    expect(screen.getAllByText('grim-fairy-3d').length).toBeGreaterThan(1);
   });
 
   it('saves markdown as a SCRIPT asset with reproducible agent metadata', async () => {

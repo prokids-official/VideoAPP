@@ -201,13 +201,22 @@ describe('PromptStage', () => {
           ],
         },
       });
-      expect(onSave).toHaveBeenCalledWith({
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
         storyboardAssetId: 'storyboard-1',
         storyboardNumber: 1,
         storyboardSummary: '雨夜开场',
         promptText: 'wide shot, rainy ruined city, cinematic neon reflection',
-      });
+        agentRun: expect.objectContaining({
+          stage: 'prompt-img',
+          skill_id: 'prompt-image-director',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+          output_count: 1,
+        }),
+      }));
     });
+    expect(screen.getByText('Agent Run')).toBeTruthy();
+    expect(screen.getByText('prompt-image-director')).toBeTruthy();
   });
 
   it('runs the video prompt agent with image prompts and saves returned prompts', async () => {
@@ -252,13 +261,22 @@ describe('PromptStage', () => {
           ],
         },
       });
-      expect(onSave).toHaveBeenCalledWith({
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
         storyboardAssetId: 'storyboard-1',
         storyboardNumber: 1,
         storyboardSummary: '雨夜开场',
         promptText: '8s slow push-in through rain, neon reflection on wet ground, gentle handheld drift',
-      });
+        agentRun: expect.objectContaining({
+          stage: 'prompt-vid',
+          skill_id: 'prompt-video-director',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+          output_count: 1,
+        }),
+      }));
     });
+    expect(screen.getByText('Agent Run')).toBeTruthy();
+    expect(screen.getByText('prompt-video-director')).toBeTruthy();
   });
 
   it('prefills existing video prompts from local assets', () => {

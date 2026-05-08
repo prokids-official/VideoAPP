@@ -452,6 +452,23 @@ export type StudioStage =
   | 'canvas'
   | 'export';
 
+export interface StudioAgentRunSummary {
+  id: string;
+  stage: StudioStage;
+  skill_id: string;
+  skill_name_cn: string;
+  provider: string;
+  model: string;
+  status: 'completed';
+  output_count: number;
+  created_at: number;
+  usage?: {
+    promptTokens: number | null;
+    completionTokens: number | null;
+    totalTokens: number | null;
+  };
+}
+
 export interface StudioProject {
   id: string;
   name: string;

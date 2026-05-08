@@ -14,6 +14,7 @@ import { PromptVidStage } from '../components/studio/stages/PromptVidStage';
 import { CanvasStage, type ExternalCanvasImportInput } from '../components/studio/stages/CanvasStage';
 import { ExportStage, type PreflightLocateTarget } from '../components/studio/stages/ExportStage';
 import type { ImportEntityImageInput, SaveEntityInput } from '../components/studio/stages/AssetEntityStage';
+import { withAgentRunMeta } from '../lib/agent-run-summary';
 import { STAGE_LABELS, nextStage, studioApi } from '../lib/studio-api';
 
 /**
@@ -128,7 +129,7 @@ export function StudioWorkspaceRoute({
   }
 
   async function handleSaveScript(input: SaveScriptInput): Promise<StudioAsset> {
-    const meta = {
+    const meta = withAgentRunMeta({
       mode: input.mode,
       style_hint: input.styleHint,
       duration_sec: input.durationSec,
@@ -137,7 +138,7 @@ export function StudioWorkspaceRoute({
       view_mode: input.viewMode,
       score: null,
       ai_feedback: null,
-    };
+    }, input.agentRun);
     const saved = await studioApi.saveAsset({
       project_id: projectId,
       type_code: 'SCRIPT',
@@ -158,6 +159,7 @@ export function StudioWorkspaceRoute({
       ...meta,
       name: input.name,
       asset_id: saved.id,
+      ...(input.agentRun ? { last_agent_run: input.agentRun } : {}),
     });
     await studioApi.saveStage(projectId, 'script', stateJson);
     setBundle((prev) => {
@@ -236,11 +238,11 @@ export function StudioWorkspaceRoute({
   }
 
   async function handleSaveStoryboard(input: SaveStoryboardInput): Promise<StudioAsset> {
-    const meta = {
+    const meta = withAgentRunMeta({
       number: input.number,
       summary: input.summary,
       duration_s: input.durationS,
-    };
+    }, input.agentRun);
     const saved = await studioApi.saveAsset({
       project_id: projectId,
       type_code: 'STORYBOARD_UNIT',
@@ -254,6 +256,7 @@ export function StudioWorkspaceRoute({
       unit_count: countAssetsAfterSave(bundle?.assets ?? [], saved),
       last_asset_id: saved.id,
       last_number: input.number,
+      ...(input.agentRun ? { last_agent_run: input.agentRun } : {}),
     });
     await studioApi.saveStage(projectId, 'storyboard', stateJson);
     setBundle((prev) => {
@@ -275,12 +278,12 @@ export function StudioWorkspaceRoute({
     typeCode: 'PROMPT_IMG' | 'PROMPT_VID',
     input: SavePromptInput,
   ): Promise<StudioAsset> {
-    const meta = {
+    const meta = withAgentRunMeta({
       storyboard_asset_id: input.storyboardAssetId,
       storyboard_number: input.storyboardNumber,
       storyboard_summary: input.storyboardSummary,
       prompt_text: input.promptText,
-    };
+    }, input.agentRun);
     const saved = await studioApi.saveAsset({
       project_id: projectId,
       type_code: typeCode,
@@ -301,6 +304,7 @@ export function StudioWorkspaceRoute({
       prompt_count: countAssetsAfterSave(bundle?.assets ?? [], updatedAsset),
       last_asset_id: updatedAsset.id,
       last_storyboard_asset_id: input.storyboardAssetId,
+      ...(input.agentRun ? { last_agent_run: input.agentRun } : {}),
     });
     await studioApi.saveStage(projectId, stage, stateJson);
     setBundle((prev) => {
