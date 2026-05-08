@@ -1,8 +1,34 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { api } from '../../../lib/api';
+import { loadAiProviderSettings } from '../../../lib/ai-provider-settings';
+import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { PromptImgStage } from './PromptImgStage';
 import { PromptVidStage } from './PromptVidStage';
+
+vi.mock('../../../lib/ai-provider-settings', () => ({
+  defaultAiProviderSettings: {
+    mode: 'official-deepseek',
+    model: 'deepseek-v4-flash',
+  },
+  loadAiProviderSettings: vi.fn(),
+}));
+
+vi.mock('../../../lib/skill-activation', () => ({
+  loadActiveSkillIds: vi.fn(),
+}));
+
+vi.mock('../../../lib/api', () => ({
+  api: {
+    skills: vi.fn(),
+    promptImageRun: vi.fn(),
+  },
+}));
+
+const mockedApi = api as typeof api & {
+  promptImageRun: ReturnType<typeof vi.fn>;
+};
 
 const project: StudioProject = {
   id: 'studio-1',
@@ -16,6 +42,54 @@ const project: StudioProject = {
 };
 
 describe('PromptStage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(loadAiProviderSettings).mockResolvedValue({
+      mode: 'official-deepseek',
+      model: 'deepseek-v4-flash',
+    });
+    vi.mocked(loadActiveSkillIds).mockResolvedValue([]);
+    vi.mocked(api.skills).mockResolvedValue({
+      ok: true,
+      data: {
+        skills: [
+          {
+            id: 'prompt-image-director',
+            name_cn: '图片提示词导演',
+            category: 'prompt-img',
+            default_model: 'deepseek-v4-pro',
+            version: 1,
+            description: '把分镜拆成图像生成提示词。',
+          },
+        ],
+      },
+    });
+    mockedApi.promptImageRun.mockResolvedValue({
+      ok: true,
+      data: {
+        run: {
+          status: 'completed',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+          skill: {
+            id: 'prompt-image-director',
+            name_cn: '图片提示词导演',
+            category: 'prompt-img',
+            version: 1,
+          },
+          messages: [],
+          prompts: [
+            {
+              storyboard_asset_id: 'storyboard-1',
+              storyboard_number: 1,
+              prompt_text: 'wide shot, rainy ruined city, cinematic neon reflection',
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it('saves a manual image prompt for a storyboard unit', async () => {
     const onSave = vi.fn(async () => makePromptAsset('PROMPT_IMG'));
 
@@ -30,7 +104,9 @@ describe('PromptStage', () => {
       />,
     );
 
-    expect((screen.getByRole('button', { name: 'AI 生成图片提示词' }) as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => {
+      expect((screen.getByRole('button', { name: 'AI 生成图片提示词' }) as HTMLButtonElement).disabled).toBe(false);
+    });
     expect(screen.getByText('01')).toBeTruthy();
     expect(screen.getByText('雨夜开场')).toBeTruthy();
 
@@ -40,6 +116,56 @@ describe('PromptStage', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存图片提示词 01' }));
 
     await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        storyboardAssetId: 'storyboard-1',
+        storyboardNumber: 1,
+        storyboardSummary: '雨夜开场',
+        promptText: 'wide shot, rainy ruined city, cinematic neon reflection',
+      });
+    });
+  });
+
+  it('runs the image prompt agent and saves returned prompts', async () => {
+    const onSave = vi.fn(async (input: {
+      storyboardAssetId: string;
+      storyboardNumber: number;
+      storyboardSummary: string;
+      promptText: string;
+    }) => makePromptAsset('PROMPT_IMG', input.promptText));
+
+    render(
+      <PromptImgStage
+        project={project}
+        storyboardAssets={[makeStoryboardAsset()]}
+        assets={[]}
+        stateJson={null}
+        onSave={onSave}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'AI 生成图片提示词' }));
+
+    await waitFor(() => {
+      expect(mockedApi.promptImageRun).toHaveBeenCalledWith({
+        skill_id: 'prompt-image-director',
+        provider_config: {
+          mode: 'official-deepseek',
+          model: 'deepseek-v4-flash',
+        },
+        input: {
+          project_name: '末日机械人',
+          style_hint: '',
+          storyboard_units: [
+            {
+              asset_id: 'storyboard-1',
+              number: 1,
+              summary: '雨夜开场',
+              duration_s: 8,
+            },
+          ],
+        },
+      });
       expect(onSave).toHaveBeenCalledWith({
         storyboardAssetId: 'storyboard-1',
         storyboardNumber: 1,
@@ -116,7 +242,7 @@ describe('PromptStage', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Attach image output 01' }));
+    fireEvent.click(screen.getByRole('button', { name: '挂载图片输出 01' }));
 
     await waitFor(() => {
       expect(onAttachGenerated).toHaveBeenCalledWith(expect.objectContaining({
@@ -168,11 +294,11 @@ describe('PromptStage', () => {
     );
 
     expect(screen.getByText('分镜图 01')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Preview 分镜图 01' }));
+    fireEvent.click(screen.getByRole('button', { name: '预览 分镜图 01' }));
 
     expect(await screen.findByAltText('分镜图 01')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete 分镜图 01' }));
+    fireEvent.click(screen.getByRole('button', { name: '关闭预览' }));
+    fireEvent.click(screen.getByRole('button', { name: '删除 分镜图 01' }));
 
     await waitFor(() => {
       expect(onDeleteGenerated).toHaveBeenCalledWith(expect.objectContaining({ id: 'shot_img-1' }));
@@ -199,7 +325,7 @@ function makeStoryboardAsset(): StudioAsset {
   };
 }
 
-function makePromptAsset(typeCode: 'PROMPT_IMG' | 'PROMPT_VID'): StudioAsset {
+function makePromptAsset(typeCode: 'PROMPT_IMG' | 'PROMPT_VID', promptText?: string): StudioAsset {
   return {
     id: `${typeCode.toLowerCase()}-1`,
     project_id: 'studio-1',
@@ -211,9 +337,9 @@ function makePromptAsset(typeCode: 'PROMPT_IMG' | 'PROMPT_VID'): StudioAsset {
       storyboard_asset_id: 'storyboard-1',
       storyboard_number: 1,
       storyboard_summary: '雨夜开场',
-      prompt_text: typeCode === 'PROMPT_IMG'
+      prompt_text: promptText ?? (typeCode === 'PROMPT_IMG'
         ? 'wide shot, rainy ruined city, cinematic neon reflection'
-        : 'slow push-in, rain drops on lens, 8 seconds',
+        : 'slow push-in, rain drops on lens, 8 seconds'),
     }),
     content_path: null,
     size_bytes: null,

@@ -1,5 +1,8 @@
-import { useMemo, useState } from 'react';
-import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import { useEffect, useMemo, useState } from 'react';
+import type { AIProviderConfigInput, SkillCatalogItem, StudioAsset, StudioProject } from '../../../../shared/types';
+import { api } from '../../../lib/api';
+import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
+import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 import type { PreflightLocateTarget } from './ExportStage';
@@ -105,8 +108,54 @@ export function PromptStageBase({
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
   const [attachingUnitId, setAttachingUnitId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ asset: StudioAsset; url: string } | null>(null);
+  const [providerConfig, setProviderConfig] = useState<AIProviderConfigInput>(defaultAiProviderSettings);
+  const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
+  const [selectedSkillId, setSelectedSkillId] = useState('');
+  const [runningAgent, setRunningAgent] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const orderedSkills = useMemo(() => orderSkills(skills, activeSkillIds), [activeSkillIds, skills]);
+  const selectedSkill = orderedSkills.find((skill) => skill.id === selectedSkillId) ?? orderedSkills[0] ?? null;
+  const canRunImageAgent = copy.typeCode === 'PROMPT_IMG' && units.length > 0 && Boolean(selectedSkill) && !runningAgent;
+
+  useEffect(() => {
+    if (copy.typeCode !== 'PROMPT_IMG') {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadAgentSettings() {
+      const [settings, activeIds, catalog] = await Promise.all([
+        loadAiProviderSettings(),
+        loadActiveSkillIds(),
+        api.skills('prompt-img'),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setProviderConfig(settings);
+      setActiveSkillIds(activeIds);
+      if (catalog.ok) {
+        const loadedSkills = catalog.data.skills;
+        const ordered = orderSkills(loadedSkills, activeIds);
+        setSkills(loadedSkills);
+        setSelectedSkillId((current) => current || ordered[0]?.id || '');
+      } else {
+        setError(catalog.message);
+      }
+    }
+
+    void loadAgentSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [copy.typeCode]);
 
   async function saveUnit(unit: StoryboardUnit) {
     const promptText = (drafts[unit.id] ?? '').trim();
@@ -127,6 +176,65 @@ export function PromptStageBase({
       throw cause;
     } finally {
       setSavingUnitId(null);
+    }
+  }
+
+  async function runImagePromptAgent() {
+    if (!selectedSkill || copy.typeCode !== 'PROMPT_IMG') {
+      return;
+    }
+
+    setRunningAgent(true);
+    setStatus(null);
+    setError(null);
+    try {
+      const result = await api.promptImageRun({
+        skill_id: selectedSkill.id,
+        provider_config: providerConfig,
+        input: {
+          project_name: project.name,
+          style_hint: '',
+          storyboard_units: units.map((unit) => ({
+            asset_id: unit.id,
+            number: unit.number,
+            summary: unit.summary,
+            duration_s: unit.durationS,
+          })),
+        },
+      });
+
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+
+      for (const prompt of result.data.run.prompts) {
+        const unit = units.find((item) => item.id === prompt.storyboard_asset_id || item.number === prompt.storyboard_number);
+        if (!unit) {
+          continue;
+        }
+        await onSave({
+          storyboardAssetId: unit.id,
+          storyboardNumber: unit.number,
+          storyboardSummary: unit.summary,
+          promptText: prompt.prompt_text,
+        });
+      }
+
+      setDrafts((current) => {
+        const next = { ...current };
+        for (const prompt of result.data.run.prompts) {
+          const unit = units.find((item) => item.id === prompt.storyboard_asset_id || item.number === prompt.storyboard_number);
+          if (unit) {
+            next[unit.id] = prompt.prompt_text;
+          }
+        }
+        return next;
+      });
+      setStatus(`AI 已生成 ${result.data.run.prompts.length} 条图片提示词`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'AI 生成失败');
+    } finally {
+      setRunningAgent(false);
     }
   }
 
@@ -201,176 +309,206 @@ export function PromptStageBase({
     <>
       <StudioThreeColumn
         left={
-        <div className="flex min-h-full flex-col gap-5">
-          <div>
-            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">{copy.shortLabel}</div>
-            <h2 className="text-lg font-semibold tracking-tight">{project.name}</h2>
-            <p className="mt-2 text-sm leading-6 text-text-3">
-              每个分镜单元对应一条{copy.stageLabel}。P1.2 支持手填和挂载外部生成结果，P1.3 再接入 Agent 自动生成。
-            </p>
-          </div>
+          <div className="flex min-h-full flex-col gap-5">
+            <div>
+              <div className="mb-2 text-xs uppercase tracking-widest text-text-4">{copy.shortLabel}</div>
+              <h2 className="text-lg font-semibold tracking-tight">{project.name}</h2>
+              <p className="mt-2 text-sm leading-6 text-text-3">
+                每个分镜单元对应一条{copy.stageLabel}。图片提示词已接入 Agent，视频提示词仍可手动填写并挂载外部生成结果。
+              </p>
+            </div>
 
-          <div className="rounded-lg border border-border bg-surface-2 p-3">
-            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">AI 协助</div>
-            <Button type="button" variant="secondary" disabled className="w-full">
-              {copy.aiButton}
-            </Button>
-            <p className="mt-2 text-xs leading-5 text-text-3">P1.3 上线后启用自动拼接。</p>
-          </div>
+            <div className="rounded-lg border border-border bg-surface-2 p-3">
+              <div className="mb-2 text-xs uppercase tracking-widest text-text-4">AI 协助</div>
+              {copy.typeCode === 'PROMPT_IMG' && orderedSkills.length > 1 && (
+                <select
+                  aria-label="prompt image skill"
+                  value={selectedSkill?.id ?? ''}
+                  onChange={(event) => setSelectedSkillId(event.target.value)}
+                  className="mb-2 h-9 w-full rounded-md border border-border bg-surface px-2 text-sm text-text outline-none focus:border-accent/60"
+                >
+                  {orderedSkills.map((skill) => (
+                    <option key={skill.id} value={skill.id}>
+                      {skill.name_cn}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {copy.typeCode === 'PROMPT_IMG' && selectedSkill && (
+                <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-3">
+                  <span className="truncate">{selectedSkill.name_cn}</span>
+                  <span className="font-mono">{providerConfig.model}</span>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!canRunImageAgent}
+                className="w-full"
+                onClick={() => void runImagePromptAgent()}
+              >
+                {runningAgent ? 'AI 生成中...' : copy.aiButton}
+              </Button>
+              <p className="mt-2 text-xs leading-5 text-text-3">
+                {copy.typeCode === 'PROMPT_IMG'
+                  ? '读取所有分镜单元，生成可直接复制到图片模型的提示词。'
+                  : '视频提示词 Agent 会在下一步接入。'}
+              </p>
+            </div>
 
-          <section className="rounded-lg border border-border bg-surface-2 p-3">
-            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">分镜来源</div>
-            <p className="text-sm leading-6 text-text-3">
-              已载入 <span className="font-mono text-text">{units.length}</span> 个分镜单元。
-            </p>
-          </section>
-        </div>
-      }
+            <section className="rounded-lg border border-border bg-surface-2 p-3">
+              <div className="mb-2 text-xs uppercase tracking-widest text-text-4">分镜来源</div>
+              <p className="text-sm leading-6 text-text-3">
+                已载入 <span className="font-mono text-text">{units.length}</span> 个分镜单元。
+              </p>
+            </section>
+          </div>
+        }
         center={
-        <div className="flex min-h-full flex-col gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-text-4">{copy.stageLabel}</div>
-            <h3 className="mt-2 text-xl font-semibold tracking-tight">按分镜填写提示词</h3>
-          </div>
-
-          {locatedUnit && (
-            <div role="status" className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">
-              已定位到 SHOT {pad(locatedUnit.number)}
-              <span className="ml-2 text-xs text-text-3">{locateTarget?.reason}</span>
+          <div className="flex min-h-full flex-col gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-text-4">{copy.stageLabel}</div>
+              <h3 className="mt-2 text-xl font-semibold tracking-tight">按分镜填写提示词</h3>
             </div>
-          )}
 
-          {units.length === 0 ? (
-            <div className="rounded-lg border border-border bg-surface-2 p-4 text-sm leading-6 text-text-3">
-              还没有分镜单元。先到「分镜」阶段保存至少一条，再回来填写{copy.stageLabel}。
-            </div>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto space-y-3">
-              {units.map((unit) => {
-                const located = locatedUnit?.id === unit.id;
-                const label = `${copy.stageLabel} ${pad(unit.number)}`;
-                const value = drafts[unit.id] ?? '';
-                const prompt = promptMap.get(unit.id);
-                const generatedForPrompt = prompt ? generatedAssetMap.get(prompt.assetId) ?? [] : [];
-                const generatedCount = generatedForPrompt.length;
-                const disabled = savingUnitId === unit.id || !value.trim();
-                return (
-                  <article
-                    key={unit.id}
-                    data-testid={`prompt-unit-${unit.id}`}
-                    data-located={located ? 'true' : 'false'}
-                    className={`rounded-lg border p-4 transition ${located
-                      ? 'border-accent/70 bg-accent/10 ring-2 ring-accent/25'
-                      : 'border-border bg-surface-2'}`}
-                  >
-                    <div className="mb-3 flex items-start justify-between gap-4">
-                      <div>
-                        <div className="font-mono text-sm font-semibold text-accent">{pad(unit.number)}</div>
-                        <p className="mt-1 text-sm leading-6 text-text-2">{unit.summary}</p>
+            {locatedUnit && (
+              <div role="status" className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">
+                已定位到 SHOT {pad(locatedUnit.number)}
+                <span className="ml-2 text-xs text-text-3">{locateTarget?.reason}</span>
+              </div>
+            )}
+
+            {units.length === 0 ? (
+              <div className="rounded-lg border border-border bg-surface-2 p-4 text-sm leading-6 text-text-3">
+                还没有分镜单元。先到「分镜」阶段保存至少一条，再回来填写{copy.stageLabel}。
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto space-y-3">
+                {units.map((unit) => {
+                  const located = locatedUnit?.id === unit.id;
+                  const label = `${copy.stageLabel} ${pad(unit.number)}`;
+                  const value = drafts[unit.id] ?? '';
+                  const prompt = promptMap.get(unit.id);
+                  const generatedForPrompt = prompt ? generatedAssetMap.get(prompt.assetId) ?? [] : [];
+                  const generatedCount = generatedForPrompt.length;
+                  const disabled = savingUnitId === unit.id || !value.trim();
+                  return (
+                    <article
+                      key={unit.id}
+                      data-testid={`prompt-unit-${unit.id}`}
+                      data-located={located ? 'true' : 'false'}
+                      className={`rounded-lg border p-4 transition ${located
+                        ? 'border-accent/70 bg-accent/10 ring-2 ring-accent/25'
+                        : 'border-border bg-surface-2'}`}
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-4">
+                        <div>
+                          <div className="font-mono text-sm font-semibold text-accent">{pad(unit.number)}</div>
+                          <p className="mt-1 text-sm leading-6 text-text-2">{unit.summary}</p>
+                        </div>
+                        <span className="font-mono text-xs text-text-3">{unit.durationS}s</span>
                       </div>
-                      <span className="font-mono text-xs text-text-3">{unit.durationS}s</span>
-                    </div>
-                    <label className="mb-2 block text-sm font-medium text-text-2" htmlFor={`studio-${copy.typeCode}-${unit.id}`}>
-                      {label}
-                    </label>
-                    <textarea
-                      id={`studio-${copy.typeCode}-${unit.id}`}
-                      rows={4}
-                      value={value}
-                      onChange={(event) => setDrafts((prev) => ({ ...prev, [unit.id]: event.target.value }))}
-                      placeholder={copy.typeCode === 'PROMPT_IMG'
-                        ? '画面主体、构图、景别、光线、风格...'
-                        : '镜头运动、动作节奏、时长、转场、画面变化...'}
-                      className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60 focus:bg-surface-3"
-                    />
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="text-xs text-text-3">
-                        {prompt
-                          ? `${generatedCount} attached ${copy.outputKind} output${generatedCount === 1 ? '' : 's'}`
-                          : 'Save prompt before attaching output'}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        disabled={disabled}
-                        onClick={() => void saveUnit(unit)}
-                      >
-                        {savingUnitId === unit.id ? '保存中...' : `保存${copy.stageLabel} ${pad(unit.number)}`}
-                      </Button>
-                    </div>
-                    {prompt && onAttachGenerated && (
-                      <div className="mt-2 flex justify-end">
+                      <label className="mb-2 block text-sm font-medium text-text-2" htmlFor={`studio-${copy.typeCode}-${unit.id}`}>
+                        {label}
+                      </label>
+                      <textarea
+                        id={`studio-${copy.typeCode}-${unit.id}`}
+                        rows={4}
+                        value={value}
+                        onChange={(event) => setDrafts((prev) => ({ ...prev, [unit.id]: event.target.value }))}
+                        placeholder={copy.typeCode === 'PROMPT_IMG'
+                          ? '画面主体、构图、景别、光线、风格...'
+                          : '镜头运动、动作节奏、时长、转场、画面变化...'}
+                        className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60 focus:bg-surface-3"
+                      />
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs text-text-3">
+                          {prompt
+                            ? `${generatedCount} 个已挂载${copy.outputKind === 'image' ? '图片' : '视频'}输出`
+                            : '先保存提示词，再挂载输出'}
+                        </div>
                         <Button
                           type="button"
                           variant="secondary"
-                          disabled={attachingUnitId === unit.id}
-                          onClick={() => void attachGeneratedOutput(unit)}
+                          disabled={disabled}
+                          onClick={() => void saveUnit(unit)}
                         >
-                          {attachingUnitId === unit.id
-                            ? 'Attaching...'
-                            : `Attach ${copy.outputKind} output ${pad(unit.number)}`}
+                          {savingUnitId === unit.id ? '保存中...' : `保存${copy.stageLabel} ${pad(unit.number)}`}
                         </Button>
                       </div>
-                    )}
-                    {generatedForPrompt.length > 0 && (
-                      <div className="mt-3 space-y-2 rounded-lg border border-border bg-surface p-3">
-                        {generatedForPrompt.map((asset) => (
-                          <div key={asset.id} className="flex items-center justify-between gap-3 rounded border border-border bg-surface-2 px-3 py-2">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-medium text-text">{asset.name}</div>
-                              <div className="mt-1 font-mono text-[11px] text-text-4">{asset.type_code} · {formatSize(asset.size_bytes)}</div>
-                            </div>
-                            <div className="flex shrink-0 gap-2">
-                              <Button type="button" variant="secondary" onClick={() => void previewGeneratedOutput(asset)}>
-                                Preview {asset.name}
-                              </Button>
-                              {onDeleteGenerated && (
-                                <Button type="button" variant="secondary" onClick={() => void deleteGeneratedOutput(asset)}>
-                                  Delete {asset.name}
+                      {prompt && onAttachGenerated && (
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={attachingUnitId === unit.id}
+                            onClick={() => void attachGeneratedOutput(unit)}
+                          >
+                            {attachingUnitId === unit.id
+                              ? '挂载中...'
+                              : `挂载${copy.outputKind === 'image' ? '图片' : '视频'}输出 ${pad(unit.number)}`}
+                          </Button>
+                        </div>
+                      )}
+                      {generatedForPrompt.length > 0 && (
+                        <div className="mt-3 space-y-2 rounded-lg border border-border bg-surface p-3">
+                          {generatedForPrompt.map((asset) => (
+                            <div key={asset.id} className="flex items-center justify-between gap-3 rounded border border-border bg-surface-2 px-3 py-2">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-text">{asset.name}</div>
+                                <div className="mt-1 font-mono text-[11px] text-text-4">{asset.type_code} · {formatSize(asset.size_bytes)}</div>
+                              </div>
+                              <div className="flex shrink-0 gap-2">
+                                <Button type="button" variant="secondary" onClick={() => void previewGeneratedOutput(asset)}>
+                                  预览 {asset.name}
                                 </Button>
-                              )}
+                                {onDeleteGenerated && (
+                                  <Button type="button" variant="secondary" onClick={() => void deleteGeneratedOutput(asset)}>
+                                    删除 {asset.name}
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="mt-auto flex flex-col gap-2 border-t border-border pt-4">
-            {status && <div className="text-xs text-good">{status}</div>}
-            {error && <div className="text-xs text-bad">{error}</div>}
-            <Button type="button" variant="gradient" disabled={units.length === 0} onClick={() => void onAdvance()}>
-              {copy.nextLabel}
-            </Button>
-          </div>
-        </div>
-      }
-        right={
-        <div className="space-y-4">
-          <section className="rounded-lg border border-border bg-surface-2 p-3">
-            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">资产篮子</div>
-            <div className="text-sm text-text-2">
-              <span className="font-mono">{assets.length}</span> 条{copy.stageLabel}
-            </div>
-            {stageState.prompt_count != null && (
-              <p className="mt-2 text-xs text-text-3">
-                最近记录：<span className="font-mono">{stageState.prompt_count}</span> 条
-              </p>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
             )}
-          </section>
-          <section className="rounded-lg border border-border bg-surface-2 p-3">
-            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">入库映射</div>
-            <p className="text-xs leading-5 text-text-3">
-              保存后会成为本地 <span className="font-mono">{copy.typeCode}</span> 资产；挂载结果会成为{' '}
-              <span className="font-mono">{copy.outputTypeCode}</span> 资产，并保留来源关系。
-            </p>
-          </section>
-        </div>
-      }
+
+            <div className="mt-auto flex flex-col gap-2 border-t border-border pt-4">
+              {status && <div className="text-xs text-good">{status}</div>}
+              {error && <div className="text-xs text-bad">{error}</div>}
+              <Button type="button" variant="gradient" disabled={units.length === 0} onClick={() => void onAdvance()}>
+                {copy.nextLabel}
+              </Button>
+            </div>
+          </div>
+        }
+        right={
+          <div className="space-y-4">
+            <section className="rounded-lg border border-border bg-surface-2 p-3">
+              <div className="mb-2 text-xs uppercase tracking-widest text-text-4">资产篮子</div>
+              <div className="text-sm text-text-2">
+                <span className="font-mono">{assets.length}</span> 条{copy.stageLabel}
+              </div>
+              {stageState.prompt_count != null && (
+                <p className="mt-2 text-xs text-text-3">
+                  最近记录：<span className="font-mono">{stageState.prompt_count}</span> 条
+                </p>
+              )}
+            </section>
+            <section className="rounded-lg border border-border bg-surface-2 p-3">
+              <div className="mb-2 text-xs uppercase tracking-widest text-text-4">入库映射</div>
+              <p className="text-xs leading-5 text-text-3">
+                保存后会成为本地 <span className="font-mono">{copy.typeCode}</span> 资产；挂载结果会成为{' '}
+                <span className="font-mono">{copy.outputTypeCode}</span> 资产，并保留来源关系。
+              </p>
+            </section>
+          </div>
+        }
       />
       {preview && (
         <GeneratedPreviewModal
@@ -444,6 +582,16 @@ function parseJson<T extends object>(value: string): T {
   } catch {
     return {} as T;
   }
+}
+
+function orderSkills(skills: SkillCatalogItem[], activeSkillIds: string[]) {
+  return [...skills].sort((a, b) => {
+    const activeDelta = Number(activeSkillIds.includes(b.id)) - Number(activeSkillIds.includes(a.id));
+    if (activeDelta !== 0) {
+      return activeDelta;
+    }
+    return a.name_cn.localeCompare(b.name_cn);
+  });
 }
 
 function normalizePositiveNumber(value: unknown, fallback: number) {
@@ -520,7 +668,7 @@ function GeneratedPreviewModal({
             <h3 className="truncate text-lg font-semibold text-text">{asset.name}</h3>
           </div>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Close preview
+            关闭预览
           </Button>
         </div>
         <div className="min-h-0 overflow-auto rounded-lg border border-border bg-surface-2 p-3">

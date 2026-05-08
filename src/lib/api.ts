@@ -13,6 +13,8 @@ import type {
   IdeaStatus,
   IdeaUpdateResult,
   PreviewFilenameResult,
+  PromptImageRunPayload,
+  PromptImageRunResult,
   RecentEpisode,
   ScriptWriterRunPayload,
   ScriptWriterRunResult,
@@ -170,6 +172,14 @@ export const api = {
     call<StoryboardRunResult>({
       method: 'POST',
       path: '/agents/storyboard/run',
+      body: input,
+      requireAuth: true,
+    }),
+
+  promptImageRun: (input: PromptImageRunPayload) =>
+    call<PromptImageRunResult>({
+      method: 'POST',
+      path: '/agents/prompt-img/run',
       body: input,
       requireAuth: true,
     }),

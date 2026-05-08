@@ -272,6 +272,47 @@ export interface StoryboardRunResult {
   };
 }
 
+export interface PromptImageStoryboardUnitInput {
+  asset_id: string;
+  number: number;
+  summary: string;
+  duration_s: number;
+}
+
+export interface PromptImageRunInput {
+  project_name: string;
+  style_hint: string;
+  storyboard_units: PromptImageStoryboardUnitInput[];
+}
+
+export interface PromptImageRunPayload {
+  skill_id: string;
+  provider_config?: AIProviderConfigInput;
+  input: PromptImageRunInput;
+}
+
+export interface PromptImageOutput {
+  storyboard_asset_id: string;
+  storyboard_number: number;
+  prompt_text: string;
+}
+
+export interface PromptImageRunResult {
+  run: {
+    status: 'completed';
+    provider: string;
+    model: string;
+    skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
+    messages: AgentMessage[];
+    prompts: PromptImageOutput[];
+    usage?: {
+      promptTokens: number | null;
+      completionTokens: number | null;
+      totalTokens: number | null;
+    };
+  };
+}
+
 export type IdeaStatus = 'pending' | 'accepted' | 'rejected' | 'shipped';
 
 export interface IdeaSummary {
