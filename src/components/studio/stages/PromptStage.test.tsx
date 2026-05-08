@@ -23,11 +23,13 @@ vi.mock('../../../lib/api', () => ({
   api: {
     skills: vi.fn(),
     promptImageRun: vi.fn(),
+    promptVideoRun: vi.fn(),
   },
 }));
 
 const mockedApi = api as typeof api & {
   promptImageRun: ReturnType<typeof vi.fn>;
+  promptVideoRun: ReturnType<typeof vi.fn>;
 };
 
 const project: StudioProject = {
@@ -49,21 +51,30 @@ describe('PromptStage', () => {
       model: 'deepseek-v4-flash',
     });
     vi.mocked(loadActiveSkillIds).mockResolvedValue([]);
-    vi.mocked(api.skills).mockResolvedValue({
+    vi.mocked(api.skills).mockImplementation(async (category?: string) => ({
       ok: true,
       data: {
         skills: [
-          {
-            id: 'prompt-image-director',
-            name_cn: '图片提示词导演',
-            category: 'prompt-img',
-            default_model: 'deepseek-v4-pro',
-            version: 1,
-            description: '把分镜拆成图像生成提示词。',
-          },
+          category === 'prompt-vid'
+            ? {
+                id: 'prompt-video-director',
+                name_cn: '视频提示词导演',
+                category: 'prompt-vid',
+                default_model: 'deepseek-v4-pro',
+                version: 1,
+                description: '把分镜和图片提示词转换成视频提示词。',
+              }
+            : {
+                id: 'prompt-image-director',
+                name_cn: '图片提示词导演',
+                category: 'prompt-img',
+                default_model: 'deepseek-v4-pro',
+                version: 1,
+                description: '把分镜拆成图像生成提示词。',
+              },
         ],
       },
-    });
+    }));
     mockedApi.promptImageRun.mockResolvedValue({
       ok: true,
       data: {
@@ -83,6 +94,30 @@ describe('PromptStage', () => {
               storyboard_asset_id: 'storyboard-1',
               storyboard_number: 1,
               prompt_text: 'wide shot, rainy ruined city, cinematic neon reflection',
+            },
+          ],
+        },
+      },
+    });
+    mockedApi.promptVideoRun.mockResolvedValue({
+      ok: true,
+      data: {
+        run: {
+          status: 'completed',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+          skill: {
+            id: 'prompt-video-director',
+            name_cn: '视频提示词导演',
+            category: 'prompt-vid',
+            version: 1,
+          },
+          messages: [],
+          prompts: [
+            {
+              storyboard_asset_id: 'storyboard-1',
+              storyboard_number: 1,
+              prompt_text: '8s slow push-in through rain, neon reflection on wet ground, gentle handheld drift',
             },
           ],
         },
@@ -171,6 +206,57 @@ describe('PromptStage', () => {
         storyboardNumber: 1,
         storyboardSummary: '雨夜开场',
         promptText: 'wide shot, rainy ruined city, cinematic neon reflection',
+      });
+    });
+  });
+
+  it('runs the video prompt agent with image prompts and saves returned prompts', async () => {
+    const onSave = vi.fn(async (input: {
+      storyboardAssetId: string;
+      storyboardNumber: number;
+      storyboardSummary: string;
+      promptText: string;
+    }) => makePromptAsset('PROMPT_VID', input.promptText));
+
+    render(
+      <PromptVidStage
+        project={{ ...project, current_stage: 'prompt-vid' }}
+        storyboardAssets={[makeStoryboardAsset()]}
+        assets={[makePromptAsset('PROMPT_IMG')]}
+        stateJson={null}
+        onSave={onSave}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'AI 生成视频提示词' }));
+
+    await waitFor(() => {
+      expect(mockedApi.promptVideoRun).toHaveBeenCalledWith({
+        skill_id: 'prompt-video-director',
+        provider_config: {
+          mode: 'official-deepseek',
+          model: 'deepseek-v4-flash',
+        },
+        input: {
+          project_name: '末日机械人',
+          style_hint: '',
+          storyboard_units: [
+            {
+              asset_id: 'storyboard-1',
+              number: 1,
+              summary: '雨夜开场',
+              duration_s: 8,
+              image_prompt: 'wide shot, rainy ruined city, cinematic neon reflection',
+            },
+          ],
+        },
+      });
+      expect(onSave).toHaveBeenCalledWith({
+        storyboardAssetId: 'storyboard-1',
+        storyboardNumber: 1,
+        storyboardSummary: '雨夜开场',
+        promptText: '8s slow push-in through rain, neon reflection on wet ground, gentle handheld drift',
       });
     });
   });

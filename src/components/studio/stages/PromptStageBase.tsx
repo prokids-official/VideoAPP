@@ -88,7 +88,12 @@ export function PromptStageBase({
   onAdvance: () => void | Promise<void>;
 }) {
   const units = useMemo(() => parseStoryboardUnits(storyboardAssets), [storyboardAssets]);
-  const promptMap = useMemo(() => parsePromptMap(assets), [assets]);
+  const promptMap = useMemo(() => parsePromptMap(assets, copy.typeCode), [assets, copy.typeCode]);
+  const imagePromptMap = useMemo(() => parsePromptMap(assets, 'PROMPT_IMG'), [assets]);
+  const currentPromptAssetCount = useMemo(
+    () => assets.filter((asset) => asset.type_code === copy.typeCode).length,
+    [assets, copy.typeCode],
+  );
   const generatedAssetMap = useMemo(() => parseGeneratedAssetMap(generatedAssets), [generatedAssets]);
   const stageState = useMemo(() => parseStageState(stateJson), [stateJson]);
   const promptStage = copy.typeCode === 'PROMPT_IMG' ? 'prompt-img' : 'prompt-vid';
@@ -118,20 +123,17 @@ export function PromptStageBase({
 
   const orderedSkills = useMemo(() => orderSkills(skills, activeSkillIds), [activeSkillIds, skills]);
   const selectedSkill = orderedSkills.find((skill) => skill.id === selectedSkillId) ?? orderedSkills[0] ?? null;
-  const canRunImageAgent = copy.typeCode === 'PROMPT_IMG' && units.length > 0 && Boolean(selectedSkill) && !runningAgent;
+  const canRunAgent = units.length > 0 && Boolean(selectedSkill) && !runningAgent;
 
   useEffect(() => {
-    if (copy.typeCode !== 'PROMPT_IMG') {
-      return;
-    }
-
     let cancelled = false;
+    const skillCategory = copy.typeCode === 'PROMPT_IMG' ? 'prompt-img' : 'prompt-vid';
 
     async function loadAgentSettings() {
       const [settings, activeIds, catalog] = await Promise.all([
         loadAiProviderSettings(),
         loadActiveSkillIds(),
-        api.skills('prompt-img'),
+        api.skills(skillCategory),
       ]);
 
       if (cancelled) {
@@ -179,8 +181,8 @@ export function PromptStageBase({
     }
   }
 
-  async function runImagePromptAgent() {
-    if (!selectedSkill || copy.typeCode !== 'PROMPT_IMG') {
+  async function runPromptAgent() {
+    if (!selectedSkill) {
       return;
     }
 
@@ -188,20 +190,36 @@ export function PromptStageBase({
     setStatus(null);
     setError(null);
     try {
-      const result = await api.promptImageRun({
-        skill_id: selectedSkill.id,
-        provider_config: providerConfig,
-        input: {
-          project_name: project.name,
-          style_hint: '',
-          storyboard_units: units.map((unit) => ({
-            asset_id: unit.id,
-            number: unit.number,
-            summary: unit.summary,
-            duration_s: unit.durationS,
-          })),
-        },
-      });
+      const result = copy.typeCode === 'PROMPT_IMG'
+        ? await api.promptImageRun({
+            skill_id: selectedSkill.id,
+            provider_config: providerConfig,
+            input: {
+              project_name: project.name,
+              style_hint: '',
+              storyboard_units: units.map((unit) => ({
+                asset_id: unit.id,
+                number: unit.number,
+                summary: unit.summary,
+                duration_s: unit.durationS,
+              })),
+            },
+          })
+        : await api.promptVideoRun({
+            skill_id: selectedSkill.id,
+            provider_config: providerConfig,
+            input: {
+              project_name: project.name,
+              style_hint: '',
+              storyboard_units: units.map((unit) => ({
+                asset_id: unit.id,
+                number: unit.number,
+                summary: unit.summary,
+                duration_s: unit.durationS,
+                image_prompt: imagePromptMap.get(unit.id)?.text ?? '',
+              })),
+            },
+          });
 
       if (!result.ok) {
         throw new Error(result.message);
@@ -230,7 +248,7 @@ export function PromptStageBase({
         }
         return next;
       });
-      setStatus(`AI 已生成 ${result.data.run.prompts.length} 条图片提示词`);
+      setStatus(`AI 已生成 ${result.data.run.prompts.length} 条${copy.stageLabel}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'AI 生成失败');
     } finally {
@@ -320,9 +338,9 @@ export function PromptStageBase({
 
             <div className="rounded-lg border border-border bg-surface-2 p-3">
               <div className="mb-2 text-xs uppercase tracking-widest text-text-4">AI 协助</div>
-              {copy.typeCode === 'PROMPT_IMG' && orderedSkills.length > 1 && (
+              {orderedSkills.length > 1 && (
                 <select
-                  aria-label="prompt image skill"
+                  aria-label={copy.typeCode === 'PROMPT_IMG' ? 'prompt image skill' : 'prompt video skill'}
                   value={selectedSkill?.id ?? ''}
                   onChange={(event) => setSelectedSkillId(event.target.value)}
                   className="mb-2 h-9 w-full rounded-md border border-border bg-surface px-2 text-sm text-text outline-none focus:border-accent/60"
@@ -334,7 +352,7 @@ export function PromptStageBase({
                   ))}
                 </select>
               )}
-              {copy.typeCode === 'PROMPT_IMG' && selectedSkill && (
+              {selectedSkill && (
                 <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-3">
                   <span className="truncate">{selectedSkill.name_cn}</span>
                   <span className="font-mono">{providerConfig.model}</span>
@@ -343,16 +361,16 @@ export function PromptStageBase({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={!canRunImageAgent}
+                disabled={!canRunAgent}
                 className="w-full"
-                onClick={() => void runImagePromptAgent()}
+                onClick={() => void runPromptAgent()}
               >
                 {runningAgent ? 'AI 生成中...' : copy.aiButton}
               </Button>
               <p className="mt-2 text-xs leading-5 text-text-3">
                 {copy.typeCode === 'PROMPT_IMG'
                   ? '读取所有分镜单元，生成可直接复制到图片模型的提示词。'
-                  : '视频提示词 Agent 会在下一步接入。'}
+                  : '读取分镜和图片提示词，生成可直接复制到视频模型的提示词。'}
               </p>
             </div>
 
@@ -492,7 +510,7 @@ export function PromptStageBase({
             <section className="rounded-lg border border-border bg-surface-2 p-3">
               <div className="mb-2 text-xs uppercase tracking-widest text-text-4">资产篮子</div>
               <div className="text-sm text-text-2">
-                <span className="font-mono">{assets.length}</span> 条{copy.stageLabel}
+                <span className="font-mono">{currentPromptAssetCount}</span> 条{copy.stageLabel}
               </div>
               {stageState.prompt_count != null && (
                 <p className="mt-2 text-xs text-text-3">
@@ -547,9 +565,12 @@ function parseStoryboardUnits(assets: StudioAsset[]): StoryboardUnit[] {
     .sort((a, b) => a.number - b.number);
 }
 
-function parsePromptMap(assets: StudioAsset[]): Map<string, { assetId: string; text: string }> {
+function parsePromptMap(assets: StudioAsset[], typeCode: PromptTypeCode): Map<string, { assetId: string; text: string }> {
   const map = new Map<string, { assetId: string; text: string }>();
   for (const asset of assets) {
+    if (asset.type_code !== typeCode) {
+      continue;
+    }
     const meta = parseJson<PromptMeta>(asset.meta_json);
     if (typeof meta.storyboard_asset_id === 'string' && typeof meta.prompt_text === 'string') {
       map.set(meta.storyboard_asset_id, { assetId: asset.id, text: meta.prompt_text });

@@ -504,7 +504,7 @@ export function StudioWorkspaceRoute({
           <PromptVidStage
             project={project}
             storyboardAssets={assets.filter((asset) => asset.type_code === 'STORYBOARD_UNIT')}
-            assets={stageAssets}
+            assets={assets.filter((asset) => asset.type_code === 'PROMPT_VID' || asset.type_code === 'PROMPT_IMG')}
             generatedAssets={assets.filter((asset) => asset.type_code === 'SHOT_VID')}
             stateJson={bundle.stage_state['prompt-vid'] ?? null}
             locateTarget={locateTarget?.stage === 'prompt-vid' ? locateTarget : null}

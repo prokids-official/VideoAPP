@@ -15,6 +15,8 @@ import type {
   PreviewFilenameResult,
   PromptImageRunPayload,
   PromptImageRunResult,
+  PromptVideoRunPayload,
+  PromptVideoRunResult,
   RecentEpisode,
   ScriptWriterRunPayload,
   ScriptWriterRunResult,
@@ -180,6 +182,14 @@ export const api = {
     call<PromptImageRunResult>({
       method: 'POST',
       path: '/agents/prompt-img/run',
+      body: input,
+      requireAuth: true,
+    }),
+
+  promptVideoRun: (input: PromptVideoRunPayload) =>
+    call<PromptVideoRunResult>({
+      method: 'POST',
+      path: '/agents/prompt-vid/run',
       body: input,
       requireAuth: true,
     }),
