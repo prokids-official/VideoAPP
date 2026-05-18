@@ -1,10 +1,18 @@
 import ReactMarkdown from 'react-markdown';
 
-export function MdPreview({ markdown, compact = false }: { markdown: string; compact?: boolean }) {
+export function MdPreview({
+  markdown,
+  compact = false,
+  fullHeight = false,
+}: {
+  markdown: string;
+  compact?: boolean;
+  fullHeight?: boolean;
+}) {
   return (
     <div
       className={`overflow-auto rounded-lg border border-border bg-surface-2 text-sm leading-7 text-text-2 ${
-        compact ? 'max-h-[300px] px-4 py-3' : 'max-h-[72vh] px-5 py-4'
+        compact ? 'max-h-[300px] px-4 py-3' : fullHeight ? 'h-full px-5 py-4' : 'max-h-[72vh] px-5 py-4'
       }`}
     >
       <ReactMarkdown

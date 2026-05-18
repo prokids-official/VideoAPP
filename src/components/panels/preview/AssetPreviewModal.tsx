@@ -61,7 +61,7 @@ export function AssetPreviewModal({
           <motion.div
             role="dialog"
             aria-modal="true"
-            className="flex max-h-[92vh] w-full max-w-[1100px] flex-col rounded-2xl border border-border bg-surface p-6 shadow-2xl"
+            className="flex h-[92vh] w-full max-w-[1100px] flex-col rounded-2xl border border-border bg-surface p-6 shadow-2xl"
             initial={{ opacity: 0, scale: 0.98, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 8 }}
@@ -121,7 +121,7 @@ export function AssetPreviewModal({
             ) : error ? (
               <div className="flex min-h-[320px] items-center justify-center font-mono text-xs text-bad">{error}</div>
             ) : content ? (
-              <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_280px]">
                 <PreviewContent asset={asset} content={content} onCopyImage={onCopyImage} />
                 <RelatedAssetsPanel
                   asset={asset}
@@ -150,7 +150,7 @@ function RelatedAssetsPanel({
   const hasRelations = groups.some((group) => group.items.length > 0);
 
   return (
-    <aside className="rounded-lg border border-border bg-surface-2 p-4">
+    <aside className="min-h-0 overflow-y-auto rounded-lg border border-border bg-surface-2 p-4">
       <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-4">资产谱系</div>
       {!hasRelations && (
         <div className="rounded border border-dashed border-border bg-surface px-3 py-4 text-sm leading-6 text-text-3">
@@ -339,7 +339,7 @@ function PreviewContent({
   onCopyImage: () => void;
 }) {
   if (content.kind === 'markdown') {
-    return <MdPreview markdown={content.content} />;
+    return <MdPreview markdown={content.content} fullHeight />;
   }
 
   if (isImage(asset.mime_type)) {
