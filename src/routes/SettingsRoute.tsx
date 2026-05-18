@@ -230,9 +230,34 @@ function AIProviderPanel() {
       setTestResult(result.data);
       setMessage('连接成功');
     } else {
-      setMessage(result.message);
+      setMessage(formatProviderError(settings, result.message));
     }
     setTesting(false);
+  }
+
+  function applyDeepSeekPreset() {
+    const currentApiKey = settings.mode === 'custom-openai-compatible' ? settings.api_key ?? '' : '';
+    const currentModel = settings.model === 'deepseek-v4-pro' ? 'deepseek-v4-pro' : 'deepseek-v4-flash';
+    setSettings({
+      mode: 'custom-openai-compatible',
+      base_url: 'https://api.deepseek.com/v1',
+      api_key: currentApiKey,
+      model: currentModel,
+    });
+    setMessage('已切换到自带 DeepSeek Key 线路，请填入 API Key 后保存并测试。');
+    setTestResult(null);
+  }
+
+  function applyCodingPlanPreset() {
+    const currentApiKey = settings.mode === 'custom-openai-compatible' ? settings.api_key ?? '' : '';
+    setSettings({
+      mode: 'custom-openai-compatible',
+      base_url: 'https://coding.dashscope.aliyuncs.com/v1',
+      api_key: currentApiKey,
+      model: 'qwen3.6-plus',
+    });
+    setMessage('已填入 CodingPlan 多模态线路预设。');
+    setTestResult(null);
   }
 
   const isCustom = settings.mode === 'custom-openai-compatible';
@@ -246,28 +271,43 @@ function AIProviderPanel() {
             const mode = event.target.value as AIProviderConfigInput['mode'];
             setSettings(mode === 'official-deepseek'
               ? { mode, model: 'deepseek-v4-flash' }
-              : { mode, base_url: '', api_key: '', model: 'qwen3.6-plus' });
+              : {
+                mode,
+                base_url: 'https://api.deepseek.com/v1',
+                api_key: '',
+                model: 'deepseek-v4-flash',
+              });
+            setMessage(null);
+            setTestResult(null);
           }}
           className="h-10 w-full rounded-md border border-border bg-surface-2 px-3 text-sm text-text outline-none transition focus:border-accent/60"
         >
-          <option value="official-deepseek">官方 DeepSeek</option>
-          <option value="custom-openai-compatible">自定义 OpenAI-compatible</option>
+          <option value="official-deepseek">官方 DeepSeek（服务端 Key）</option>
+          <option value="custom-openai-compatible">自带 Key / OpenAI-compatible</option>
         </select>
       </label>
 
       {isCustom ? (
         <div className="grid gap-4">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={applyDeepSeekPreset}>
+              DeepSeek 预设
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={applyCodingPlanPreset}>
+              CodingPlan 预设
+            </Button>
+          </div>
           <TextInput
             label="Base URL"
             value={settings.base_url ?? ''}
             onChange={(baseUrl) => setSettings({ ...settings, base_url: baseUrl })}
-            placeholder="https://coding.dashscope.aliyuncs.com/v1"
+            placeholder="https://api.deepseek.com/v1"
           />
           <TextInput
             label="Model"
             value={settings.model}
             onChange={(model) => setSettings({ ...settings, model })}
-            placeholder="qwen3.6-plus"
+            placeholder="deepseek-v4-flash"
           />
           <TextInput
             label="API Key"
@@ -276,19 +316,35 @@ function AIProviderPanel() {
             onChange={(apiKey) => setSettings({ ...settings, api_key: apiKey })}
             placeholder="sk-..."
           />
+          <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs leading-5 text-text-3">
+            自带 Key 会把 API Key 随本次请求发给当前后端，用于你自己的 DeepSeek、CodingPlan、Kimi
+            等 OpenAI-compatible 线路。Key 只保存在本机设置里。
+          </div>
         </div>
       ) : (
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-text-2">模型</span>
-          <select
-            value={settings.model}
-            onChange={(event) => setSettings({ mode: 'official-deepseek', model: event.target.value })}
-            className="h-10 w-full rounded-md border border-border bg-surface-2 px-3 font-mono text-sm text-text outline-none transition focus:border-accent/60"
-          >
-            <option value="deepseek-v4-flash">deepseek-v4-flash</option>
-            <option value="deepseek-v4-pro">deepseek-v4-pro</option>
-          </select>
-        </label>
+        <div className="grid gap-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-text-2">模型</span>
+            <select
+              value={settings.model}
+              onChange={(event) => setSettings({ mode: 'official-deepseek', model: event.target.value })}
+              className="h-10 w-full rounded-md border border-border bg-surface-2 px-3 font-mono text-sm text-text outline-none transition focus:border-accent/60"
+            >
+              <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+              <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+            </select>
+          </label>
+          <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs leading-5 text-text-3">
+            官方 DeepSeek 使用后端部署环境里的 <span className="font-mono">AI_CHAT_API_KEY</span>。
+            如果测试连接提示未配置，说明当前 API 服务还没有接入官方 Key；临时开发或个人使用可以切到自带
+            Key。
+            <div className="mt-3">
+              <Button type="button" variant="secondary" size="sm" onClick={applyDeepSeekPreset}>
+                使用我的 DeepSeek Key
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -308,6 +364,13 @@ function AIProviderPanel() {
       )}
     </div>
   );
+}
+
+function formatProviderError(settings: AIProviderConfigInput, message: string) {
+  if (settings.mode === 'official-deepseek' && message.includes('AI_CHAT_API_KEY')) {
+    return '当前官方 DeepSeek 后端没有配置 AI_CHAT_API_KEY。请先切到“自带 Key / OpenAI-compatible”，填入你的 DeepSeek API Key 后再测试。';
+  }
+  return message;
 }
 
 function TextInput({
