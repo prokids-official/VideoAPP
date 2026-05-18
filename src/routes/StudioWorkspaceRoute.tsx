@@ -132,6 +132,7 @@ export function StudioWorkspaceRoute({
     const meta = withAgentRunMeta({
       mode: input.mode,
       style_hint: input.styleHint,
+      visual_context: input.visualContext,
       duration_sec: input.durationSec,
       skill_id: input.skillId,
       provider: input.provider,

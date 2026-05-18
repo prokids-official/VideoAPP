@@ -17,6 +17,7 @@ interface ScriptState {
   body?: string;
   mode?: ScriptMode;
   style_hint?: string;
+  visual_context?: string;
   duration_sec?: number;
   skill_id?: string;
   provider?: string;
@@ -29,6 +30,7 @@ export interface SaveScriptInput {
   body: string;
   mode: ScriptMode;
   styleHint: string;
+  visualContext: string;
   durationSec: number;
   skillId: string;
   provider: string;
@@ -53,6 +55,7 @@ export function ScriptStage({
   const [mode, setMode] = useState<ScriptMode>(initialState.mode ?? 'from-scratch');
   const [name, setName] = useState(initialState.name ?? `${project.name} · 主线剧本`);
   const [styleHint, setStyleHint] = useState(initialState.style_hint ?? '');
+  const [visualContext, setVisualContext] = useState(initialState.visual_context ?? '');
   const [durationSec, setDurationSec] = useState(String(initialState.duration_sec ?? defaultDuration(project.size_kind)));
   const [body, setBody] = useState(initialState.body ?? '');
   const [skillId, setSkillId] = useState(initialState.skill_id ?? 'grim-fairy-3d');
@@ -65,6 +68,7 @@ export function ScriptStage({
   const [lastAgentRun, setLastAgentRun] = useState<StudioAgentRunSummary | null>(initialState.last_agent_run ?? null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [analyzingVision, setAnalyzingVision] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,6 +133,7 @@ export function ScriptStage({
         body: cleanBody,
         mode,
         styleHint: styleHint.trim(),
+        visualContext: visualContext.trim(),
         durationSec: cleanDuration,
         skillId,
         provider: 'company-default',
@@ -173,6 +178,40 @@ export function ScriptStage({
     }
   }
 
+  async function runVisionBrief() {
+    setAnalyzingVision(true);
+    setStatus(null);
+    setError(null);
+    try {
+      const picked = await window.fableglitch.fs.openFileDialog([{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]);
+      if (!picked) {
+        return;
+      }
+      const result = await api.visionBriefRun({
+        skill_id: 'reference-image-briefing',
+        input: {
+          prompt: 'Summarize visible reference-image facts for the downstream DeepSeek script writer.',
+          images: [
+            {
+              url: imageDataUrl(picked.name, picked.content),
+              label: picked.name,
+            },
+          ],
+        },
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setVisualContext(result.data.run.brief);
+      setStatus(`Vision brief generated with ${result.data.run.provider}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Vision brief failed');
+    } finally {
+      setAnalyzingVision(false);
+    }
+  }
+
   async function runScriptWriterDryRun() {
     if (!skillId || loadingSkills || runningAgent) {
       return;
@@ -190,7 +229,7 @@ export function ScriptStage({
           mode,
           duration_sec: cleanDuration,
           style_hint: styleHint.trim(),
-          inspiration_text: project.inspiration_text?.trim() ?? '',
+          inspiration_text: buildInspirationText(project.inspiration_text?.trim() ?? '', visualContext.trim()),
           existing_script: cleanBody,
         },
       });
@@ -295,6 +334,24 @@ export function ScriptStage({
               placeholder="例如：黑色童话、克制冷感、现代短剧节奏..."
               className="w-full resize-none rounded-lg border border-border bg-surface-2 px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60 focus:bg-surface-3"
             />
+          </div>
+
+          <div className="rounded-lg border border-border bg-surface-2 p-3">
+            <div className="mb-2 text-xs uppercase tracking-widest text-text-4">Vision context</div>
+            <textarea
+              aria-label="Vision context"
+              value={visualContext}
+              rows={4}
+              onChange={(event) => setVisualContext(event.target.value)}
+              placeholder="Reference-image facts will appear here before DeepSeek writes the script."
+              className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60 focus:bg-surface-3"
+            />
+            <Button type="button" variant="secondary" disabled={analyzingVision} className="mt-2 w-full" onClick={() => void runVisionBrief()}>
+              {analyzingVision ? 'Vision brief...' : 'Vision brief'}
+            </Button>
+            <p className="mt-2 text-xs leading-5 text-text-3">
+              CodingPlan only describes references; DeepSeek still handles the script.
+            </p>
           </div>
 
           <div className="rounded-lg border border-border bg-surface-2 p-3">
@@ -499,6 +556,39 @@ function orderSkillsByActivation(skills: SkillCatalogItem[], activeIds: string[]
 function formatDryRunPromptPreview(messages: AgentMessage[]) {
   const parts = messages.map((message) => `## ${message.role.toUpperCase()}\n\n${message.content.trim()}`);
   return `# Script Writer Agent Dry Run\n\n${parts.join('\n\n---\n\n')}\n`;
+}
+
+function buildInspirationText(inspirationText: string, visualContext: string) {
+  if (!visualContext) {
+    return inspirationText;
+  }
+  return [inspirationText, '', 'Reference image context:', visualContext].filter((part) => part !== '').join('\n');
+}
+
+function imageDataUrl(filename: string, content: Uint8Array) {
+  return `data:${imageMimeType(filename)};base64,${uint8ToBase64(content)}`;
+}
+
+function imageMimeType(filename: string) {
+  const ext = filename.toLowerCase().split('.').pop();
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'png':
+    default:
+      return 'image/png';
+  }
+}
+
+function uint8ToBase64(bytes: Uint8Array) {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index] ?? 0);
+  }
+  return btoa(binary);
 }
 
 function uint8ToArrayBuffer(bytes: Uint8Array): ArrayBuffer {

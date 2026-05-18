@@ -18,6 +18,7 @@ vi.mock('../../../lib/api', () => ({
   api: {
     skills: vi.fn(),
     scriptWriterRun: vi.fn(),
+    visionBriefRun: vi.fn(),
   },
 }));
 
@@ -102,6 +103,28 @@ describe('ScriptStage', () => {
             promptTokens: 123,
             completionTokens: 45,
             totalTokens: 168,
+          },
+        },
+      },
+    });
+    vi.mocked(api.visionBriefRun).mockResolvedValue({
+      ok: true,
+      data: {
+        run: {
+          status: 'completed',
+          provider: 'codingplan',
+          model: 'qwen3.6-plus',
+          skill: {
+            id: 'reference-image-briefing',
+            name_cn: 'Reference Image Briefing',
+            category: 'vision-context',
+            version: 1,
+          },
+          brief: 'A red square reference with flat lighting.',
+          usage: {
+            promptTokens: 12,
+            completionTokens: 8,
+            totalTokens: 20,
           },
         },
       },
@@ -201,6 +224,48 @@ describe('ScriptStage', () => {
     expect(screen.getAllByText('grim-fairy-3d').length).toBeGreaterThan(1);
   });
 
+  it('turns a reference image into visual context before sending the script job to DeepSeek', async () => {
+    const { container } = render(
+      <ScriptStage project={project} assets={[]} stateJson={null} onSave={vi.fn()} onAdvance={vi.fn()} />,
+    );
+    vi.mocked(window.fableglitch.fs.openFileDialog).mockResolvedValueOnce({
+      path: 'E:\\ref.png',
+      name: 'ref.png',
+      size_bytes: 3,
+      content: new Uint8Array([1, 2, 3]),
+    });
+
+    fireEvent.click(await waitFor(() => findButton('Vision brief')));
+
+    await waitFor(() => {
+      expect(api.visionBriefRun).toHaveBeenCalledWith({
+        skill_id: 'reference-image-briefing',
+        input: {
+          prompt: 'Summarize visible reference-image facts for the downstream DeepSeek script writer.',
+          images: [
+            {
+              url: 'data:image/png;base64,AQID',
+              label: 'ref.png',
+            },
+          ],
+        },
+      });
+    });
+
+    expect((screen.getByLabelText('Vision context') as HTMLTextAreaElement).value).toBe('A red square reference with flat lighting.');
+
+    fireEvent.change(requiredInput(container, '#studio-script-style'), { target: { value: 'Cold fairytale' } });
+    fireEvent.click(findButton('AI'));
+
+    await waitFor(() => {
+      expect(api.scriptWriterRun).toHaveBeenCalledWith(expect.objectContaining({
+        input: expect.objectContaining({
+          inspiration_text: expect.stringContaining('Reference image context:\nA red square reference with flat lighting.'),
+        }),
+      }));
+    });
+  });
+
   it('saves markdown as a SCRIPT asset with reproducible agent metadata', async () => {
     const onSave = vi.fn(async () => scriptAsset);
     const { container } = render(
@@ -219,6 +284,7 @@ describe('ScriptStage', () => {
         body: 'Rain falls on the broken neon.',
         mode: 'from-scratch',
         styleHint: 'Cold fairytale',
+        visualContext: '',
         durationSec: 90,
         skillId: 'grim-fairy-3d',
         provider: 'company-default',
