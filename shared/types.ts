@@ -171,6 +171,7 @@ export interface SkillCreateResult {
 }
 
 export type OfficialDeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro';
+export type OfficialCodingPlanVisionModel = 'qwen3.6-plus' | 'qwen3.5-plus';
 export type AIProviderMode = 'official-deepseek' | 'custom-openai-compatible';
 
 export interface AIProviderConfigInput {
@@ -347,6 +348,36 @@ export interface PromptVideoRunResult {
     skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
     messages: AgentMessage[];
     prompts: PromptVideoOutput[];
+    usage?: {
+      promptTokens: number | null;
+      completionTokens: number | null;
+      totalTokens: number | null;
+    };
+  };
+}
+
+export interface VisionBriefImageInput {
+  url: string;
+  label?: string;
+}
+
+export interface VisionBriefRunInput {
+  prompt?: string;
+  images: VisionBriefImageInput[];
+}
+
+export interface VisionBriefRunPayload {
+  skill_id: string;
+  input: VisionBriefRunInput;
+}
+
+export interface VisionBriefRunResult {
+  run: {
+    status: 'completed';
+    provider: 'codingplan';
+    model: OfficialCodingPlanVisionModel;
+    skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
+    brief: string;
     usage?: {
       promptTokens: number | null;
       completionTokens: number | null;

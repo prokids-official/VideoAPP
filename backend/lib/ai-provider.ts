@@ -1,8 +1,13 @@
-import type { AIProviderConfigInput, OfficialDeepSeekModel } from '../../shared/types';
+import type { AIProviderConfigInput, OfficialCodingPlanVisionModel, OfficialDeepSeekModel } from '../../shared/types';
 
 export const OFFICIAL_DEEPSEEK_MODELS: OfficialDeepSeekModel[] = [
   'deepseek-v4-flash',
   'deepseek-v4-pro',
+];
+
+export const OFFICIAL_CODINGPLAN_VISION_MODELS: OfficialCodingPlanVisionModel[] = [
+  'qwen3.6-plus',
+  'qwen3.5-plus',
 ];
 
 export interface ServerProviderDefaults {
@@ -17,6 +22,13 @@ export interface ResolvedChatProviderConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+}
+
+export interface ResolvedVisionProviderConfig {
+  provider: 'codingplan';
+  baseUrl: string;
+  apiKey: string;
+  model: OfficialCodingPlanVisionModel;
 }
 
 export function resolveChatProviderConfig(
@@ -40,10 +52,25 @@ export function resolveChatProviderConfig(
   };
 }
 
+export function resolveVisionProviderConfig(defaults: ServerProviderDefaults): ResolvedVisionProviderConfig {
+  return {
+    provider: 'codingplan',
+    baseUrl: cleanBaseUrl(defaults.baseUrl),
+    apiKey: defaults.apiKey,
+    model: officialCodingPlanVisionModel(defaults.model),
+  };
+}
+
 export function officialDeepSeekModel(value: unknown): OfficialDeepSeekModel {
   return OFFICIAL_DEEPSEEK_MODELS.includes(value as OfficialDeepSeekModel)
     ? value as OfficialDeepSeekModel
     : 'deepseek-v4-flash';
+}
+
+export function officialCodingPlanVisionModel(value: unknown): OfficialCodingPlanVisionModel {
+  return OFFICIAL_CODINGPLAN_VISION_MODELS.includes(value as OfficialCodingPlanVisionModel)
+    ? value as OfficialCodingPlanVisionModel
+    : 'qwen3.6-plus';
 }
 
 function cleanBaseUrl(value: string) {

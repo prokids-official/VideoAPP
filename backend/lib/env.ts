@@ -21,6 +21,10 @@ const schema = z.object({
   AI_CHAT_BASE_URL: z.string().url().default('https://api.deepseek.com/v1'),
   AI_CHAT_API_KEY: z.string().optional(),
   AI_CHAT_MODEL: z.string().default('deepseek-v4-flash'),
+  AI_VISION_PROVIDER: z.string().default('codingplan'),
+  AI_VISION_BASE_URL: z.string().url().default('https://coding.dashscope.aliyuncs.com/v1'),
+  AI_VISION_API_KEY: z.string().optional(),
+  AI_VISION_MODEL: z.string().default('qwen3.6-plus'),
 });
 
 const parsed = schema.safeParse(process.env);

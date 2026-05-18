@@ -30,6 +30,8 @@ import type {
   TreeResponse,
   UsageMeResponse,
   User,
+  VisionBriefRunPayload,
+  VisionBriefRunResult,
 } from '../../shared/types';
 
 interface NetRequestPayload {
@@ -190,6 +192,14 @@ export const api = {
     call<PromptVideoRunResult>({
       method: 'POST',
       path: '/agents/prompt-vid/run',
+      body: input,
+      requireAuth: true,
+    }),
+
+  visionBriefRun: (input: VisionBriefRunPayload) =>
+    call<VisionBriefRunResult>({
+      method: 'POST',
+      path: '/agents/vision-brief/run',
       body: input,
       requireAuth: true,
     }),

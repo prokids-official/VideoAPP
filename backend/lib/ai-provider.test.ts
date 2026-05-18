@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveChatProviderConfig } from './ai-provider';
+import { resolveChatProviderConfig, resolveVisionProviderConfig } from './ai-provider';
 
 describe('resolveChatProviderConfig', () => {
   it('uses server official defaults and restricts official model choices', () => {
@@ -55,5 +55,28 @@ describe('resolveChatProviderConfig', () => {
       apiKey: 'sk-custom',
       model: 'qwen3.6-plus',
     });
+  });
+});
+
+describe('resolveVisionProviderConfig', () => {
+  it('uses the official CodingPlan vision defaults and restricts model choices', () => {
+    expect(resolveVisionProviderConfig({
+      provider: 'codingplan',
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+      apiKey: 'sk-vision',
+      model: 'qwen3.6-plus',
+    })).toEqual({
+      provider: 'codingplan',
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+      apiKey: 'sk-vision',
+      model: 'qwen3.6-plus',
+    });
+
+    expect(resolveVisionProviderConfig({
+      provider: 'codingplan',
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/v1/',
+      apiKey: 'sk-vision',
+      model: 'deepseek-v4-pro',
+    }).model).toBe('qwen3.6-plus');
   });
 });
