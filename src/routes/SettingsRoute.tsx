@@ -335,9 +335,8 @@ function AIProviderPanel() {
             </select>
           </label>
           <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs leading-5 text-text-3">
-            官方 DeepSeek 使用后端部署环境里的 <span className="font-mono">AI_CHAT_API_KEY</span>。
-            如果测试连接提示未配置，说明当前 API 服务还没有接入官方 Key；临时开发或个人使用可以切到自带
-            Key。
+            官方 DeepSeek 的 Key 由线上后端安全托管，客户端不会显示或保存这把 Key。配置后请重新部署后端，
+            再点击测试连接确认当前 API 服务已经读取到新环境变量。
             <div className="mt-3">
               <Button type="button" variant="secondary" size="sm" onClick={applyDeepSeekPreset}>
                 使用我的 DeepSeek Key
