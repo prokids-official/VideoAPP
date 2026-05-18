@@ -106,6 +106,36 @@ describe('AssetEntityStage', () => {
     });
   });
 
+  it('shows and copies the saved prompt from entity asset metadata', async () => {
+    const asset = makeAsset('CHAR', 'saved-character', {
+      ai_prompt: 'cinematic saved character prompt',
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <CharacterStage
+        project={project}
+        assets={[asset]}
+        stateJson={null}
+        onSave={vi.fn()}
+        onAdvance={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('保存的 Prompt')).toBeTruthy();
+    expect(screen.getByText('cinematic saved character prompt')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '复制' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('cinematic saved character prompt');
+    });
+  });
+
   it('saves a SCENE asset with scene-specific fields', async () => {
     const onSave = vi.fn(async () => makeAsset('SCENE', '破庙'));
 
@@ -152,7 +182,7 @@ describe('AssetEntityStage', () => {
   });
 });
 
-function makeAsset(typeCode: string, name: string) {
+function makeAsset(typeCode: string, name: string, meta: Record<string, string> = {}) {
   return {
     id: `asset-${typeCode}`,
     project_id: 'studio-1',
@@ -160,7 +190,7 @@ function makeAsset(typeCode: string, name: string) {
     name,
     variant: null,
     version: 1,
-    meta_json: '{}',
+    meta_json: JSON.stringify(meta),
     content_path: null,
     size_bytes: null,
     mime_type: null,

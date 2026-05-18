@@ -306,6 +306,19 @@ function EntityAssetCard({
   onImportImage?: () => void;
   onReadAssetFile?: (asset: StudioAsset) => Promise<Uint8Array>;
 }) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const savedPrompt = readSavedPrompt(asset.meta_json);
+
+  async function copySavedPrompt() {
+    if (!savedPrompt) return;
+    try {
+      await navigator.clipboard.writeText(savedPrompt);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-surface-2">
       <EntityImagePreview asset={asset} onReadAssetFile={onReadAssetFile} />
@@ -316,6 +329,25 @@ function EntityAssetCard({
           <span className="font-mono">v{asset.version}</span>
         </div>
         <div className="mt-2 text-xs text-text-3">{formatSize(asset.size_bytes)}</div>
+        {savedPrompt && (
+          <div className="mt-3 rounded-md border border-border/80 bg-surface px-2.5 py-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="text-[11px] uppercase tracking-widest text-text-4">保存的 Prompt</div>
+              <button
+                type="button"
+                onClick={() => void copySavedPrompt()}
+                className="shrink-0 rounded border border-border bg-surface-2 px-2 py-1 text-[11px] text-text-3 transition hover:border-accent/40 hover:text-text"
+              >
+                复制
+              </button>
+            </div>
+            <p className="max-h-24 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-5 text-text-3">
+              {savedPrompt}
+            </p>
+            {copyState === 'copied' && <div className="mt-1 text-[11px] text-good">Prompt 已复制</div>}
+            {copyState === 'failed' && <div className="mt-1 text-[11px] text-bad">复制失败</div>}
+          </div>
+        )}
         {onImportImage && (
           <Button
             type="button"
@@ -393,6 +425,16 @@ function parseEntityState(stateJson: string | null | undefined): EntityState {
     return JSON.parse(stateJson) as EntityState;
   } catch {
     return {};
+  }
+}
+
+function readSavedPrompt(metaJson: string | null | undefined): string {
+  if (!metaJson) return '';
+  try {
+    const parsed = JSON.parse(metaJson) as Record<string, unknown>;
+    return typeof parsed.ai_prompt === 'string' ? parsed.ai_prompt.trim() : '';
+  } catch {
+    return '';
   }
 }
 
