@@ -157,6 +157,15 @@ export interface SkillsListResult {
   skills: SkillCatalogItem[];
 }
 
+export interface SkillDetailItem extends SkillCatalogItem {
+  body: string;
+  filename: 'SKILL.md';
+}
+
+export interface SkillDetailResult {
+  skill: SkillDetailItem;
+}
+
 export interface SkillCreatePayload {
   id?: string;
   name_cn: string;
@@ -386,6 +395,78 @@ export interface VisionBriefRunResult {
   };
 }
 
+export interface AssetLibraryCharacterOutput {
+  name: string;
+  variant?: string | null;
+  appearance?: string;
+  clothing?: string;
+  personality?: string;
+  palette?: string;
+  visual_anchor?: string;
+  ai_prompt?: string;
+}
+
+export interface AssetLibrarySceneOutput {
+  name: string;
+  variant?: string | null;
+  atmosphere?: string;
+  materials?: string;
+  landmarks?: string;
+  color_temperature?: string;
+  visual_anchor?: string;
+  ai_prompt?: string;
+}
+
+export interface AssetLibraryPropOutput {
+  name: string;
+  variant?: string | null;
+  description?: string;
+  visual_anchor?: string;
+  ai_prompt?: string;
+}
+
+export interface AssetLibraryOutputs {
+  characters: AssetLibraryCharacterOutput[];
+  scenes: AssetLibrarySceneOutput[];
+  props: AssetLibraryPropOutput[];
+}
+
+export interface AssetLibraryStoryboardUnitInput {
+  number: number;
+  summary: string;
+  duration_s: number;
+}
+
+export interface AssetLibraryRunInput {
+  project_name: string;
+  style_hint: string;
+  inspiration_text: string;
+  script_markdown: string;
+  storyboard_units: AssetLibraryStoryboardUnitInput[];
+}
+
+export interface AssetLibraryRunPayload {
+  skill_id: string;
+  provider_config?: AIProviderConfigInput;
+  input: AssetLibraryRunInput;
+}
+
+export interface AssetLibraryRunResult {
+  run: {
+    status: 'completed';
+    provider: string;
+    model: string;
+    skill: Pick<SkillCatalogItem, 'id' | 'name_cn' | 'category' | 'version'>;
+    messages: AgentMessage[];
+    assets: AssetLibraryOutputs;
+    usage?: {
+      promptTokens: number | null;
+      completionTokens: number | null;
+      totalTokens: number | null;
+    };
+  };
+}
+
 export type IdeaStatus = 'pending' | 'accepted' | 'rejected' | 'shipped';
 
 export interface IdeaSummary {
@@ -455,6 +536,7 @@ export interface LocalDraft {
   size_bytes: number;
   mime_type: string;
   source: AssetSource;
+  metadata_json?: string | null;
   created_at: string;
 }
 
@@ -566,6 +648,7 @@ export interface AssetRow {
   storage_ref: string;
   file_size_bytes: number | null;
   mime_type: string | null;
+  storage_metadata?: Record<string, unknown> | null;
   pushed_at: string;
   status: 'draft' | 'pushed' | 'superseded';
 }
@@ -635,6 +718,7 @@ export interface AssetPushItem {
   original_filename?: string;
   mime_type: string;
   size_bytes: number;
+  metadata?: Record<string, unknown>;
   relations?: Array<{
     relation_type: AssetRelationType;
     target_local_draft_id: string;

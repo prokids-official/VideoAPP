@@ -342,6 +342,11 @@ function DraftRow({ draft, selected, onToggle }: { draft: LocalDraft; selected: 
       <span className={`flex-none rounded border px-2 py-1 font-mono text-2xs ${SOURCE_STYLES[draft.source]}`}>
         {SOURCE_LABELS[draft.source]}
       </span>
+      {readDraftPrompt(draft) && (
+        <span className="flex-none rounded border border-accent/30 bg-accent/10 px-2 py-1 font-mono text-2xs text-accent-hi">
+          prompt
+        </span>
+      )}
       <span className="flex-none font-mono text-xs text-text-3">{formatBytes(draft.size_bytes)}</span>
     </label>
   );
@@ -432,7 +437,27 @@ function toPushItem(draft: LocalDraft): AssetPushItem {
     original_filename: draft.original_filename ?? undefined,
     mime_type: draft.mime_type,
     size_bytes: draft.size_bytes,
+    metadata: readDraftMetadata(draft) ?? undefined,
   };
+}
+
+function readDraftMetadata(draft: LocalDraft): Record<string, unknown> | null {
+  if (!draft.metadata_json) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(draft.metadata_json) as unknown;
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function readDraftPrompt(draft: LocalDraft) {
+  const metadata = readDraftMetadata(draft);
+  return typeof metadata?.ai_prompt === 'string' && metadata.ai_prompt.trim() ? metadata.ai_prompt.trim() : '';
 }
 
 async function readDraftFiles(drafts: LocalDraft[]): Promise<Record<string, ArrayBuffer>> {

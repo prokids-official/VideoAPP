@@ -38,9 +38,11 @@ export function ImportPreviewDialog({
   mode?: 'import' | 'paste';
 }) {
   const [name, setName] = useState(file.name.replace(/\.[^.]+$/, ''));
+  const [assetPrompt, setAssetPrompt] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wordCount = useMemo(() => countText(file.preview_text ?? ''), [file.preview_text]);
+  const canAttachPrompt = supportsAssetPrompt(assetType.code);
 
   async function save() {
     setSaving(true);
@@ -62,6 +64,9 @@ export function ImportPreviewDialog({
           storage_ref: preview.storage_ref,
           size_bytes: file.size,
           mime_type: file.mime_type,
+          metadata_json: canAttachPrompt && assetPrompt.trim()
+            ? JSON.stringify({ ai_prompt: assetPrompt.trim() })
+            : null,
           source: mode === 'paste' ? 'pasted' : 'imported',
         },
         file.save_content,
@@ -110,6 +115,19 @@ export function ImportPreviewDialog({
             </div>
 
             <Input label="名称" value={name} onChange={(event) => setName(event.target.value)} />
+
+            {canAttachPrompt && (
+              <label className="mb-4 block">
+                <span className="mb-2 block text-sm font-medium text-text-2">对应 AI Prompt</span>
+                <textarea
+                  aria-label="对应 AI Prompt"
+                  value={assetPrompt}
+                  onChange={(event) => setAssetPrompt(event.target.value)}
+                  placeholder="这个角色/场景/道具对应的生图提示词，可为空，后续也可以从 Studio 资产卡复制过来。"
+                  className="min-h-24 w-full resize-y rounded-md border border-border bg-surface-2 px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60"
+                />
+              </label>
+            )}
 
             <div className="mb-4 rounded-lg border border-accent/30 bg-accent/10 p-4">
               <div className="font-mono text-xs uppercase tracking-[0.04em] text-text-3 mb-2">final filename</div>
@@ -192,4 +210,8 @@ function PreviewBody({ file }: { file: PendingImportFile }) {
 
 function countText(value: string): number {
   return value.replace(/\s/g, '').length;
+}
+
+function supportsAssetPrompt(typeCode: string) {
+  return typeCode === 'CHAR' || typeCode === 'SCENE' || typeCode === 'PROP';
 }

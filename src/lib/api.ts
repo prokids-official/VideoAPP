@@ -1,5 +1,7 @@
 import type {
   ApiResponse,
+  AssetLibraryRunPayload,
+  AssetLibraryRunResult,
   AIProviderTestPayload,
   AIProviderTestResult,
   AssetsListResult,
@@ -22,6 +24,7 @@ import type {
   ScriptWriterRunResult,
   SkillCreatePayload,
   SkillCreateResult,
+  SkillDetailResult,
   SkillsListResult,
   StorageBackend,
   StoryboardRunPayload,
@@ -164,6 +167,9 @@ export const api = {
   createSkill: (input: SkillCreatePayload) =>
     call<SkillCreateResult>({ method: 'POST', path: '/skills', body: input, requireAuth: true }),
 
+  skillDetail: (id: string) =>
+    call<SkillDetailResult>({ method: 'GET', path: `/skills/${encodeURIComponent(id)}`, requireAuth: true }),
+
   scriptWriterRun: (input: ScriptWriterRunPayload) =>
     call<ScriptWriterRunResult>({
       method: 'POST',
@@ -200,6 +206,14 @@ export const api = {
     call<VisionBriefRunResult>({
       method: 'POST',
       path: '/agents/vision-brief/run',
+      body: input,
+      requireAuth: true,
+    }),
+
+  assetLibraryRun: (input: AssetLibraryRunPayload) =>
+    call<AssetLibraryRunResult>({
+      method: 'POST',
+      path: '/agents/asset-library/run',
       body: input,
       requireAuth: true,
     }),

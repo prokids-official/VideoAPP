@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { StudioAsset, StudioProject } from '../../../../shared/types';
+import type {
+  AIProviderConfigInput,
+  AssetLibraryOutputs,
+  SkillCatalogItem,
+  StudioAgentRunSummary,
+  StudioAsset,
+  StudioProject,
+} from '../../../../shared/types';
+import { api } from '../../../lib/api';
+import { createAgentRunSummary } from '../../../lib/agent-run-summary';
+import { providerConfigForSkill } from '../../../lib/ai-model-routing';
+import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
+import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
+import { AgentRunCard } from '../AgentRunCard';
 import { StudioThreeColumn } from '../StudioThreeColumn';
 
 export interface EntityField {
@@ -25,7 +38,8 @@ export interface SaveEntityInput {
   typeCode: 'CHAR' | 'SCENE' | 'PROP';
   name: string;
   variant: string | null;
-  meta: Record<string, string>;
+  meta: Record<string, unknown>;
+  agentRun?: StudioAgentRunSummary;
 }
 
 export interface ImportEntityImageInput {
@@ -42,6 +56,7 @@ interface EntityState {
   name?: string;
   variant?: string | null;
   meta?: Record<string, string>;
+  last_agent_run?: StudioAgentRunSummary;
 }
 
 export function AssetEntityStage({
@@ -53,9 +68,11 @@ export function AssetEntityStage({
   onImportImage,
   onReadAssetFile,
   onAdvance,
+  sourceAssets = [],
 }: {
   project: StudioProject;
   assets: StudioAsset[];
+  sourceAssets?: StudioAsset[];
   stateJson: string | null | undefined;
   config: AssetEntityConfig;
   onSave: (input: SaveEntityInput) => Promise<StudioAsset>;
@@ -74,6 +91,12 @@ export function AssetEntityStage({
     return values;
   });
   const [saving, setSaving] = useState(false);
+  const [runningAgent, setRunningAgent] = useState(false);
+  const [providerConfig, setProviderConfig] = useState<AIProviderConfigInput>(defaultAiProviderSettings);
+  const [skills, setSkills] = useState<SkillCatalogItem[]>([]);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
+  const [selectedSkillId, setSelectedSkillId] = useState('');
+  const [lastAgentRun, setLastAgentRun] = useState<StudioAgentRunSummary | null>(initialState.last_agent_run ?? null);
   const [importingAssetId, setImportingAssetId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +105,46 @@ export function AssetEntityStage({
   const meta = Object.fromEntries(
     config.fields.map((field) => [field.key, (fieldValues[field.key] ?? '').trim()]),
   );
+  const orderedSkills = useMemo(
+    () => orderSkills(skills, activeSkillIds),
+    [activeSkillIds, skills],
+  );
+  const selectedSkill = orderedSkills.find((skill) => skill.id === selectedSkillId) ?? orderedSkills[0] ?? null;
+  const routedProviderConfig = providerConfigForSkill(providerConfig, selectedSkill);
+  const canRunAssetAgent = Boolean(selectedSkill) && !saving && !runningAgent;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAgentSettings() {
+      const [settings, activeIds, catalog] = await Promise.all([
+        loadAiProviderSettings(),
+        loadActiveSkillIds(),
+        api.skills('asset-library'),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setProviderConfig(settings);
+      setActiveSkillIds(activeIds);
+      if (catalog.ok) {
+        const loadedSkills = catalog.data.skills;
+        const ordered = orderSkills(loadedSkills, activeIds);
+        setSkills(loadedSkills);
+        setSelectedSkillId((current) => current || ordered[0]?.id || '');
+      } else {
+        setError(catalog.message);
+      }
+    }
+
+    void loadAgentSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function save() {
     setSaving(true);
@@ -159,6 +222,69 @@ export function AssetEntityStage({
     }
   }
 
+  async function runAssetLibraryAgent() {
+    if (!selectedSkill) {
+      return;
+    }
+
+    setRunningAgent(true);
+    setStatus(null);
+    setError(null);
+    try {
+      const [scriptMarkdown, storyboardUnits] = await Promise.all([
+        readLatestScript(sourceAssets),
+        Promise.resolve(readStoryboardUnits(sourceAssets)),
+      ]);
+      const result = await api.assetLibraryRun({
+        skill_id: selectedSkill.id,
+        provider_config: routedProviderConfig,
+        input: {
+          project_name: project.name,
+          style_hint: '',
+          inspiration_text: project.inspiration_text ?? '',
+          script_markdown: scriptMarkdown,
+          storyboard_units: storyboardUnits,
+        },
+      });
+
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+
+      const generated = outputsForType(result.data.run.assets, config.typeCode);
+      const agentRun = createAgentRunSummary({
+        stage: entityStage(config.typeCode),
+        skill: result.data.run.skill,
+        provider: result.data.run.provider,
+        model: result.data.run.model,
+        outputCount: generated.length,
+        usage: result.data.run.usage,
+      });
+
+      for (const item of generated) {
+        await onSave({
+          typeCode: config.typeCode,
+          name: item.name,
+          variant: item.variant,
+          meta: item.meta,
+          agentRun,
+        });
+      }
+
+      setLastAgentRun(agentRun);
+      setStatus(`AI 已生成 ${generated.length} 个${config.stageLabel}资产`);
+      if (generated[0]) {
+        setName(generated[0].name);
+        setVariant(generated[0].variant ?? '');
+        setFieldValues((current) => ({ ...current, ...generated[0].meta }));
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'AI 资产生成失败');
+    } finally {
+      setRunningAgent(false);
+    }
+  }
+
   return (
     <StudioThreeColumn
       left={
@@ -173,15 +299,35 @@ export function AssetEntityStage({
 
           <div className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">AI 协助</div>
+            {orderedSkills.length > 1 && (
+              <select
+                aria-label={`${config.typeCode} asset skill`}
+                value={selectedSkill?.id ?? ''}
+                onChange={(event) => setSelectedSkillId(event.target.value)}
+                className="mb-2 h-9 w-full rounded-md border border-border bg-surface px-2 text-sm text-text outline-none focus:border-accent/60"
+              >
+                {orderedSkills.map((skill) => (
+                  <option key={skill.id} value={skill.id}>
+                    {skill.name_cn}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedSkill && (
+              <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-3">
+                <span className="truncate">{selectedSkill.name_cn}</span>
+                <span className="font-mono">{routedProviderConfig.model}</span>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
-              <Button type="button" variant="secondary" disabled>
-                {config.aiGenerateLabel}
+              <Button type="button" variant="secondary" disabled={!canRunAssetAgent} onClick={() => void runAssetLibraryAgent()}>
+                {runningAgent ? 'AI 生成中...' : config.aiGenerateLabel}
               </Button>
               <Button type="button" variant="secondary" disabled>
                 {config.aiExtractLabel}
               </Button>
             </div>
-            <p className="mt-2 text-xs leading-5 text-text-3">P1.3 接入 Agent 后启用。</p>
+            <p className="mt-2 text-xs leading-5 text-text-3">读取剧本和分镜上下文，保存为可复用资产卡和 ai_prompt。</p>
           </div>
 
           <Button type="button" variant="secondary" onClick={resetForm}>
@@ -270,6 +416,7 @@ export function AssetEntityStage({
       }
       right={
         <div className="space-y-3">
+          <AgentRunCard run={lastAgentRun} />
           <div className="text-xs uppercase tracking-widest text-text-4">资产篮子</div>
           {assets.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-surface-2 px-3 py-6 text-sm leading-6 text-text-3">
@@ -426,6 +573,122 @@ function parseEntityState(stateJson: string | null | undefined): EntityState {
   } catch {
     return {};
   }
+}
+
+function orderSkills(skills: SkillCatalogItem[], activeSkillIds: string[]) {
+  return [...skills].sort((a, b) => {
+    const aActive = activeSkillIds.includes(a.id) ? 0 : 1;
+    const bActive = activeSkillIds.includes(b.id) ? 0 : 1;
+    return aActive - bActive || a.name_cn.localeCompare(b.name_cn);
+  });
+}
+
+function entityStage(typeCode: 'CHAR' | 'SCENE' | 'PROP') {
+  switch (typeCode) {
+    case 'SCENE':
+      return 'scene';
+    case 'PROP':
+      return 'prop';
+    case 'CHAR':
+    default:
+      return 'character';
+  }
+}
+
+async function readLatestScript(sourceAssets: StudioAsset[]) {
+  const script = sourceAssets.find((asset) => asset.type_code === 'SCRIPT');
+  if (!script || !window.fableglitch?.studio?.assetReadFile) {
+    return '';
+  }
+
+  try {
+    const bytes = await window.fableglitch.studio.assetReadFile(script.id);
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return '';
+  }
+}
+
+function readStoryboardUnits(sourceAssets: StudioAsset[]) {
+  return sourceAssets
+    .filter((asset) => asset.type_code === 'STORYBOARD_UNIT')
+    .map((asset) => {
+      const meta = parseJsonObject(asset.meta_json);
+      return {
+        number: readNumber(meta.number, 1),
+        summary: readString(meta.summary) || asset.name,
+        duration_s: readNumber(meta.duration_s, 8),
+      };
+    })
+    .filter((unit) => unit.summary.trim().length > 0);
+}
+
+function outputsForType(outputs: AssetLibraryOutputs, typeCode: 'CHAR' | 'SCENE' | 'PROP') {
+  if (typeCode === 'CHAR') {
+    return outputs.characters.map((item) => ({
+      name: item.name,
+      variant: item.variant ?? null,
+      meta: stringifyMeta({
+        appearance: item.appearance,
+        clothing: item.clothing,
+        personality: item.personality,
+        palette: item.palette,
+        visual_anchor: item.visual_anchor,
+        ai_prompt: item.ai_prompt,
+      }),
+    }));
+  }
+
+  if (typeCode === 'SCENE') {
+    return outputs.scenes.map((item) => ({
+      name: item.name,
+      variant: item.variant ?? null,
+      meta: stringifyMeta({
+        atmosphere: item.atmosphere,
+        materials: item.materials,
+        landmarks: item.landmarks,
+        color_temperature: item.color_temperature,
+        visual_anchor: item.visual_anchor,
+        ai_prompt: item.ai_prompt,
+      }),
+    }));
+  }
+
+  return outputs.props.map((item) => ({
+    name: item.name,
+    variant: item.variant ?? null,
+    meta: stringifyMeta({
+      description: item.description,
+      visual_anchor: item.visual_anchor,
+      ai_prompt: item.ai_prompt,
+    }),
+  }));
+}
+
+function stringifyMeta(meta: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(meta).map(([key, value]) => [key, typeof value === 'string' ? value : '']),
+  );
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function readString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function readNumber(value: unknown, fallback: number) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.max(1, Math.round(parsed)) : fallback;
 }
 
 function readSavedPrompt(metaJson: string | null | undefined): string {

@@ -13,6 +13,7 @@ const SCENE_FIELDS = [
 export function SceneStage({
   project,
   assets,
+  sourceAssets,
   stateJson,
   onSave,
   onImportImage,
@@ -21,6 +22,7 @@ export function SceneStage({
 }: {
   project: StudioProject;
   assets: StudioAsset[];
+  sourceAssets?: StudioAsset[];
   stateJson: string | null | undefined;
   onSave: (input: SaveEntityInput) => Promise<StudioAsset>;
   onImportImage?: (input: ImportEntityImageInput) => Promise<StudioAsset>;
@@ -31,6 +33,7 @@ export function SceneStage({
     <AssetEntityStage
       project={project}
       assets={assets}
+      sourceAssets={sourceAssets}
       stateJson={stateJson}
       config={{
         typeCode: 'SCENE',

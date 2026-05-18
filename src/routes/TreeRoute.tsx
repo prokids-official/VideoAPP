@@ -352,6 +352,7 @@ export function TreeRoute({
       final_filename: asset.final_filename,
       storage_backend: asset.storage_backend,
       storage_ref: asset.storage_ref,
+      storage_metadata: null,
       file_size_bytes: null,
       mime_type: asset.mime_type,
       pushed_at: '',

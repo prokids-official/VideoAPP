@@ -179,13 +179,14 @@ export function StudioWorkspaceRoute({
 
   async function handleSaveEntity(input: SaveEntityInput): Promise<StudioAsset> {
     const stage = entityStage(input.typeCode);
+    const meta = withAgentRunMeta(input.meta, input.agentRun);
     const saved = await studioApi.saveAsset({
       project_id: projectId,
       type_code: input.typeCode,
       name: input.name,
       variant: input.variant,
       version: 1,
-      meta_json: JSON.stringify(input.meta),
+      meta_json: JSON.stringify(meta),
       mime_type: null,
     });
     const stateJson = JSON.stringify({
@@ -193,6 +194,7 @@ export function StudioWorkspaceRoute({
       asset_count: countAssetsAfterSave(bundle?.assets ?? [], saved),
       last_asset_id: saved.id,
       last_asset_name: saved.name,
+      ...(input.agentRun ? { last_agent_run: input.agentRun } : {}),
     });
     await studioApi.saveStage(projectId, stage, stateJson);
     setBundle((prev) => {
@@ -456,6 +458,7 @@ export function StudioWorkspaceRoute({
           <CharacterStage
             project={project}
             assets={stageAssets}
+            sourceAssets={assets}
             stateJson={bundle.stage_state.character ?? null}
             onSave={handleSaveEntity}
             onImportImage={handleImportEntityImage}
@@ -466,6 +469,7 @@ export function StudioWorkspaceRoute({
           <SceneStage
             project={project}
             assets={stageAssets}
+            sourceAssets={assets}
             stateJson={bundle.stage_state.scene ?? null}
             onSave={handleSaveEntity}
             onImportImage={handleImportEntityImage}
@@ -476,6 +480,7 @@ export function StudioWorkspaceRoute({
           <PropStage
             project={project}
             assets={stageAssets}
+            sourceAssets={assets}
             stateJson={bundle.stage_state.prop ?? null}
             onSave={handleSaveEntity}
             onImportImage={handleImportEntityImage}

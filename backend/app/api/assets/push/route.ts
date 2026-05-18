@@ -49,6 +49,7 @@ interface PushItem {
   original_filename?: string;
   mime_type: string;
   size_bytes: number;
+  metadata?: Record<string, unknown>;
   relations?: PushItemRelation[];
 }
 
@@ -201,6 +202,7 @@ function parseItem(value: unknown): PushItem | null {
     original_filename: typeof value.original_filename === 'string' ? value.original_filename : undefined,
     mime_type: value.mime_type,
     size_bytes: value.size_bytes,
+    metadata: isRecord(value.metadata) ? value.metadata : undefined,
     relations: relations as PushItemRelation[] | undefined,
   };
 }
@@ -661,10 +663,12 @@ export async function POST(req: Request): Promise<Response> {
     final_filename: resolvedItem.final_filename,
     storage_backend: resolvedItem.type.storage_backend,
     storage_ref: resolvedItem.storage_ref,
-    storage_metadata:
-      resolvedItem.type.storage_backend === 'github'
+    storage_metadata: {
+      ...(resolvedItem.type.storage_backend === 'github'
         ? { commit_sha: commitSha, blob_sha: commitBlobs[resolvedItem.storage_ref] }
-        : r2Metadata.get(resolvedItem.item.local_draft_id) ?? {},
+        : r2Metadata.get(resolvedItem.item.local_draft_id) ?? {}),
+      ...(resolvedItem.item.metadata ?? {}),
+    },
     file_size_bytes: resolvedItem.item.size_bytes,
     mime_type: resolvedItem.item.mime_type,
     source: resolvedItem.item.source,

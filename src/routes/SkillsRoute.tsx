@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { SkillCatalogItem, SkillCreatePayload } from '../../shared/types';
+import type { SkillCatalogItem, SkillCreatePayload, SkillDetailItem } from '../../shared/types';
 import { TopNav } from '../components/chrome/TopNav';
 import { Button } from '../components/ui/Button';
 import { api } from '../lib/api';
@@ -22,6 +22,9 @@ export function SkillsRoute({ onBack }: { onBack: () => void }) {
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [selectedSkillDetail, setSelectedSkillDetail] = useState<SkillDetailItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +61,33 @@ export function SkillsRoute({ onBack }: { onBack: () => void }) {
     () => skills.find((skill) => skill.id === selectedSkillId) ?? skills[0] ?? null,
     [selectedSkillId, skills],
   );
+
+  useEffect(() => {
+    if (!selectedSkill) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      setDetailLoading(true);
+      setDetailError(null);
+      const result = await api.skillDetail(selectedSkill.id);
+      if (cancelled) {
+        return;
+      }
+      if (result.ok) {
+        setSelectedSkillDetail(result.data.skill);
+      } else {
+        setSelectedSkillDetail(null);
+        setDetailError(result.message);
+      }
+      setDetailLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSkill]);
 
   async function toggleSkill(skill: SkillCatalogItem) {
     const next = await toggleActiveSkillId(skill.id);
@@ -151,6 +181,9 @@ export function SkillsRoute({ onBack }: { onBack: () => void }) {
             <div className="space-y-4">
               <SkillDetailPanel
                 skill={selectedSkill}
+                detail={selectedSkillDetail}
+                loading={detailLoading}
+                error={detailError}
                 active={selectedSkill ? activeIds.includes(selectedSkill.id) : false}
                 onToggle={() => selectedSkill && void toggleSkill(selectedSkill)}
               />
@@ -245,10 +278,16 @@ function SkillCard({
 
 function SkillDetailPanel({
   skill,
+  detail,
+  loading,
+  error,
   active,
   onToggle,
 }: {
   skill: SkillCatalogItem | null;
+  detail: SkillDetailItem | null;
+  loading: boolean;
+  error: string | null;
   active: boolean;
   onToggle: () => void;
 }) {
@@ -290,6 +329,20 @@ function SkillDetailPanel({
         </p>
       </div>
 
+      <div className="mt-5 rounded-lg border border-border bg-surface-2 p-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="font-mono text-xs text-text-4">{detail?.filename ?? 'SKILL.md'}</div>
+          <div className="font-mono text-xs text-text-4">{loading ? 'loading...' : `${skill.category}/${skill.id}`}</div>
+        </div>
+        {error ? (
+          <div className="rounded border border-bad/30 bg-bad/10 px-3 py-2 text-xs text-bad">{error}</div>
+        ) : (
+          <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded border border-border bg-bg px-3 py-3 font-mono text-xs leading-5 text-text-2">
+            {loading ? 'loading SKILL.md...' : skillFilePreview(detail ?? skill)}
+          </pre>
+        )}
+      </div>
+
       <Button
         type="button"
         variant={active ? 'primary' : 'gradient'}
@@ -310,6 +363,23 @@ function DetailMetric({ label, value, mono = false }: { label: string; value: st
       <div className={`mt-2 text-sm text-text-2 ${mono ? 'font-mono' : ''}`}>{value}</div>
     </div>
   );
+}
+
+function skillFilePreview(skill: SkillCatalogItem | SkillDetailItem) {
+  const body = 'body' in skill ? skill.body : '';
+  return [
+    '---',
+    `name: ${skill.id}`,
+    `name_cn: ${skill.name_cn}`,
+    `category: ${skill.category}`,
+    `default_model: ${skill.default_model}`,
+    'enabled: true',
+    `version: ${skill.version}`,
+    `description: ${skill.description}`,
+    '---',
+    '',
+    body || '# Skill body is loading...',
+  ].join('\n');
 }
 
 function CreateSkillPanel({

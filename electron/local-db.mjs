@@ -51,6 +51,7 @@ function applyMigrations(handle) {
       local_file_path text not null,
       size_bytes integer,
       mime_type text,
+      metadata_json text,
       source text not null check (source in ('imported','pasted','ai-generated')),
       created_at text not null
     );
@@ -127,6 +128,7 @@ function applyMigrations(handle) {
   `);
   ensureColumn(handle, 'local_drafts', 'storage_backend', "text not null default 'github'");
   ensureColumn(handle, 'local_drafts', 'storage_ref', "text not null default ''");
+  ensureColumn(handle, 'local_drafts', 'metadata_json', 'text');
   ensureColumn(handle, 'studio_projects', 'owner_id', "text not null default 'local'");
 }
 
@@ -156,16 +158,16 @@ export function sessionClear() {
 
 export function draftCreate(input) {
   const createdAt = new Date().toISOString();
-  const row = { ...input, created_at: createdAt };
+  const row = { ...input, metadata_json: input.metadata_json ?? null, created_at: createdAt };
   ensureDb().prepare(`
     insert or replace into local_drafts (
       id, episode_id, type_code, name, variant, number, version, stage, language,
       original_filename, final_filename, storage_backend, storage_ref, local_file_path,
-      size_bytes, mime_type, source, created_at
+      size_bytes, mime_type, metadata_json, source, created_at
     ) values (
       @id, @episode_id, @type_code, @name, @variant, @number, @version, @stage, @language,
       @original_filename, @final_filename, @storage_backend, @storage_ref, @local_file_path,
-      @size_bytes, @mime_type, @source, @created_at
+      @size_bytes, @mime_type, @metadata_json, @source, @created_at
     )
   `).run(row);
   return row;

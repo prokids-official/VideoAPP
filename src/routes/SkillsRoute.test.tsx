@@ -7,6 +7,7 @@ import { loadActiveSkillIds, saveActiveSkillIds, toggleActiveSkillId } from '../
 vi.mock('../lib/api', () => ({
   api: {
     skills: vi.fn(),
+    skillDetail: vi.fn(),
     createSkill: vi.fn(),
   },
 }));
@@ -51,6 +52,19 @@ const sceneSkill = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.skills).mockResolvedValue({ ok: true, data: { skills: [scriptSkill, sceneSkill] } });
+  vi.mocked(api.skillDetail).mockImplementation(async (id: string) => {
+    const skill = id === sceneSkill.id ? sceneSkill : scriptSkill;
+    return {
+      ok: true,
+      data: {
+        skill: {
+          ...skill,
+          body: `# Role\nUse ${skill.id}.`,
+          filename: 'SKILL.md',
+        },
+      },
+    };
+  });
   vi.mocked(api.createSkill).mockResolvedValue({ ok: true, data: { skill: sceneSkill } });
   vi.mocked(loadActiveSkillIds).mockResolvedValue(['auto-script']);
   vi.mocked(saveActiveSkillIds).mockResolvedValue(undefined);
@@ -90,6 +104,8 @@ describe('SkillsRoute', () => {
     expect(screen.getAllByText('/scene-camera').length).toBeGreaterThan(0);
     expect(screen.getAllByText('deepseek-v4-pro').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Compatible SKILL.md').length).toBeGreaterThan(0);
+    expect(await screen.findByText('# Role', { exact: false })).toBeTruthy();
+    expect(screen.getByText('Use scene-camera.', { exact: false })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Activate skill scene-camera' }));
 

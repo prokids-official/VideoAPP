@@ -10,6 +10,7 @@ const PROP_FIELDS = [
 export function PropStage({
   project,
   assets,
+  sourceAssets,
   stateJson,
   onSave,
   onImportImage,
@@ -18,6 +19,7 @@ export function PropStage({
 }: {
   project: StudioProject;
   assets: StudioAsset[];
+  sourceAssets?: StudioAsset[];
   stateJson: string | null | undefined;
   onSave: (input: SaveEntityInput) => Promise<StudioAsset>;
   onImportImage?: (input: ImportEntityImageInput) => Promise<StudioAsset>;
@@ -28,6 +30,7 @@ export function PropStage({
     <AssetEntityStage
       project={project}
       assets={assets}
+      sourceAssets={sourceAssets}
       stateJson={stateJson}
       config={{
         typeCode: 'PROP',

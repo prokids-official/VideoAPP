@@ -95,6 +95,15 @@ export function AssetPreviewModal({
               </div>
             )}
 
+            {readAssetPrompt(asset) && (
+              <div className="mb-4 rounded-lg border border-border bg-surface-2 p-3">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-text-4">对应 AI Prompt</div>
+                <p className="max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-text-2">
+                  {readAssetPrompt(asset)}
+                </p>
+              </div>
+            )}
+
             {loading ? (
               <div className="flex min-h-[320px] items-center justify-center font-mono text-xs text-text-3">
                 loading preview...
@@ -283,4 +292,9 @@ function isImage(mimeType: string | null) {
 
 function isVideo(mimeType: string | null) {
   return Boolean(mimeType?.startsWith('video/'));
+}
+
+function readAssetPrompt(asset: AssetRow | null) {
+  const value = asset?.storage_metadata?.ai_prompt;
+  return typeof value === 'string' ? value.trim() : '';
 }
