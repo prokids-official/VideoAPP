@@ -60,7 +60,7 @@ describe('PromptStage', () => {
                 id: 'prompt-video-director',
                 name_cn: '视频提示词导演',
                 category: 'prompt-vid',
-                default_model: 'deepseek-v4-pro',
+                default_model: 'deepseek-v4-flash',
                 version: 1,
                 description: '把分镜和图片提示词转换成视频提示词。',
               }
@@ -68,7 +68,7 @@ describe('PromptStage', () => {
                 id: 'prompt-image-director',
                 name_cn: '图片提示词导演',
                 category: 'prompt-img',
-                default_model: 'deepseek-v4-pro',
+                default_model: 'deepseek-v4-flash',
                 version: 1,
                 description: '把分镜拆成图像生成提示词。',
               },
@@ -81,7 +81,7 @@ describe('PromptStage', () => {
         run: {
           status: 'completed',
           provider: 'deepseek',
-          model: 'deepseek-v4-pro',
+          model: 'deepseek-v4-flash',
           skill: {
             id: 'prompt-image-director',
             name_cn: '图片提示词导演',
@@ -105,7 +105,7 @@ describe('PromptStage', () => {
         run: {
           status: 'completed',
           provider: 'deepseek',
-          model: 'deepseek-v4-pro',
+          model: 'deepseek-v4-flash',
           skill: {
             id: 'prompt-video-director',
             name_cn: '视频提示词导演',
@@ -210,7 +210,7 @@ describe('PromptStage', () => {
           stage: 'prompt-img',
           skill_id: 'prompt-image-director',
           provider: 'deepseek',
-          model: 'deepseek-v4-pro',
+          model: 'deepseek-v4-flash',
           output_count: 1,
         }),
       }));
@@ -270,7 +270,7 @@ describe('PromptStage', () => {
           stage: 'prompt-vid',
           skill_id: 'prompt-video-director',
           provider: 'deepseek',
-          model: 'deepseek-v4-pro',
+          model: 'deepseek-v4-flash',
           output_count: 1,
         }),
       }));

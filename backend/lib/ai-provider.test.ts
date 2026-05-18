@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveChatProviderConfig } from './ai-provider';
 
 describe('resolveChatProviderConfig', () => {
-  it('defaults official provider to DeepSeek flash and restricts official model choices', () => {
+  it('uses server official defaults and restricts official model choices', () => {
     expect(resolveChatProviderConfig(undefined, {
       provider: 'deepseek',
       baseUrl: 'https://api.deepseek.com/v1',
@@ -12,7 +12,7 @@ describe('resolveChatProviderConfig', () => {
       provider: 'deepseek',
       baseUrl: 'https://api.deepseek.com/v1',
       apiKey: 'sk-official',
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-v4-pro',
     });
 
     expect(resolveChatProviderConfig({

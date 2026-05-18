@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AIProviderConfigInput, SkillCatalogItem, StudioAgentRunSummary, StudioAsset, StudioProject } from '../../../../shared/types';
 import { api } from '../../../lib/api';
 import { createAgentRunSummary } from '../../../lib/agent-run-summary';
+import { providerConfigForSkill } from '../../../lib/ai-model-routing';
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
@@ -129,6 +130,7 @@ export function PromptStageBase({
   const orderedSkills = useMemo(() => orderSkills(skills, activeSkillIds), [activeSkillIds, skills]);
   const selectedSkill = orderedSkills.find((skill) => skill.id === selectedSkillId) ?? orderedSkills[0] ?? null;
   const canRunAgent = units.length > 0 && Boolean(selectedSkill) && !runningAgent;
+  const routedProviderConfig = providerConfigForSkill(providerConfig, selectedSkill);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,7 +200,7 @@ export function PromptStageBase({
       const result = copy.typeCode === 'PROMPT_IMG'
         ? await api.promptImageRun({
             skill_id: selectedSkill.id,
-            provider_config: providerConfig,
+            provider_config: routedProviderConfig,
             input: {
               project_name: project.name,
               style_hint: '',
@@ -212,7 +214,7 @@ export function PromptStageBase({
           })
         : await api.promptVideoRun({
             skill_id: selectedSkill.id,
-            provider_config: providerConfig,
+            provider_config: routedProviderConfig,
             input: {
               project_name: project.name,
               style_hint: '',
@@ -371,7 +373,7 @@ export function PromptStageBase({
               {selectedSkill && (
                 <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-3">
                   <span className="truncate">{selectedSkill.name_cn}</span>
-                  <span className="font-mono">{providerConfig.model}</span>
+                  <span className="font-mono">{routedProviderConfig.model}</span>
                 </div>
               )}
               <Button

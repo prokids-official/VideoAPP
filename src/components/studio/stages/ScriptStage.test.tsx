@@ -183,7 +183,7 @@ describe('ScriptStage', () => {
         dry_run: false,
         provider_config: {
           mode: 'official-deepseek',
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-v4-pro',
         },
         input: {
           project_name: 'Mecha Project',

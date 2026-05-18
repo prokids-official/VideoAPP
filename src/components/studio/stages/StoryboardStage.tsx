@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AIProviderConfigInput, SkillCatalogItem, StudioAgentRunSummary, StudioAsset, StudioProject } from '../../../../shared/types';
 import { api } from '../../../lib/api';
 import { createAgentRunSummary } from '../../../lib/agent-run-summary';
+import { providerConfigForSkill } from '../../../lib/ai-model-routing';
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
@@ -76,6 +77,7 @@ export function StoryboardStage({
   const cleanNumber = normalizePositiveNumber(number, nextNumber(units));
   const cleanDuration = normalizePositiveNumber(duration, 8);
   const canRunAgent = scriptAssets.length > 0 && Boolean(selectedSkill) && !saving && !runningAgent;
+  const routedProviderConfig = providerConfigForSkill(providerConfig, selectedSkill);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +150,7 @@ export function StoryboardStage({
       const scriptMarkdown = new TextDecoder().decode(scriptBytes);
       const result = await api.storyboardRun({
         skill_id: selectedSkill.id,
-        provider_config: providerConfig,
+        provider_config: routedProviderConfig,
         input: {
           project_name: project.name,
           duration_sec: storyboardTargetDuration(project.size_kind),
@@ -226,7 +228,7 @@ export function StoryboardStage({
             {selectedSkill && (
               <div className="mb-2 flex items-center justify-between gap-2 text-xs text-text-3">
                 <span className="truncate">{selectedSkill.name_cn}</span>
-                <span className="font-mono">{providerConfig.model}</span>
+                <span className="font-mono">{routedProviderConfig.model}</span>
               </div>
             )}
             <Button type="button" variant="secondary" disabled={!canRunAgent} className="w-full" onClick={() => void runStoryboardAgent()}>

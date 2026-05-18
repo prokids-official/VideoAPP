@@ -3,6 +3,7 @@ import type { AgentMessage, SkillCatalogItem, StudioAgentRunSummary, StudioAsset
 import { defaultAiProviderSettings, loadAiProviderSettings } from '../../../lib/ai-provider-settings';
 import { createAgentRunSummary } from '../../../lib/agent-run-summary';
 import { api } from '../../../lib/api';
+import { providerConfigForSkill } from '../../../lib/ai-model-routing';
 import { loadActiveSkillIds } from '../../../lib/skill-activation';
 import { Button } from '../../ui/Button';
 import { AgentRunCard } from '../AgentRunCard';
@@ -72,6 +73,7 @@ export function ScriptStage({
   const cleanDuration = normalizeDuration(durationSec);
   const selectedSkill = skills.find((skill) => skill.id === skillId) ?? null;
   const selectedSkillActive = selectedSkill ? activeSkillIds.includes(selectedSkill.id) : false;
+  const routedProviderConfig = providerConfigForSkill(providerConfig, selectedSkill);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +184,7 @@ export function ScriptStage({
       const result = await api.scriptWriterRun({
         skill_id: skillId,
         dry_run: false,
-        provider_config: providerConfig,
+        provider_config: routedProviderConfig,
         input: {
           project_name: project.name,
           mode,
@@ -316,7 +318,7 @@ export function ScriptStage({
             </select>
             <div className="mt-2 text-sm font-medium text-text">{selectedSkill?.name_cn ?? skillId}</div>
             <div className="mt-1 text-xs leading-5 text-text-3">
-              {selectedSkill ? `${selectedSkill.default_model} · v${selectedSkill.version}` : 'company-default'}
+              {selectedSkill ? `${routedProviderConfig.model} · v${selectedSkill.version}` : routedProviderConfig.model}
             </div>
             {selectedSkillActive && (
               <div className="mt-2 inline-flex rounded-full border border-accent/30 bg-accent/10 px-2 py-1 text-xs text-accent">

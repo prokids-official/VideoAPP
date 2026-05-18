@@ -36,7 +36,7 @@ export function resolveChatProviderConfig(
     provider: 'deepseek',
     baseUrl: cleanBaseUrl(defaults.baseUrl),
     apiKey: defaults.apiKey,
-    model: officialDeepSeekModel(input?.model),
+    model: officialDeepSeekModel(input?.model ?? defaults.model),
   };
 }
 

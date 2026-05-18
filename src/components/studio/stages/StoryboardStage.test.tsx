@@ -165,7 +165,7 @@ describe('StoryboardStage', () => {
         skill_id: 'storyboard-breakdown',
         provider_config: {
           mode: 'official-deepseek',
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-v4-pro',
         },
         input: {
           project_name: '末日机械人',

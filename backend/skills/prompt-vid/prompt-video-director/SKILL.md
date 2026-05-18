@@ -2,7 +2,7 @@
 name: prompt-video-director
 name_cn: 视频提示词导演
 category: prompt-vid
-default_model: deepseek-v4-pro
+default_model: deepseek-v4-flash
 enabled: true
 version: 1
 description: 把分镜和图片提示词转换成稳定、可复用的 AI 视频生成提示词。

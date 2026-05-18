@@ -2,7 +2,7 @@
 name: prompt-image-director
 name_cn: 图片提示词导演
 category: prompt-img
-default_model: deepseek-v4-pro
+default_model: deepseek-v4-flash
 enabled: true
 version: 1
 description: 把分镜单元转换成稳定、可复用的 AI 图片生成提示词。
