@@ -658,6 +658,16 @@ export interface AssetsListResult {
   total: number;
 }
 
+export interface AssetMetadataUpdatePayload {
+  storage_metadata: {
+    ai_prompt?: string | null;
+  };
+}
+
+export interface AssetMetadataUpdateResult {
+  asset: AssetRow;
+}
+
 export interface AssetRelationAsset {
   id: string;
   type_code: string;

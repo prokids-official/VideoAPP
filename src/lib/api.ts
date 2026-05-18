@@ -2,6 +2,8 @@ import type {
   ApiResponse,
   AssetLibraryRunPayload,
   AssetLibraryRunResult,
+  AssetMetadataUpdatePayload,
+  AssetMetadataUpdateResult,
   AIProviderTestPayload,
   AIProviderTestResult,
   AssetsListResult,
@@ -252,6 +254,14 @@ export const api = {
     }
     return call<AssetsListResult>({ method: 'GET', path: `/assets?${qs.toString()}`, requireAuth: true });
   },
+
+  updateAssetMetadata: (id: string, input: AssetMetadataUpdatePayload) =>
+    call<AssetMetadataUpdateResult>({
+      method: 'PATCH',
+      path: `/assets/${encodeURIComponent(id)}`,
+      body: input,
+      requireAuth: true,
+    }),
 
   previewFilename: (input: {
     episode_id: string;

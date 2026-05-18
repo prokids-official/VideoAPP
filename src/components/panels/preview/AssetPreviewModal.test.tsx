@@ -116,6 +116,41 @@ describe('AssetPreviewModal', () => {
     expect(screen.getByText('还没有记录上下游关系')).toBeTruthy();
   });
 
+  it('lets users edit the prompt metadata for character scene and prop assets', async () => {
+    const onSavePrompt = vi.fn(async () => {});
+
+    render(
+      <AssetPreviewModal
+        open
+        asset={{
+          ...asset,
+          type_code: 'CHAR',
+          mime_type: 'image/png',
+          final_filename: 'character.png',
+          storage_metadata: { ai_prompt: 'old character prompt' },
+        }}
+        content={{ kind: 'url', url: 'https://example.test/character.png', expires_at: '2026-05-02T00:00:00Z' }}
+        loading={false}
+        error={null}
+        actionStatus={null}
+        onClose={() => {}}
+        onCopyText={() => {}}
+        onCopyImage={() => {}}
+        onDownloadAsset={() => {}}
+        onSavePrompt={onSavePrompt}
+      />,
+    );
+
+    const textarea = screen.getByLabelText('对应 AI Prompt') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('old character prompt');
+
+    await userEvent.clear(textarea);
+    await userEvent.type(textarea, 'new character prompt');
+    await userEvent.click(screen.getByRole('button', { name: '保存 Prompt' }));
+
+    expect(onSavePrompt).toHaveBeenCalledWith('new character prompt');
+  });
+
   it('shows semantic lineage groups and lets users open related assets', async () => {
     const onSelectRelatedAsset = vi.fn();
 

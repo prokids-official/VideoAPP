@@ -92,6 +92,7 @@ export function TreeRoute({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewActionStatus, setPreviewActionStatus] = useState<string | null>(null);
+  const [previewPromptSaving, setPreviewPromptSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reviewDraftCount, setReviewDraftCount] = useState(0);
@@ -430,6 +431,35 @@ export function TreeRoute({
     }
   }
 
+  async function handleSavePreviewPrompt(prompt: string) {
+    if (!previewAsset) {
+      return;
+    }
+
+    setPreviewPromptSaving(true);
+    setPreviewActionStatus(null);
+    const result = await api.updateAssetMetadata(previewAsset.id, {
+      storage_metadata: { ai_prompt: prompt },
+    });
+
+    if (result.ok) {
+      const updated = result.data.asset;
+      setPreviewAsset((current) => (
+        current?.id === updated.id
+          ? { ...current, storage_metadata: updated.storage_metadata }
+          : current
+      ));
+      setPanelAssets((current) => current.map((asset) => (
+        asset.id === updated.id ? { ...asset, storage_metadata: updated.storage_metadata } : asset
+      )));
+      setPreviewActionStatus('Prompt 已保存到公司资产库');
+    } else {
+      setPreviewActionStatus(result.message);
+    }
+
+    setPreviewPromptSaving(false);
+  }
+
   return (
     <div className="h-full flex flex-col bg-bg text-text">
       <TopNav onOpenSettings={onOpenSettings} onBackHome={onBackHome} />
@@ -508,16 +538,19 @@ export function TreeRoute({
         loading={previewLoading}
         error={previewError}
         actionStatus={previewActionStatus}
+        promptSaving={previewPromptSaving}
         onCopyText={handleCopyPreviewText}
         onCopyImage={handleCopyPreviewImage}
         onDownloadAsset={handleDownloadPreviewAsset}
         onSelectRelatedAsset={handlePreviewRelatedAsset}
+        onSavePrompt={handleSavePreviewPrompt}
         onClose={() => {
           setPreviewAsset(null);
           setPreviewContent(null);
           setPreviewRelations(null);
           setPreviewError(null);
           setPreviewActionStatus(null);
+          setPreviewPromptSaving(false);
         }}
       />
     </div>

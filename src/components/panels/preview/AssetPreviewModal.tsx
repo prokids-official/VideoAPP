@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { useState } from 'react';
 import type {
   AssetContentResult,
   AssetRelationAsset,
@@ -24,6 +25,8 @@ export function AssetPreviewModal({
   onCopyImage,
   onDownloadAsset,
   onSelectRelatedAsset,
+  onSavePrompt,
+  promptSaving = false,
 }: {
   open: boolean;
   asset: AssetRow | null;
@@ -37,10 +40,14 @@ export function AssetPreviewModal({
   onCopyImage: () => void;
   onDownloadAsset: () => void;
   onSelectRelatedAsset?: (asset: AssetRelationAsset) => void;
+  onSavePrompt?: (prompt: string) => Promise<void>;
+  promptSaving?: boolean;
 }) {
   const canCopy = content?.kind === 'markdown';
   const canCopyImage = content?.kind === 'url' && isImage(asset?.mime_type ?? null);
   const canDownload = Boolean(content);
+  const assetPrompt = readAssetPrompt(asset);
+  const canEditPrompt = isPromptEditableAsset(asset);
 
   return (
     <AnimatePresence>
@@ -95,14 +102,17 @@ export function AssetPreviewModal({
               </div>
             )}
 
-            {readAssetPrompt(asset) && (
-              <div className="mb-4 rounded-lg border border-border bg-surface-2 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-text-4">对应 AI Prompt</div>
-                <p className="max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-text-2">
-                  {readAssetPrompt(asset)}
-                </p>
-              </div>
-            )}
+            {canEditPrompt ? (
+              <EditableAssetPrompt
+                key={`${asset.id}:${assetPrompt}`}
+                savedValue={assetPrompt}
+                saving={promptSaving}
+                canSave={Boolean(onSavePrompt)}
+                onSave={(prompt) => onSavePrompt?.(prompt)}
+              />
+            ) : assetPrompt ? (
+              <ReadOnlyAssetPrompt prompt={assetPrompt} />
+            ) : null}
 
             {loading ? (
               <div className="flex min-h-[320px] items-center justify-center font-mono text-xs text-text-3">
@@ -158,6 +168,67 @@ function RelatedAssetsPanel({
         )
       ))}
     </aside>
+  );
+}
+
+function EditableAssetPrompt({
+  savedValue,
+  saving,
+  canSave,
+  onSave,
+}: {
+  savedValue: string;
+  saving: boolean;
+  canSave: boolean;
+  onSave: (prompt: string) => void;
+}) {
+  const [value, setValue] = useState(savedValue);
+  const dirty = value.trim() !== savedValue;
+
+  return (
+    <div className="mb-4 rounded-lg border border-border bg-surface-2 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-widest text-text-4">对应 AI Prompt</div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={!value.trim()}
+            onClick={() => void navigator.clipboard.writeText(value)}
+          >
+            复制
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={!canSave || !dirty || saving}
+            onClick={() => onSave(value)}
+          >
+            {saving ? '保存中...' : '保存 Prompt'}
+          </Button>
+        </div>
+      </div>
+      <textarea
+        aria-label="对应 AI Prompt"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder="写这个角色/场景/道具对应的生图提示词。保存后会进入公司资产库 metadata，后续 Agent 和 Skill 可以复用。"
+        className="min-h-28 w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60"
+      />
+    </div>
+  );
+}
+
+function ReadOnlyAssetPrompt({ prompt }: { prompt: string }) {
+  return (
+    <div className="mb-4 rounded-lg border border-border bg-surface-2 p-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-text-4">对应 AI Prompt</div>
+      <p className="max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-text-2">
+        {prompt}
+      </p>
+    </div>
   );
 }
 
@@ -297,4 +368,8 @@ function isVideo(mimeType: string | null) {
 function readAssetPrompt(asset: AssetRow | null) {
   const value = asset?.storage_metadata?.ai_prompt;
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function isPromptEditableAsset(asset: AssetRow | null) {
+  return asset?.type_code === 'CHAR' || asset?.type_code === 'SCENE' || asset?.type_code === 'PROP';
 }
