@@ -23,6 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 .superpowers/
+.claude/
+
+# Agent handoff / local planning notes
+AGENTS.md
+CLAUDE.md
+HANDOFF-TO-CODEX*.md
+HOME-SETUP.md
+docs/ops/
+docs/superpowers/
 
 # Frontend env (per-machine; .env.example is committed instead)
 .env
