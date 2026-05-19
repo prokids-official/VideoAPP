@@ -140,6 +140,7 @@ describe('POST /api/agents/script-writer/run', () => {
           mode: 'from-scratch',
           duration_sec: 90,
           style_hint: 'Cold fairytale',
+          revision_instruction: 'Make the ending warmer.',
           inspiration_text: 'Rain city',
           existing_script: '',
         },
@@ -153,7 +154,7 @@ describe('POST /api/agents/script-writer/run', () => {
       model: 'deepseek-v4-flash',
       messages: [
         { role: 'system', content: '# Role\nYou are a senior AI screenwriter.' },
-        { role: 'user', content: expect.stringContaining('Mecha Project') },
+        { role: 'user', content: expect.stringContaining('修改要求：Make the ending warmer.') },
       ],
     }));
     expect(mocks.logUsage).toHaveBeenCalledWith({

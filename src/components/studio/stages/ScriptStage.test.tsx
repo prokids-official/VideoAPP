@@ -213,6 +213,7 @@ describe('ScriptStage', () => {
           mode: 'from-scratch',
           duration_sec: 90,
           style_hint: 'Cold fairytale',
+          revision_instruction: '',
           inspiration_text: 'Rain city',
           existing_script: '',
         },
@@ -222,6 +223,60 @@ describe('ScriptStage', () => {
     expect(editor.value).toBe('# Script\n\nRain opens on a broken neon gate.');
     expect(screen.getByText('Agent Run')).toBeTruthy();
     expect(screen.getAllByText('grim-fairy-3d').length).toBeGreaterThan(1);
+  });
+
+  it('can generate, save, and advance while preserving agent provenance', async () => {
+    const onSave = vi.fn(async () => scriptAsset);
+    const onAdvance = vi.fn();
+    render(<ScriptStage project={project} assets={[]} stateJson={null} onSave={onSave} onAdvance={onAdvance} />);
+
+    fireEvent.change(await screen.findByLabelText('修改要求'), {
+      target: { value: '把结尾改得更温暖，但保留黑色童话质感。' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'AI 生成并进入角色阶段' }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Mecha Project · 主线剧本',
+        body: '# Script\n\nRain opens on a broken neon gate.',
+        mode: 'from-scratch',
+        skillId: 'grim-fairy-3d',
+        revisionInstruction: '把结尾改得更温暖，但保留黑色童话质感。',
+        agentRun: expect.objectContaining({
+          stage: 'script',
+          skill_id: 'grim-fairy-3d',
+          provider: 'deepseek',
+          model: 'deepseek-v4-pro',
+        }),
+      }));
+    });
+    await waitFor(() => {
+      expect(onAdvance).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('restores the editor body from the saved script asset when state only has an asset id', async () => {
+    const onReadAssetFile = vi.fn(async () => new TextEncoder().encode('# Saved script\n\nHuman edited version.'));
+
+    render(
+      <ScriptStage
+        project={project}
+        assets={[scriptAsset]}
+        stateJson={JSON.stringify({
+          name: 'Main script',
+          asset_id: 'asset-script-1',
+          mode: 'from-scratch',
+        })}
+        onSave={vi.fn()}
+        onAdvance={vi.fn()}
+        onReadAssetFile={onReadAssetFile}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onReadAssetFile).toHaveBeenCalledWith(scriptAsset);
+    });
+    expect((screen.getByLabelText('剧本正文') as HTMLTextAreaElement).value).toBe('# Saved script\n\nHuman edited version.');
   });
 
   it('turns a reference image into visual context before sending the script job to DeepSeek', async () => {
@@ -284,6 +339,7 @@ describe('ScriptStage', () => {
         body: 'Rain falls on the broken neon.',
         mode: 'from-scratch',
         styleHint: 'Cold fairytale',
+        revisionInstruction: '',
         visualContext: '',
         durationSec: 90,
         skillId: 'grim-fairy-3d',

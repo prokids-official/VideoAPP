@@ -15,8 +15,10 @@ type ScriptViewMode = 'trailer' | 'dialogue-only' | 'shooting-script';
 interface ScriptState {
   name?: string;
   body?: string;
+  asset_id?: string;
   mode?: ScriptMode;
   style_hint?: string;
+  revision_instruction?: string;
   visual_context?: string;
   duration_sec?: number;
   skill_id?: string;
@@ -30,6 +32,7 @@ export interface SaveScriptInput {
   body: string;
   mode: ScriptMode;
   styleHint: string;
+  revisionInstruction: string;
   visualContext: string;
   durationSec: number;
   skillId: string;
@@ -44,17 +47,20 @@ export function ScriptStage({
   stateJson,
   onSave,
   onAdvance,
+  onReadAssetFile,
 }: {
   project: StudioProject;
   assets: StudioAsset[];
   stateJson: string | null | undefined;
   onSave: (input: SaveScriptInput) => Promise<StudioAsset>;
   onAdvance: () => void | Promise<void>;
+  onReadAssetFile?: (asset: StudioAsset) => Promise<Uint8Array>;
 }) {
   const initialState = useMemo(() => parseScriptState(stateJson), [stateJson]);
   const [mode, setMode] = useState<ScriptMode>(initialState.mode ?? 'from-scratch');
   const [name, setName] = useState(initialState.name ?? `${project.name} · 主线剧本`);
   const [styleHint, setStyleHint] = useState(initialState.style_hint ?? '');
+  const [revisionInstruction, setRevisionInstruction] = useState(initialState.revision_instruction ?? '');
   const [visualContext, setVisualContext] = useState(initialState.visual_context ?? '');
   const [durationSec, setDurationSec] = useState(String(initialState.duration_sec ?? defaultDuration(project.size_kind)));
   const [body, setBody] = useState(initialState.body ?? '');
@@ -123,22 +129,60 @@ export function ScriptStage({
     };
   }, []);
 
-  async function save() {
+  useEffect(() => {
+    if (initialState.body || !initialState.asset_id || cleanBody) {
+      return;
+    }
+
+    const asset = assets.find((item) => item.id === initialState.asset_id);
+    if (!asset) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const bytes = onReadAssetFile
+          ? await onReadAssetFile(asset)
+          : await window.fableglitch.studio.assetReadFile(asset.id);
+        if (!cancelled) {
+          setBody(new TextDecoder().decode(bytes));
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : '读取已保存剧本失败');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assets, cleanBody, initialState.asset_id, initialState.body, onReadAssetFile]);
+
+  async function save(overrides: {
+    body?: string;
+    agentRun?: StudioAgentRunSummary | null;
+    revisionInstruction?: string;
+  } = {}) {
+    const bodyToSave = (overrides.body ?? cleanBody).trim();
+    const agentRun = overrides.agentRun ?? lastAgentRun;
     setSaving(true);
     setStatus(null);
     setError(null);
     try {
       await onSave({
         name: cleanName,
-        body: cleanBody,
+        body: bodyToSave,
         mode,
         styleHint: styleHint.trim(),
+        revisionInstruction: (overrides.revisionInstruction ?? revisionInstruction).trim(),
         visualContext: visualContext.trim(),
         durationSec: cleanDuration,
         skillId,
         provider: 'company-default',
         viewMode,
-        ...(lastAgentRun ? { agentRun: lastAgentRun } : {}),
+        ...(agentRun ? { agentRun } : {}),
       });
       setStatus('SCRIPT 资产已保存');
     } catch (cause) {
@@ -212,7 +256,7 @@ export function ScriptStage({
     }
   }
 
-  async function runScriptWriterDryRun() {
+  async function runScriptWriter(options: { saveAfter?: boolean; advanceAfter?: boolean } = {}) {
     if (!skillId || loadingSkills || runningAgent) {
       return;
     }
@@ -229,6 +273,7 @@ export function ScriptStage({
           mode,
           duration_sec: cleanDuration,
           style_hint: styleHint.trim(),
+          revision_instruction: revisionInstruction.trim(),
           inspiration_text: buildInspirationText(project.inspiration_text?.trim() ?? '', visualContext.trim()),
           existing_script: cleanBody,
         },
@@ -246,15 +291,28 @@ export function ScriptStage({
           outputCount: 1,
           usage: result.data.run.usage,
         });
-        setBody(result.data.run.content);
+        const generatedBody = result.data.run.content;
+        setBody(generatedBody);
         setLastAgentRun(agentRun);
-        setStatus(`AI script generated with ${result.data.run.provider}`);
+        if (options.saveAfter) {
+          await save({
+            body: generatedBody,
+            agentRun,
+            revisionInstruction,
+          });
+          if (options.advanceAfter) {
+            await onAdvance();
+          }
+          setStatus(options.advanceAfter ? 'AI 已生成剧本并进入角色阶段' : 'AI 已生成并保存剧本');
+        } else {
+          setStatus(`AI script generated with ${result.data.run.provider}`);
+        }
       } else {
         setBody(formatDryRunPromptPreview(result.data.run.messages));
         setStatus('Agent dry-run prompt ready');
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Agent dry-run failed');
+      setError(cause instanceof Error ? cause.message : 'AI 写剧本失败');
     } finally {
       setRunningAgent(false);
     }
@@ -336,6 +394,21 @@ export function ScriptStage({
             />
           </div>
 
+          <div>
+            <label className="mb-2 block text-sm font-medium text-text-2" htmlFor="studio-script-revision">
+              修改要求
+            </label>
+            <textarea
+              id="studio-script-revision"
+              aria-label="修改要求"
+              value={revisionInstruction}
+              rows={3}
+              onChange={(event) => setRevisionInstruction(event.target.value)}
+              placeholder="例如：保留主角设定，把冲突改得更强；或让结尾更温暖..."
+              className="w-full resize-none rounded-lg border border-border bg-surface-2 px-3 py-3 text-sm leading-6 text-text outline-none transition placeholder:text-text-4 focus:border-accent/60 focus:bg-surface-3"
+            />
+          </div>
+
           <div className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="mb-2 text-xs uppercase tracking-widest text-text-4">Vision context</div>
             <textarea
@@ -385,14 +458,24 @@ export function ScriptStage({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Button type="button" variant="secondary" disabled={loadingSkills || runningAgent || !skillId} onClick={() => void runScriptWriterDryRun()}>
-              {runningAgent ? 'AI dry-run...' : 'AI 写剧本'}
+            <Button type="button" variant="secondary" disabled={loadingSkills || runningAgent || !skillId} onClick={() => void runScriptWriter()}>
+              {runningAgent ? 'AI 生成中...' : 'AI 生成草稿'}
             </Button>
-            <Button type="button" variant="secondary" disabled>
-              AI 优化
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={loadingSkills || runningAgent || !skillId || !cleanBody || !revisionInstruction.trim()}
+              onClick={() => void runScriptWriter()}
+            >
+              按修改要求重写
             </Button>
-            <Button type="button" variant="secondary" disabled>
-              AI 评分
+            <Button
+              type="button"
+              variant="gradient"
+              disabled={loadingSkills || runningAgent || !skillId}
+              onClick={() => void runScriptWriter({ saveAfter: true, advanceAfter: true })}
+            >
+              AI 生成并进入角色阶段
             </Button>
           </div>
 

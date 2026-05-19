@@ -14,6 +14,7 @@ const inputSchema = z.object({
   mode: z.enum(['from-scratch', 'optimize-existing', 'import-existing']),
   duration_sec: z.number().int().min(15).max(7200),
   style_hint: z.string().trim().max(2000).default(''),
+  revision_instruction: z.string().trim().max(4000).default(''),
   inspiration_text: z.string().trim().max(8000).default(''),
   existing_script: z.string().trim().max(50000).default(''),
 });
@@ -155,6 +156,7 @@ function buildScriptWriterUserPrompt(input: z.infer<typeof inputSchema>): string
     `创作模式：${input.mode}`,
     `目标时长：${input.duration_sec} 秒`,
     `风格倾向：${input.style_hint || '未填写'}`,
+    `修改要求：${input.revision_instruction || '未填写'}`,
     '',
     '灵感梗概：',
     input.inspiration_text || '未填写',

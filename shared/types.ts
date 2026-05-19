@@ -220,6 +220,7 @@ export interface ScriptWriterRunInput {
   mode: ScriptWriterMode;
   duration_sec: number;
   style_hint: string;
+  revision_instruction?: string;
   inspiration_text: string;
   existing_script: string;
 }

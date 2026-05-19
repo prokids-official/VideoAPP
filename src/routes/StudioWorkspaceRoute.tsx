@@ -132,6 +132,7 @@ export function StudioWorkspaceRoute({
     const meta = withAgentRunMeta({
       mode: input.mode,
       style_hint: input.styleHint,
+      revision_instruction: input.revisionInstruction,
       visual_context: input.visualContext,
       duration_sec: input.durationSec,
       skill_id: input.skillId,
@@ -159,6 +160,7 @@ export function StudioWorkspaceRoute({
     const stateJson = JSON.stringify({
       ...meta,
       name: input.name,
+      body: input.body,
       asset_id: saved.id,
       ...(input.agentRun ? { last_agent_run: input.agentRun } : {}),
     });
@@ -453,6 +455,7 @@ export function StudioWorkspaceRoute({
             stateJson={bundle.stage_state.script ?? null}
             onSave={handleSaveScript}
             onAdvance={handleAdvance}
+            onReadAssetFile={(asset) => studioApi.readAssetFile(asset.id)}
           />
         ) : activeStage === 'character' ? (
           <CharacterStage
