@@ -11,11 +11,24 @@ The app is currently built for an internal production workflow: creators work lo
 **Phase:** P1.3 in progress
 
 - **P0 / P0-D:** Company project library, asset upload, push review, asset preview, R2/GitHub-backed storage, usage logging, and basic asset lineage are in place.
+- **P0.5:** Installer release, auto-update, and operational rollout are not complete yet.
 - **P1.1:** Ideas board exists as an early team idea pool.
 - **P1.2:** Personal creation cockpit is usable: local projects, stage flow, script import/editing, character/scene/prop cards, storyboard units, prompt stages, canvas overview, and export to company projects.
 - **P1.3:** AI provider, Agent, and Skills workflow is actively being integrated. The app can load official skills, show skill details, run script/storyboard/prompt/asset-library agents, and preserve agent-run metadata.
 
 This is still an internal beta. Some production polish, installer distribution, quota management, and advanced generation flows are not finished yet.
+
+## Release Status
+
+There is currently **no published GitHub Release** for company-wide installation. The repository is ready to review, but the Windows installer still needs to be built, smoke-tested, and published as the first internal release.
+
+For now:
+
+- Regular users should wait for an internal installer link or the first GitHub Release.
+- Developers and testers can run the app locally with `npm run dev`.
+- Maintainers can build a Windows installer with `npm run dist`.
+
+Planned first release: **v0.1.0 internal beta**.
 
 ## What It Does Today
 
@@ -34,7 +47,7 @@ This is still an internal beta. Some production polish, installer distribution, 
 
 ### Recommended internal use
 
-1. Download the latest Windows installer from the internal release link or GitHub Releases when a release is published.
+1. Download the latest Windows installer from the internal release link or GitHub Releases after the first release is published.
 2. Run the installer on Windows.
 3. Open **FableGlitch Studio**.
 4. Sign in with your company email account.
@@ -44,7 +57,7 @@ This is still an internal beta. Some production polish, installer distribution, 
    - **Skills Hub:** View and activate reusable AI skills.
    - **Ideas:** Collect and review story ideas.
 
-If no installer has been published yet, ask the project maintainer for the current internal build. Developers can also build the installer locally with `npm run dist`.
+No public/internal GitHub Release has been published yet. Ask the project maintainer for the current test build, or wait for the planned `v0.1.0 internal beta` release. Developers can build the installer locally with `npm run dist`.
 
 ### AI provider setup
 
@@ -114,27 +127,40 @@ docs/design/    Design notes and static mockups
 build/          Windows app icon and packaging assets
 ```
 
-## Roadmap
+## Product Roadmap
 
-### In progress
+The full product plan currently runs from **P0 to P5**, with an extra **P4.5** review phase.
 
-- Harden the P1.3 AI Agent and Skills layer.
-- Make company asset cards richer: structured character, scene, and prop fields, not only images and prompts.
-- Add reverse-prompt and prompt-improvement actions from existing images.
-- Improve official model routing between DeepSeek Pro/Flash and temporary multimodal fallback models.
-- Publish a stable Windows installer and internal release process.
+| Phase | Theme | Status |
+| --- | --- | --- |
+| P0 | Company asset library: auth, project tree, asset panels, upload, preview, push review, R2/GitHub storage | Mostly complete |
+| P0.5 | Distribution and operations: Windows installer release, auto-update, NAS/backup workflow, release checklist | Next infrastructure priority |
+| P1 | Creation planning: ideas, personal Studio projects, scripts, character/scene/prop cards, storyboard, prompts, Skills Hub, Agent runs | In progress |
+| P2 | Storyboard and prompt automation: automatic shot breakdown, prompt generation, timing budget, reusable shot structure | Planned |
+| P3 | Image and video generation: text-to-image, image-to-image, video generation, provider integrations, generation review loop | Planned |
+| P4 | Audio and delivery: dialogue, BGM, songs, sound effects, export packaging, platform delivery formats | Planned |
+| P4.5 | Finished-video review: scoring, timecoded feedback, revision suggestions, links back to source assets | Planned |
+| P5 | Director production desk: shot ledger, asset graph, embedded external canvas, lightweight internal canvas, possible 3D blocking | Planned |
 
-### Not finished yet
+### Current P1 Breakdown
 
-- Codex/OAuth-style login or quota experience for premium model access.
-- Admin quota management, approval requests, and per-user budget controls.
-- Full prompt knowledge base for lighting, camera, style, character, scene, and video snippets.
-- Direct image/video generation APIs and generated-output review loops.
-- Shot ledger, timeline view, asset graph, and production dashboard.
-- Embedded LibLib/RunningHub production canvas.
-- Audio workflow: dialogue, BGM, song, sound effects.
-- Final export/delivery packaging and finished-video scoring.
-- Auto-update, NAS backup, and formal IT rollout flow.
+| Area | Status |
+| --- | --- |
+| P1.1 Ideas board | Early version exists |
+| P1.2 Personal creation cockpit | Core workflow is usable |
+| P1.3 AI Provider + Agent + Skills | Current focus |
+| P1.4 Prompt knowledge base, templates, workflow polish | Planned |
+| P1.5 Canvas/shot ledger style production views | Planned, likely to overlap with P5 direction |
+
+### Near-Term Next Work
+
+1. Publish the first Windows internal beta release.
+2. Smoke-test the installed app with the production Vercel backend.
+3. Finish P1.3 official model routing: DeepSeek Flash/Pro for text, temporary multimodal fallback for vision.
+4. Make company asset cards richer with structured character, scene, and prop metadata.
+5. Add reverse-prompt and prompt-improvement actions for existing images.
+6. Tighten Skills Hub: better skill categories, activation state, examples, and compatibility notes.
+7. Add usage/quota surfaces for official model calls.
 
 ## Notes for Maintainers
 
