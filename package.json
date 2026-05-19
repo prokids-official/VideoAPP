@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "dist": "npm run build && electron-builder",
+    "dist:portable": "npm run build && electron-builder --win dir --config.win.signAndEditExecutable=false",
     "postinstall": "electron-rebuild -w better-sqlite3 || true"
   },
   "build": {

@@ -11,24 +11,27 @@ The app is currently built for an internal production workflow: creators work lo
 **Phase:** P1.3 in progress
 
 - **P0 / P0-D:** Company project library, asset upload, push review, asset preview, R2/GitHub-backed storage, usage logging, and basic asset lineage are in place.
-- **P0.5:** Installer release, auto-update, and operational rollout are not complete yet.
+- **P0.5:** The first Windows portable internal beta is being published. Signed installer, auto-update, and operational rollout are not complete yet.
 - **P1.1:** Ideas board exists as an early team idea pool.
 - **P1.2:** Personal creation cockpit is usable: local projects, stage flow, script import/editing, character/scene/prop cards, storyboard units, prompt stages, canvas overview, and export to company projects.
 - **P1.3:** AI provider, Agent, and Skills workflow is actively being integrated. The app can load official skills, show skill details, run script/storyboard/prompt/asset-library agents, and preserve agent-run metadata.
 
-This is still an internal beta. Some production polish, installer distribution, quota management, and advanced generation flows are not finished yet.
+This is still an internal beta. Some production polish, signed installer distribution, quota management, and advanced generation flows are not finished yet.
 
 ## Release Status
 
-There is currently **no published GitHub Release** for company-wide installation. The repository is ready to review, but the Windows installer still needs to be built, smoke-tested, and published as the first internal release.
+The first Windows internal beta is published as a **portable Windows x64 build**:
+
+[v0.1.0-internal-beta](https://github.com/prokids-official/VideoAPP/releases/tag/v0.1.0-internal-beta)
 
 For now:
 
-- Regular users should wait for an internal installer link or the first GitHub Release.
+- Regular users can download the portable zip, unzip it, and run `FableGlitch Studio.exe`.
 - Developers and testers can run the app locally with `npm run dev`.
-- Maintainers can build a Windows installer with `npm run dist`.
+- Maintainers can build a portable Windows folder with `npm run dist:portable`.
+- A signed NSIS installer is still planned. The current Windows build machine needs symlink/signing-tool support before `npm run dist` can complete the installer step.
 
-Planned first release: **v0.1.0 internal beta**.
+Current first release: **v0.1.0-internal-beta**.
 
 ## What It Does Today
 
@@ -47,9 +50,9 @@ Planned first release: **v0.1.0 internal beta**.
 
 ### Recommended internal use
 
-1. Download the latest Windows installer from the internal release link or GitHub Releases after the first release is published.
-2. Run the installer on Windows.
-3. Open **FableGlitch Studio**.
+1. Download the latest Windows portable zip from [GitHub Releases](https://github.com/prokids-official/VideoAPP/releases).
+2. Unzip it to a local folder.
+3. Run `FableGlitch Studio.exe`.
 4. Sign in with your company email account.
 5. Start from one of the main workspaces:
    - **Company Projects:** Browse episodes and shared assets.
@@ -57,7 +60,7 @@ Planned first release: **v0.1.0 internal beta**.
    - **Skills Hub:** View and activate reusable AI skills.
    - **Ideas:** Collect and review story ideas.
 
-No public/internal GitHub Release has been published yet. Ask the project maintainer for the current test build, or wait for the planned `v0.1.0 internal beta` release. Developers can build the installer locally with `npm run dist`.
+Windows may show a security warning because this first beta is unsigned. Choose to keep/run the app only if you trust this internal build.
 
 ### AI provider setup
 
@@ -92,9 +95,11 @@ npm run lint
 npm run build
 npm test
 npm run dist
+npm run dist:portable
 ```
 
 `npm run dist` builds a Windows NSIS installer into `release/`.
+`npm run dist:portable` builds an unsigned portable Windows app folder into `release/win-unpacked/`.
 
 ### Backend
 
@@ -134,7 +139,7 @@ The full product plan currently runs from **P0 to P5**, with an extra **P4.5** r
 | Phase | Theme | Status |
 | --- | --- | --- |
 | P0 | Company asset library: auth, project tree, asset panels, upload, preview, push review, R2/GitHub storage | Mostly complete |
-| P0.5 | Distribution and operations: Windows installer release, auto-update, NAS/backup workflow, release checklist | Next infrastructure priority |
+| P0.5 | Distribution and operations: portable Windows release, signed installer, auto-update, NAS/backup workflow, release checklist | Portable beta in progress |
 | P1 | Creation planning: ideas, personal Studio projects, scripts, character/scene/prop cards, storyboard, prompts, Skills Hub, Agent runs | In progress |
 | P2 | Storyboard and prompt automation: automatic shot breakdown, prompt generation, timing budget, reusable shot structure | Planned |
 | P3 | Image and video generation: text-to-image, image-to-image, video generation, provider integrations, generation review loop | Planned |
@@ -154,8 +159,8 @@ The full product plan currently runs from **P0 to P5**, with an extra **P4.5** r
 
 ### Near-Term Next Work
 
-1. Publish the first Windows internal beta release.
-2. Smoke-test the installed app with the production Vercel backend.
+1. Smoke-test the first Windows portable beta with the production Vercel backend.
+2. Fix Windows installer packaging by enabling symlink/signing-tool support or switching to a signing-free installer path.
 3. Finish P1.3 official model routing: DeepSeek Flash/Pro for text, temporary multimodal fallback for vision.
 4. Make company asset cards richer with structured character, scene, and prop metadata.
 5. Add reverse-prompt and prompt-improvement actions for existing images.
